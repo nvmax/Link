@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Lab | Workflow Architect</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0c;
+            --card: #141418;
+            --accent: #6366f1;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --border: #27272a;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: var(--card);
+            border-right: 1px border var(--border);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 { font-size: 20px; font-weight: 800; margin: 0; color: var(--accent); }
+        .subtitle { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 11px; text-transform: uppercase; font-weight: 600; color: var(--muted); letter-spacing: 0.05em; }
+        
+        input, select {
+            background: #1c1c21;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover { filter: brightness(1.2); transform: translateY(-1px); }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .node-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+        .node-card:hover { border-color: var(--accent); }
+        
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #27272a;
+        }
+        .node-title { font-weight: 600; font-size: 15px; }
+        .node-id { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--muted); }
+
+        .inputs-list { display: flex; flex-direction: column; gap: 10px; }
+        .input-row {
+            display: grid;
+            grid-template-columns: 30px 120px 1fr 60px 80px;
+            gap: 15px;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .check-box { width: 16px; height: 16px; cursor: pointer; }
+        .field-name { color: var(--muted); font-family: 'JetBrains Mono'; }
+        
+        /* Preview Area */
+        .preview {
+            width: 400px;
+            background: #000;
+            border-left: 1px solid var(--border);
+            padding: 24px;
+            font-family: 'JetBrains Mono';
+            font-size: 12px;
+            color: #10b981;
+            white-space: pre-wrap;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h1>LINK LAB</h1>
+        <div class="subtitle">Workflow Architect v1.0</div>
+        
+        <div class="input-group">
+            <label>JSON Path</label>
+            <input type="text" id="jsonPath" placeholder="C:/.../workflow.json">
+            <button onclick="loadWorkflow()">LOAD WORKFLOW</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); width: 100%;">
+
+        <div class="input-group">
+            <label>Discord Command</label>
+            <input type="text" id="cmdName" placeholder="dream">
+        </div>
+
+        <div class="input-group">
+            <label>Manifest Filename</label>
+            <input type="text" id="yamlFilename" placeholder="MyWorkflow.yaml">
+        </div>
+
+        <button onclick="saveManifest()" style="margin-top: auto; background: #10b981;">SAVE MANIFEST</button>
+    </div>
+
+    <div class="main" id="nodesContainer">
+        <div style="text-align: center; margin-top: 100px; color: var(--muted);">
+            Enter a JSON path and click LOAD to begin.
+        </div>
+    </div>
+
+    <div class="preview" id="previewArea">
+# YAML Preview will appear here...
+    </div>
+
+    <script>
+        let currentWorkflow = null;
+        let selections = {};
+
+        async function loadWorkflow() {
+            const path = document.getElementById('jsonPath').value;
+            const res = await fetch('/load', {
+                method: 'POST',
+                body: JSON.stringify({ path })
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                currentWorkflow = data.workflow;
+                renderNodes();
+                updatePreview();
+            } else {
+                alert("Error: " + data.message);
+            }
+        }
+
+        function renderNodes() {
+            const container = document.getElementById('nodesContainer');
+            container.innerHTML = '';
+
+            for (const [id, node] of Object.entries(currentWorkflow)) {
+                const card = document.createElement('div');
+                card.className = 'node-card';
+                
+                let inputsHtml = '';
+                for (const [inputKey, value] of Object.entries(node.inputs || {})) {
+                    // Only show simple inputs or lists (not connections)
+                    if (Array.isArray(value) && value.length === 2 && typeof value[0] === 'string') continue;
+                    
+                    const selectionKey = `${id}:${inputKey}`;
+                    const isChecked = selections[selectionKey] ? 'checked' : '';
+                    const label = selections[selectionKey]?.label || inputKey;
+                    
+                    inputsHtml += `
+                        <div class="input-row">
+                            <input type="checkbox" class="check-box" ${isChecked} onchange="toggleInput('${id}', '${inputKey}', this)">
+                            <span class="field-name" title="${inputKey}">${inputKey}</span>
+                            <input type="text" placeholder="Discord Label" value="${label}" oninput="updateLabel('${id}', '${inputKey}', this.value)">
+                            <div style="display: flex; align-items: center; gap: 5px; background: #27272a; padding: 4px 8px; border-radius: 4px;">
+                                <input type="checkbox" class="check-box" ${selections[selectionKey]?.required ? 'checked' : ''} onchange="toggleRequired('${id}', '${inputKey}', this)" style="width: 14px; height: 14px;">
+                                <span style="font-size: 10px; font-weight: 800; color: #10b981;">REQ?</span>
+                            </div>
+                            <span style="font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Val: ${JSON.stringify(value)}</span>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="node-header">
+                        <span class="node-title">${node._meta?.title || node.class_type}</span>
+                        <span class="node-id">#${id}</span>
+                    </div>
+                    <div class="inputs-list">
+                        ${inputsHtml || '<span style="color: var(--muted); font-size: 12px;">No configurable inputs</span>'}
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+        }
+
+        function toggleInput(nodeId, field, cb) {
+            const key = `${nodeId}:${field}`;
+            if (cb.checked) {
+                selections[key] = { nodeId, field, label: field, type: 'text' };
+            } else {
+                delete selections[key];
+            }
+            updatePreview();
+        }
+
+        function updateLabel(nodeId, field, label) {
+            const key = `${nodeId}:${field}`;
+            if (selections[key]) {
+                selections[key].label = label;
+                updatePreview();
+            }
+        }
+
+        function toggleRequired(nodeId, field, cb) {
+            const key = `${nodeId}:${field}`;
+            if (selections[key]) {
+                selections[key].required = cb.checked;
+                updatePreview();
+            }
+        }
+
+        function updatePreview() {
+            const name = document.getElementById('yamlFilename').value.replace('.yaml', '');
+            const cmd = document.getElementById('cmdName').value;
+            
+            const manifest = {
+                workflow_name: name || "New Workflow",
+                discord_command: cmd || "dream",
+                description: "Generated via Link Lab",
+                mapping: {},
+                inputs: []
+            };
+
+            for (const [key, sel] of Object.entries(selections)) {
+                const fieldId = sel.label.toLowerCase().replace(/ /g, '_');
+                manifest.mapping[fieldId] = [sel.nodeId, "inputs", sel.field];
+                manifest.inputs.push({
+                    id: fieldId,
+                    type: "text",
+                    label: sel.label,
+                    required: sel.required || false
+                });
+            }
+
+            // Simple YAML-like string for preview
+            document.getElementById('previewArea').textContent = 
+                `workflow_name: ${manifest.workflow_name}\n` +
+                `discord_command: ${manifest.discord_command}\n` +
+                `description: ${manifest.description}\n\n` +
+                `mapping:\n` + 
+                Object.entries(manifest.mapping).map(([k,v]) => `  ${k}: ["${v[0]}", "${v[1]}", "${v[2]}"]`).join('\n') +
+                `\n\ninputs:\n` +
+                manifest.inputs.map(i => `- id: ${i.id}\n  type: text\n  label: ${i.label}\n  required: ${i.required}`).join('\n');
+        }
+
+        async function saveManifest() {
+            const filename = document.getElementById('yamlFilename').value;
+            if (!filename) return alert("Enter a filename first!");
+
+            const name = filename.replace('.yaml', '');
+            const cmd = document.getElementById('cmdName').value;
+            
+            const manifest = {
+                workflow_name: name,
+                discord_command: cmd || name.toLowerCase(),
+                description: "Generated via Link Lab",
+                mapping: {},
+                inputs: []
+            };
+
+            for (const [key, sel] of Object.entries(selections)) {
+                const fieldId = sel.label.toLowerCase().replace(/ /g, '_');
+                manifest.mapping[fieldId] = [sel.nodeId, "inputs", sel.field];
+                manifest.inputs.push({
+                    id: fieldId,
+                    type: "text",
+                    label: sel.label,
+                    required: sel.required || false
+                });
+            }
+
+            const res = await fetch('/save', {
+                method: 'POST',
+                body: JSON.stringify({ filename, manifest })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert("Manifest Saved Successfully to: " + data.path);
+            }
+        }
+    </script>
+</body>
+</html>

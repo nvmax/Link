@@ -1,0 +1,2613 @@
+{
+  "default": "",
+  "available_loras": [
+    {
+      "file": "aidmaHiDreamStyle-FLUX-v0.1.safetensors",
+      "name": "aidmaHiDreamStyle-FLUX-v0.1",
+      "weight": 0.8,
+      "add_prompt": "aidmaHiDreamStyle ",
+      "url": "https://civitai.com/models/1492027/hidream-meets-flux",
+      "category": "aidma",
+      "description": "HiDream Style",
+      "is_active": true
+    },
+    {
+      "file": "Midjourney_V7_DetailStyle_Flux_v1.0.safetensors",
+      "name": "Midjourney_V7_DetailStyle_Flux_v1.0",
+      "weight": 1,
+      "add_prompt": "Midjourney_V7",
+      "url": "https://civitai.com/models/1437171/midjourneyv7detailstylefluxv10",
+      "category": "artistic",
+      "description": "Creative style of Midjourney V7",
+      "is_active": true
+    },
+    {
+      "file": "aidmaMJ6.1-FLUX-v0.5.safetensors",
+      "name": "aidmaMJ6.1-FLUX-v0.5",
+      "weight": 0.7,
+      "add_prompt": "aidmamj6.1",
+      "url": "https://civitai.com/models/646411/midjourney-v61-meets-flux-sdxl",
+      "category": "aidma",
+      "description": "Midjourney v6.1 style for FLUX",
+      "is_active": true
+    },
+    {
+      "file": "aidmaFLUXPro1.1-FLUX-v0.3.safetensors",
+      "name": "aidmaFLUXPro1.1-FLUX-v0.3",
+      "weight": 0.7,
+      "add_prompt": "aidmafluxpro1.1",
+      "url": "https://civitai.com/models/832683/flux-pro-11-style-lora-extreme-detailer-for-flux1-dev?modelVersionId=1244911",
+      "category": "aidma",
+      "description": "FLUX Pro 1.1 - Extreme detailer",
+      "is_active": true
+    },
+    {
+      "file": "aidmaHyperrealism-FLUX-v0.3.safetensors",
+      "name": "aidmaHyperrealism-FLUX-v0.3",
+      "weight": 0.7,
+      "add_prompt": "aidmaHyperrealism",
+      "url": "https://civitai.com/models/730373/hyper-realism-lora-by-aidma-flux",
+      "category": "aidma",
+      "description": "Hyper-realistic details and textures",
+      "is_active": true
+    },
+    {
+      "file": "aidmaImageUprader-FLUX-v0.3.safetensors",
+      "name": "aidmaImageUprader-FLUX-v0.3",
+      "weight": 0.4,
+      "add_prompt": "aidmaimageupgrader",
+      "url": "https://civitai.com/models/562866/flux-image-upgrader-detail-maximizer-contrast-fix-for-low-cfg-sdxl-sd-15",
+      "category": "aidma",
+      "description": "Image upgrader with detail maximizer",
+      "is_active": true
+    },
+    {
+      "file": "aidmaRealisticSkin-FLUX-v0.1.safetensors",
+      "name": "aidmaRealisticSkin-FLUX-v0.1",
+      "weight": 0.6,
+      "add_prompt": "aidmarealisticskin",
+      "url": "https://civitai.com/models/1157318/photorealistic-skin-no-plastic-flux",
+      "category": "aidma",
+      "description": "Photorealistic skin textures, no plastic look",
+      "is_active": true
+    },
+    {
+      "file": "aidmaExperimentalPhotography-FLUX-V0.1.safetensors",
+      "name": "aidmaExperimentalPhotography-FLUX-V0.1",
+      "weight": 1,
+      "add_prompt": "aidmaExperimentalPhotography",
+      "url": "https://civitai.com/models/727417/experimental-photography-flux",
+      "category": "aidma",
+      "description": "Experimental photography techniques and styles",
+      "is_active": true
+    },
+    {
+      "file": "aidmaDarkFantasy-FLUX-V0.1.safetensors",
+      "name": "aidmaDarkFantasy-FLUX-V0.1",
+      "weight": 1,
+      "add_prompt": "aidmaDarkfantasy",
+      "url": "https://civitai.com/models/753466/dark-fantasy-style-flux-training-comparison-rapid-and-normal",
+      "category": "aidma",
+      "description": "Dark fantasy style with moody atmosphere",
+      "is_active": true
+    },
+    {
+      "file": "aidmaNijiAnimeStyle.safetensors",
+      "name": "aidmaNijiAnimeStyle",
+      "weight": 0.4,
+      "add_prompt": "aidmanijiv6",
+      "url": "https://civitai.com/models/488923/niji-anime-style-niji-v6-midjourney-fluxsdxl",
+      "category": "aidma",
+      "description": "Niji v6 anime style similar to Midjourney",
+      "is_active": true
+    },
+    {
+      "file": "aidmaDall-E3-FLUX-v0.1.safetensors",
+      "name": "aidmaDall-E3-FLUX-v0.1",
+      "weight": 0.7,
+      "add_prompt": "aidmadalle3 ",
+      "url": "https://civitai.com/models/1125621/dall-e3-meets-flux",
+      "category": "aidma",
+      "description": "DALL-E 3 style for FLUX",
+      "is_active": true
+    },
+    {
+      "file": "aidmaPonyStyle-FLUX-V0.1.safetensors",
+      "name": "aidmaPonyStyle-FLUX-V0.1",
+      "weight": 1,
+      "add_prompt": "aidmaponystyle",
+      "url": "https://civitai.com/models/721586/pony-style-sfw-flux",
+      "category": "aidma",
+      "description": "Pony-style cartoon characters (SFW)",
+      "is_active": true
+    },
+    {
+      "file": "Textimprover-FLUX-V0.4.safetensors",
+      "name": "Textimprover-FLUX-V0.4",
+      "weight": 0.5,
+      "add_prompt": "aidmatextimprover",
+      "url": "https://civitai.com/models/793052/text-improver-flux",
+      "category": "aidma",
+      "description": "Improves text rendering in images",
+      "is_active": true
+    },
+    {
+      "file": "aidmaPsychadelicChaosWorld-FLUX-v0.1.safetensors",
+      "name": "aidmaPsychadelicChaosWorld-FLUX-v0.1",
+      "weight": 1,
+      "add_prompt": "PsychadelicChaos",
+      "url": "https://civitai.com/models/601245/flux-psychadelic-chaos-world-morph-sdxl",
+      "category": "artistic",
+      "description": "Psychedelic chaos world morphing effects",
+      "is_active": true
+    },
+    {
+      "file": "Ars_MidJourney_Watercolor.safetensors",
+      "name": "Ars_MidJourney_Watercolor",
+      "weight": 1,
+      "add_prompt": "ArsMJStyle, Watercolor",
+      "url": "https://civitai.com/models/551903/ars-midjourney-watercolor-sd-15-sdxl-pony-flux",
+      "category": "artistic",
+      "description": "Midjourney-style watercolor paintings",
+      "is_active": true
+    },
+    {
+      "file": "FluxDFaeTasticDetails.safetensors",
+      "name": "FluxDFaeTasticDetails",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/643886/flux-faetastic-details",
+      "category": "fantasy",
+      "description": "Fairy/fae fantasy details and elements",
+      "is_active": true
+    },
+    {
+      "file": "flux_dev_NeoAndeanArchitecture.safetensors",
+      "name": "flux_dev_NeoAndeanArchitecture",
+      "weight": 0.7,
+      "add_prompt": "neo-andean architecture",
+      "url": "https://civitai.com/models/941383?modelVersionId=1053882",
+      "category": "architecture",
+      "description": "Neo-Andean architectural style and elements",
+      "is_active": true
+    },
+    {
+      "file": "Midjourney_imitation_FLUX.safetensors",
+      "name": "Midjourney_imitation_FLUX",
+      "weight": 1,
+      "add_prompt": "Midjourney style",
+      "url": "https://civitai.com/models/733710/midjourney-imitationflux",
+      "category": "artistic",
+      "description": "Imitates Midjourney's distinctive style",
+      "is_active": true
+    },
+    {
+      "file": "Egon_Art.safetensors",
+      "name": "Egon_Art",
+      "weight": 0.8,
+      "add_prompt": " egonartCE_style",
+      "url": "https://civitai.com/models/922134?modelVersionId=1034555",
+      "category": "artistic",
+      "description": "Egon Schiele inspired artistic style",
+      "is_active": true
+    },
+    {
+      "file": "Sketch_Flux.safetensors",
+      "name": "Sketch_Flux",
+      "weight": 1,
+      "add_prompt": "The sketch depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=750685",
+      "category": "artistic",
+      "description": "Sketch-style drawings and illustrations",
+      "is_active": true
+    },
+    {
+      "file": "Circuit_Board_FLUX.safetensors",
+      "name": "Circuit_Board_FLUX",
+      "weight": 1,
+      "add_prompt": "circuit trace",
+      "url": "https://civitai.com/models/906994/circuit-board-flux",
+      "category": "scifi",
+      "description": "Circuit board patterns and electronic details",
+      "is_active": true
+    },
+    {
+      "file": "RPGv6-itr15.safetensors",
+      "name": "RPGv6-itr15",
+      "weight": 1,
+      "add_prompt": "RPG STYLE,",
+      "url": "https://civitai.com/models/647159?modelVersionId=796427",
+      "category": "fantasy",
+      "description": "RPG game-style fantasy artwork",
+      "is_active": true
+    },
+    {
+      "file": "Phlux_Texture&Lighting.safetensors",
+      "name": "Phlux_Texture&Lighting",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/672963/phlux-photorealism-with-style-incredible-texture-and-lighting",
+      "category": "photorealistic",
+      "description": "Enhanced textures and lighting for photorealism",
+      "is_active": true
+    },
+    {
+      "file": "undeadmadness-warcraftstyle.safetensors",
+      "name": "undeadmadness-warcraftstyle",
+      "weight": 1,
+      "add_prompt": "warcraftundeadstyle",
+      "url": "https://civitai.com/models/868586/undead-madness-unleashed-world-of-warcraft-inspired-style",
+      "category": "fantasy",
+      "description": "World of Warcraft undead style artwork",
+      "is_active": true
+    },
+    {
+      "file": "DreamyKolors_v1.safetensors",
+      "name": "DreamyKolors_v1",
+      "weight": 0.8,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/739314/dreamykolors-unleash-creativity-enhance-quality",
+      "category": "artistic",
+      "description": "Dreamy color palettes and enhancements",
+      "is_active": true
+    },
+    {
+      "file": "Flux.1_Turbo_Detailer.safetensors",
+      "name": "Flux.1_Turbo_Detailer",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/930386/flux1-turbo-detailer",
+      "category": "artistic",
+      "description": "Extreme Details",
+      "is_active": true
+    },
+    {
+      "file": "cutertx.safetensors",
+      "name": "Cute Rich Style for FLUX",
+      "weight": 0.5,
+      "add_prompt": " cutertx",
+      "url": "https://civitai.com/models/1096502/cute-rich-style-for-flux?modelVersionId=1231671",
+      "category": "cartoon",
+      "description": "Cute rich style for cartoon characters",
+      "is_active": true
+    },
+    {
+      "file": "Super Panavision 70 Technicolor.safetensors",
+      "name": "Super Panavision 70 Technicolor",
+      "weight": 1,
+      "add_prompt": "In Super Panavision 70 Technicolor Film style ",
+      "url": "https://civitai.com/models/812212?modelVersionId=931164",
+      "category": "photography",
+      "description": "Super Panavision 70 Technicolor film look",
+      "is_active": true
+    },
+    {
+      "file": "MetalArt01a_CE_FLUX_AIT3k.safetensors",
+      "name": "MetalArt01a_CE_FLUX_AIT3k",
+      "weight": 1,
+      "add_prompt": "mtlartCE_style",
+      "url": "https://civitai.com/models/925301/metal-art-ce-xl",
+      "category": "artistic",
+      "description": "Metallic art style with detailed textures",
+      "is_active": true
+    },
+    {
+      "file": "MysticSplash.safetensors",
+      "name": "MysticSplash",
+      "weight": 1,
+      "add_prompt": "MysticSplash",
+      "url": "https://civitai.com/models/853829?modelVersionId=955591",
+      "category": "artistic",
+      "description": "Mystical splash effects and water elements",
+      "is_active": true
+    },
+    {
+      "file": "Aura Flux 2.0.safetensors",
+      "name": "Aura Flux 2.0",
+      "weight": 1,
+      "add_prompt": "auralora",
+      "url": "https://civitai.com/models/600793?modelVersionId=925656",
+      "category": "artistic",
+      "description": "Aura and energy effects around subjects",
+      "is_active": true
+    },
+    {
+      "file": "Ultima_Flux_v1.safetensors",
+      "name": "Ultima_Flux_v1",
+      "weight": 0.3,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/834435/ultima-flux",
+      "category": "photorealistic",
+      "description": "Ultimate photorealistic details for FLUX",
+      "is_active": true
+    },
+    {
+      "file": "VantaGold.safetensors",
+      "name": "VantaGold",
+      "weight": 1,
+      "add_prompt": "in the style of VNTGLD",
+      "url": "https://civitai.com/models/816484/flux-lora-vantagold",
+      "category": "artistic",
+      "description": "Gold and vanta black contrast style",
+      "is_active": true
+    },
+    {
+      "file": "boFLUX_AbstractMorph.safetensors",
+      "name": "boFLUX_AbstractMorph",
+      "weight": 1,
+      "add_prompt": "bo-abstract",
+      "url": "https://civitai.com/models/776859/flux-abstractmorph",
+      "category": "modern-art",
+      "description": "Abstract morphing effects and patterns",
+      "is_active": true
+    },
+    {
+      "file": "boFLUX Digital Abstract.safetensors",
+      "name": "boFLUX Digital Abstract",
+      "weight": 1,
+      "add_prompt": "bo-digitalabstract",
+      "url": "https://civitai.com/models/939001/flux-digital-abstract",
+      "category": "modern-art",
+      "description": "Digital abstract art with modern elements",
+      "is_active": true
+    },
+    {
+      "file": "The_beauty_of_realism_(FLUX).safetensors",
+      "name": "The_beauty_of_realism_(FLUX)",
+      "weight": 1,
+      "add_prompt": "cinematic quality, realism, play of shadow and light",
+      "url": "https://civitai.com/models/695295/the-beauty-of-realism-flux",
+      "category": "photorealistic",
+      "description": "Beautiful realistic lighting and shadows",
+      "is_active": true
+    },
+    {
+      "file": "boFLUX_Bioluminescent_Dreams_v1.safetensors",
+      "name": "boFLUX_Bioluminescent_Dreams_v1",
+      "weight": 1,
+      "add_prompt": "bo-bioluminescent",
+      "url": "https://civitai.com/models/709663/flux-bioluminescent-dreams",
+      "category": "fantasy",
+      "description": "Bioluminescent fantasy environments",
+      "is_active": true
+    },
+    {
+      "file": "Flux_1_Dev_LoRA_syntheticanime.safetensors",
+      "name": "Flux_1_Dev_LoRA_syntheticanime",
+      "weight": 1,
+      "add_prompt": "syntheticanime",
+      "url": "https://civitai.com/models/645425/flux-syntheticanime",
+      "category": "anime",
+      "description": "Synthetic anime style with modern look",
+      "is_active": true
+    },
+    {
+      "file": "flux-oilpainting1.3-00001.safetensors",
+      "name": "flux-oilpainting1.3-00001",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/723141/flux-oil-painting",
+      "category": "artistic",
+      "description": "Oil painting style with rich textures",
+      "is_active": true
+    },
+    {
+      "file": "fantasy-flux-nymical-v3.safetensors",
+      "name": "fantasy-flux-nymical-v3",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/714852?modelVersionId=1031155",
+      "category": "fantasy",
+      "description": "Fantasy style for FLUX with magical elements",
+      "is_active": true
+    },
+    {
+      "file": "Steampunk_BioMechanical_Flux.safetensors",
+      "name": "Steampunk_BioMechanical_Flux",
+      "weight": 1,
+      "add_prompt": "Biomechanical, Steampunk",
+      "url": "https://huggingface.co/KurtcPhotoED/Biomechanical_Steampunk",
+      "category": "scifi",
+      "description": "Steampunk and biomechanical fusion style",
+      "is_active": true
+    },
+    {
+      "file": "dmai-yellow.safetensors",
+      "name": "dmai-yellow",
+      "weight": 1,
+      "add_prompt": "yellow glow",
+      "url": "https://civitai.com/models/945602/dmai-yellow-flux?modelVersionId=1058704",
+      "category": "artistic",
+      "description": "Yellow glow and lighting effects",
+      "is_active": true
+    },
+    {
+      "file": "Vivid vibrant color style _ F1 Sora_V1.safetensors",
+      "name": "Vivid vibrant color style",
+      "weight": 0.8,
+      "add_prompt": "Vivid vibrant color style",
+      "url": "https://civitai.com/models/950058/vivid-vibrant-color-style-or-f1-sora?modelVersionId=1063679",
+      "category": "artistic",
+      "description": "Vivid and vibrant color enhancements",
+      "is_active": true
+    },
+    {
+      "file": "Anthropomorphic.safetensors",
+      "name": "Anthropomorphic Animals",
+      "weight": 1,
+      "add_prompt": "nr",
+      "url": "https://civitai.com/models/949606/the-ultimate-anthropomorphic-animal?modelVersionId=1063178",
+      "category": "animal",
+      "description": "Anthropomorphic animal characters",
+      "is_active": true
+    },
+    {
+      "file": "inkij.safetensors",
+      "name": "inkij",
+      "weight": 0.5,
+      "add_prompt": "reijfrmd, white frame, ink",
+      "url": "https://civitai.com/models/984240/inkij?modelVersionId=1102503",
+      "category": "artistic",
+      "description": "Ink style with white frame effects",
+      "is_active": true
+    },
+    {
+      "file": "StainedGlassAndMetal04_CE_FLUX_AIT.safetensors",
+      "name": "Stained Glass And Metal",
+      "weight": 1,
+      "add_prompt": "stndglsmtlCE_style",
+      "url": "https://civitai.com/models/572156/stained-glass-and-metal-ce-sdxl-and-flux?modelVersionId=1096829",
+      "category": "artistic",
+      "description": "Stained glass and metal artistic style",
+      "is_active": true
+    },
+    {
+      "file": "bv-dark-academia-v1.safetensors",
+      "name": "bv-dark-academia-v1",
+      "weight": 1,
+      "add_prompt": "bv-daraca",
+      "url": "https://civitai.com/models/945183/dark-academia-flux?modelVersionId=1058224",
+      "category": "artistic",
+      "description": "Dark academia aesthetic and style",
+      "is_active": true
+    },
+    {
+      "file": "superflat.safetensors",
+      "name": "superflat",
+      "weight": 1,
+      "add_prompt": "supperfl",
+      "url": "https://civitai.com/models/965519/superflat-art-style-painting-sculpture-graffiti",
+      "category": "artistic",
+      "description": "Superflat art style (painting/sculpture/graffiti)",
+      "is_active": true
+    },
+    {
+      "file": "deepfocus.safetensors",
+      "name": "deepfocus",
+      "weight": 1,
+      "add_prompt": "DF",
+      "url": "https://civitai.com/models/673483/deep-focus-lora",
+      "category": "photography",
+      "description": "Deep focus photography technique",
+      "is_active": true
+    },
+    {
+      "file": "flux_vividizer.safetensors",
+      "name": "flux_vividizer",
+      "weight": 0.6,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/663742?modelVersionId=742813",
+      "category": "artistic",
+      "description": "Enhances color vividness in FLUX images",
+      "is_active": true
+    },
+    {
+      "file": "Logo_vector.safetensors",
+      "name": "Logo_vector",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "modern-art",
+      "description": "Vector-style logo designs",
+      "is_active": true
+    },
+    {
+      "file": "Painterly01b_CE_FLUX_AIT4k.safetensors",
+      "name": "Painterly01b_CE_FLUX_AIT4k",
+      "weight": 0.6,
+      "add_prompt": "pntrlyCE_style",
+      "url": "https://civitai.com/models/957327/painterly-ce-xl?modelVersionId=1071897",
+      "category": "artistic",
+      "description": "Painterly artistic style with brush strokes",
+      "is_active": true
+    },
+    {
+      "file": "New_Fantasy_CoreV4_FLUX.safetensors",
+      "name": "New_Fantasy_CoreV4_FLUX",
+      "weight": 0.8,
+      "add_prompt": "NewFantasyCore",
+      "url": "https://civitai.com/models/810000/newfantasycore-flux-pony?modelVersionId=1067495",
+      "category": "fantasy",
+      "description": "New fantasy core style for fantasy scenes",
+      "is_active": true
+    },
+    {
+      "file": "Impasto Oil Paint Style.safetensors",
+      "name": "Impasto Oil Paint Style",
+      "weight": 1,
+      "add_prompt": "impaflux",
+      "url": "https://civitai.com/models/899132/impasto-virtuoso-flux",
+      "category": "retro-art",
+      "description": "Oil painting texture & style",
+      "is_active": true
+    },
+    {
+      "file": "Godward_Flux.safetensors",
+      "name": "Godward_Flux",
+      "weight": 1,
+      "add_prompt": "The painting by Godward depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=812674",
+      "category": "retro-art",
+      "description": "Godward painting style",
+      "is_active": true
+    },
+    {
+      "file": "Van_Gogh_Flux.safetensors",
+      "name": "Van_Gogh_Flux",
+      "weight": 1,
+      "add_prompt": "The painting by Van Gogh depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=733643",
+      "category": "retro-art",
+      "description": "Van Gogh painting style",
+      "is_active": true
+    },
+    {
+      "file": "Monet_Flux.safetensors",
+      "name": "Monet_Flux",
+      "weight": 1,
+      "add_prompt": "the painting by Monet",
+      "url": "https://civitai.com/models/651715?modelVersionId=729105",
+      "category": "retro-art",
+      "description": "Monet-style paintings",
+      "is_active": true
+    },
+    {
+      "file": "Mucha_Flux.safetensors",
+      "name": "Mucha_Flux",
+      "weight": 1,
+      "add_prompt": "The painting by Mucha depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=738708",
+      "category": "retro-art",
+      "description": "Art Nouveau, Mucha style",
+      "is_active": true
+    },
+    {
+      "file": "E_B_Leighton_Flux_resize.safetensors",
+      "name": "E_B_Leighton_Flux_resize",
+      "weight": 1,
+      "add_prompt": "Lghtn",
+      "url": "https://civitai.com/models/651715?modelVersionId=826858",
+      "category": "retro-art",
+      "description": "Leighton Meester likeness",
+      "is_active": true
+    },
+    {
+      "file": "Caravaggio_Flux.safetensors",
+      "name": "Caravaggio_Flux",
+      "weight": 1,
+      "add_prompt": "The painting by Caravaggio depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=742188",
+      "category": "retro-art",
+      "description": "Caravaggio painting style",
+      "is_active": true
+    },
+    {
+      "file": "Bougeureau_Flux.safetensors",
+      "name": "Bougeureau_Flux",
+      "weight": 1,
+      "add_prompt": "The painting by bougeureau depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=746449",
+      "category": "retro-art",
+      "description": "Bougeureau painting style",
+      "is_active": true
+    },
+    {
+      "file": "Enjolras_Flux_2.safetensors",
+      "name": "Enjolras_Flux_2",
+      "weight": 1,
+      "add_prompt": "The painting by Enjolras depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=754822",
+      "category": "retro-art",
+      "description": "Painterly, evocative art",
+      "is_active": true
+    },
+    {
+      "file": "Chaplin_Flux.safetensors",
+      "name": "Chaplin_Flux",
+      "weight": 1,
+      "add_prompt": "The painting by Chaplin depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=754822",
+      "category": "retro-art",
+      "description": "Chaplin-style paintings",
+      "is_active": true
+    },
+    {
+      "file": "Seignac_Flux.safetensors",
+      "name": "Seignac_Flux",
+      "weight": 1,
+      "add_prompt": "by Sgnc",
+      "url": "https://civitai.com/models/651715?modelVersionId=775426",
+      "category": "retro-art",
+      "description": "Painterly, flowing style",
+      "is_active": true
+    },
+    {
+      "file": "Rubens_Flux.safetensors",
+      "name": "Rubens_Flux",
+      "weight": 1,
+      "add_prompt": "a painting by Rbns",
+      "url": "https://civitai.com/models/651715?modelVersionId=790504",
+      "category": "retro-art",
+      "description": "Painterly, Rubens-inspired art",
+      "is_active": true
+    },
+    {
+      "file": "Cabanel_Flux.safetensors",
+      "name": "Cabanel_Flux",
+      "weight": 1,
+      "add_prompt": "The painting by Cabanel depicts",
+      "url": "https://civitai.com/models/651715?modelVersionId=783639",
+      "category": "retro-art",
+      "description": "Cabanel painting style",
+      "is_active": true
+    },
+    {
+      "file": "Henner_Flux.safetensors",
+      "name": "Henner_Flux",
+      "weight": 1,
+      "add_prompt": "by Hnnr",
+      "url": "https://civitai.com/models/651715?modelVersionId=798353",
+      "category": "retro-art",
+      "description": "Stylized, painterly aesthetic",
+      "is_active": true
+    },
+    {
+      "file": "Rebecca Guay [Style] Flux.safetensors",
+      "name": "Rebecca Guay [Style] Flux",
+      "weight": 1,
+      "add_prompt": "r3b3cc4gu4y",
+      "url": "https://civitai.com/models/928101/rebecca-guay-style-flux",
+      "category": "retro-art",
+      "description": "Rebecca Guay's fantasy art style",
+      "is_active": true
+    },
+    {
+      "file": "Lautrec_Flux.safetensors",
+      "name": "Lautrec_Flux",
+      "weight": 1,
+      "add_prompt": "The art by Ltrc depicts ",
+      "url": "https://civitai.com/models/651715?modelVersionId=805351",
+      "category": "retro-art",
+      "description": "Painterly, expressive style",
+      "is_active": true
+    },
+    {
+      "file": "Art Nouveau architecture.safetensors",
+      "name": "Art Nouveau architecture",
+      "weight": 1,
+      "add_prompt": "ArtNvArkt",
+      "url": "https://civitai.com/models/950418/art-nouveau-architecture?modelVersionId=1064079",
+      "category": "architecture",
+      "description": "Art Nouveau architectural style and details",
+      "is_active": true
+    },
+    {
+      "file": "Titanicus.safetensors",
+      "name": "Titanicus",
+      "weight": 1,
+      "add_prompt": "Titanic",
+      "url": "https://civitai.com/models/112990/titanic",
+      "category": "character",
+      "description": "Creates Titanicus characters",
+      "is_active": true
+    },
+    {
+      "file": "logomaker1024-000008.safetensors",
+      "name": "logomaker",
+      "weight": 1,
+      "add_prompt": "Company logo by LogoMaker1024,",
+      "url": "https://civitai.com/models/757432/logomaker1024-classic-and-cartoon-logotypes-or-flux1-d-lora",
+      "category": "artistic",
+      "description": "Creates company logos.",
+      "is_active": true
+    },
+    {
+      "file": "icons.safetensors",
+      "name": "icons & logos",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/936661/icon-and-logos-flux",
+      "category": "modern-art",
+      "description": "Icon and logo design styles",
+      "is_active": true
+    },
+    {
+      "file": "damasked.safetensors",
+      "name": "damasked",
+      "weight": 1,
+      "add_prompt": "damasked",
+      "url": "https://civitai.com/models/986956/damask-mamluk-decorated-vases-style",
+      "category": "artistic",
+      "description": "Damask and Mamluk decorated patterns",
+      "is_active": true
+    },
+    {
+      "file": "CharacterDesign-FluxV2.safetensors",
+      "name": "Character Design",
+      "weight": 0.8,
+      "add_prompt": "CharacterDesignFLUX, reference sheet,white background,simple background,multiple views, upper body, front, from side, color palette reference, high_detailed, captured in high detail, magic particles, multiple references",
+      "url": "https://civitai.com/models/100435?modelVersionId=765872",
+      "category": "character",
+      "description": "Character design reference sheets",
+      "is_active": true
+    },
+    {
+      "file": "celtycdesihelp.safetensors",
+      "name": "Celtic Design Helper",
+      "weight": 1,
+      "add_prompt": "celtycdesihelp, knotwork",
+      "url": "https://civitai.com/models/989777/celtic-design-helper",
+      "category": "artistic",
+      "description": "Celtic knotwork and design patterns",
+      "is_active": true
+    },
+    {
+      "file": "vtuber logo style V2.safetensors",
+      "name": "vtuber logo style V2",
+      "weight": 1,
+      "add_prompt": "vtuber logo style, text says \"AndroidXL\", white background, Description",
+      "url": "https://civitai.green/models/1398426/vtuber-logos-style-or-flux-model?modelVersionId=1580705",
+      "category": "artistic",
+      "description": "Logo creation",
+      "is_active": true
+    },
+    {
+      "file": "aidmaMJv7-FLUX-v0.1.safetensors",
+      "name": "aidmaMJv7-FLUX-v0.1",
+      "weight": 0.8,
+      "add_prompt": "aidmamjv7",
+      "url": "https://civitai.com/models/1470162/midjourney-v7-meets-flux-illustrious?modelVersionId=1662872",
+      "category": "aidma",
+      "description": "Aidma MidJourney V7 style",
+      "is_active": true
+    },
+    {
+      "file": "MothFX.safetensors",
+      "name": "MothFX",
+      "weight": 1,
+      "add_prompt": "MothFX",
+      "url": "",
+      "category": "artistic",
+      "description": "Dreamy, ethereal art style",
+      "is_active": true
+    },
+    {
+      "file": "fantasy-flux-v1.safetensors",
+      "name": "fantasy-flux-v1",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/714852?modelVersionId=1031155",
+      "category": "fantasy",
+      "description": "Evokes magical, fantastical scenes",
+      "is_active": true
+    },
+    {
+      "file": "Nude_Art_III.safetensors",
+      "name": "Nude_Art_III",
+      "weight": 0.6,
+      "add_prompt": "Nude art photography",
+      "url": "https://civitai.com/models/1344651/nude-art?modelVersionId=1693997",
+      "category": "nsfw",
+      "description": "Nude art inspired",
+      "is_active": true
+    },
+    {
+      "file": "topless-breasts-flux_v4.safetensors",
+      "name": "topless-breasts-flux_v4",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/909155/topless-breasts-flux?modelVersionId=1641521",
+      "category": "nsfw",
+      "description": "Topless",
+      "is_active": true
+    },
+    {
+      "file": "ArtfulNSFWV2Flux.safetensors",
+      "name": "ArtfulNSFWV2Flux",
+      "weight": 1,
+      "add_prompt": "ArtfulNSFW",
+      "url": "https://civitai.com/models/837884/midjourney-artful-nsfw?modelVersionId=1416960",
+      "category": "nsfw",
+      "description": "Midjourney Artful NSFW",
+      "is_active": true
+    },
+    {
+      "file": "MS_Nude_Style_Flux_V2.safetensors",
+      "name": "MS_Nude_Style_Flux_V2",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/1219805/nude-style-for-flux?modelVersionId=1414074",
+      "category": "nsfw",
+      "description": "Nude Style for FLUX",
+      "is_active": true
+    },
+    {
+      "file": "FLUX_DazStyle.safetensors",
+      "name": "FLUX_DazStyle",
+      "weight": 0.8,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/1506553/daz3d-style-flux?modelVersionId=1704159",
+      "category": "nsfw",
+      "description": "Daz3d Style NSFW ",
+      "is_active": true
+    },
+    {
+      "file": "aidmaMJv7-ILL-v0.1.safetensors",
+      "name": "aidmaMJv7-ILL-v0.1",
+      "weight": 0.9,
+      "add_prompt": "aidmaMJv7",
+      "url": "https://civitai.com/models/1470162?modelVersionId=1687196",
+      "category": "aidma",
+      "description": "ILLUSTRIOUS",
+      "is_active": true
+    },
+    {
+      "file": "flux_emma_watson.safetensors",
+      "name": "flux_emma_watson",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/punzel/flux_emma_watson",
+      "category": "celebrity",
+      "description": "Emma Watson",
+      "is_active": true
+    },
+    {
+      "file": "Flux.TaylorSwift-step00000350.safetensors",
+      "name": "flux-taylor-swift",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/flux-taylor-swift",
+      "category": "celebrity",
+      "description": "Taylor Swift",
+      "is_active": true
+    },
+    {
+      "file": "Emma_Watson_boy40.safetensors",
+      "name": "emma-watson-face-flux-sdxl",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/emma-watson-face-flux-sdxl",
+      "category": "celebrity",
+      "description": "Emma Watson Face",
+      "is_active": true
+    },
+    {
+      "file": "eliolsen_2017_local_164_merger_20v1_8v2_34v2_03_03_04.safetensors",
+      "name": "elizabeth-olsen-sdxl-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/elizabeth-olsen-sdxl-flux",
+      "category": "celebrity",
+      "description": "Elizabeth Olsen",
+      "is_active": true
+    },
+    {
+      "file": "Willow_Rosenberg_Flux.safetensors",
+      "name": "willow-rosenberg-flux-buffy-the-vampire-slayer-series",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/willow-rosenberg-flux-buffy-the-vampire-slayer-series",
+      "category": "celebrity",
+      "description": "Willow Rosenberg Buffy The Vampire Slayer Series",
+      "is_active": true
+    },
+    {
+      "file": "Flux.ChloeGrace-step00000350.safetensors",
+      "name": "flux-chloe-grace-moretz",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/flux-chloe-grace-moretz",
+      "category": "celebrity",
+      "description": "Chloe Grace Moretz",
+      "is_active": true
+    },
+    {
+      "file": "CameronDiazFluxV1.safetensors",
+      "name": "cameron-diaz-1994-flux",
+      "weight": 1,
+      "add_prompt": "Cameron Diaz",
+      "url": "https://huggingface.co/Keltezaa/cameron-diaz-1994-flux",
+      "category": "celebrity",
+      "description": "Cameron Diaz",
+      "is_active": true
+    },
+    {
+      "file": "Scarlett_Johansson-000032.safetensors",
+      "name": "scarlett-johansson-2003-flux",
+      "weight": 1,
+      "add_prompt": "Scarlett Johansson",
+      "url": "https://huggingface.co/Keltezaa/scarlett-johansson-2003-flux",
+      "category": "celebrity",
+      "description": "Scarlett Johansson 2003",
+      "is_active": true
+    },
+    {
+      "file": "AlexandraDaddario_flux_lora_v1_000001750.safetensors",
+      "name": "flux-alexandra-daddario",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/flux-alexandra-daddario",
+      "category": "celebrity",
+      "description": "Alexandra Daddario",
+      "is_active": true
+    },
+    {
+      "file": "lohan2006flux1-000001.safetensors",
+      "name": "lindsay-lohan-actress-2006-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/lindsay-lohan-actress-2006-flux",
+      "category": "celebrity",
+      "description": "Lindsay Lohan Actress 2006",
+      "is_active": true
+    },
+    {
+      "file": "Gillian_Anderson_1993_Flux.safetensors",
+      "name": "gillian-anderson-1993-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/gillian-anderson-1993-flux",
+      "category": "celebrity",
+      "description": "Gillian Anderson 1993",
+      "is_active": true
+    },
+    {
+      "file": "Amanda_Seyfried_Flux.safetensors",
+      "name": "amanda-seyfried-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/amanda-seyfried-flux",
+      "category": "celebrity",
+      "description": "Amanda Seyfried",
+      "is_active": true
+    },
+    {
+      "file": "Gal_Gadot_Flux.safetensors",
+      "name": "gal-gadot-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/gal-gadot-flux",
+      "category": "celebrity",
+      "description": "Gal Gadot",
+      "is_active": true
+    },
+    {
+      "file": "Emily_Blunt_Flux.safetensors",
+      "name": "emily-blunt-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/emily-blunt-flux",
+      "category": "celebrity",
+      "description": "Emily Blunt",
+      "is_active": true
+    },
+    {
+      "file": "makraineflux.safetensors",
+      "name": "makenzie-raine-flux-sdxl-sd-1-5",
+      "weight": 1,
+      "add_prompt": "makraineflux",
+      "url": "https://huggingface.co/Keltezaa/makenzie-raine-flux-sdxl-sd-1-5",
+      "category": "celebrity",
+      "description": "Makenzie Raine 1 5",
+      "is_active": true
+    },
+    {
+      "file": "Little_Caprice_Flux.safetensors",
+      "name": "little-caprice-flux-adult-film-actress",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/little-caprice-flux-adult-film-actress",
+      "category": "celebrity",
+      "description": "Little Caprice Adult Film Actress",
+      "is_active": true
+    },
+    {
+      "file": "makinaflux_hanni_v1.0.safetensors",
+      "name": "hanni-makina-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/hanni-makina-flux",
+      "category": "celebrity",
+      "description": "Hanni Makina",
+      "is_active": true
+    },
+    {
+      "file": "Keira_Knightley_Flux.safetensors",
+      "name": "keira-knightley-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/keira-knightley-flux",
+      "category": "celebrity",
+      "description": "Keira Knightley",
+      "is_active": true
+    },
+    {
+      "file": "Drew_Barrymore_Flux.safetensors",
+      "name": "drew-barrymore-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/drew-barrymore-flux",
+      "category": "celebrity",
+      "description": "Drew Barrymore",
+      "is_active": true
+    },
+    {
+      "file": "Ella_Purnell_Flux.safetensors",
+      "name": "ella-purnell-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/ella-purnell-flux",
+      "category": "celebrity",
+      "description": "Ella Purnell",
+      "is_active": true
+    },
+    {
+      "file": "Flux.Miley.safetensors",
+      "name": "flux-miley-cyrus",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/flux-miley-cyrus",
+      "category": "celebrity",
+      "description": "Miley Cyrus",
+      "is_active": true
+    },
+    {
+      "file": "Flux.EmmaMyers-step00000400.safetensors",
+      "name": "flux-emma-myers",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/flux-emma-myers",
+      "category": "celebrity",
+      "description": "Emma Myers",
+      "is_active": true
+    },
+    {
+      "file": "Flux.Cuoco-step00000450.safetensors",
+      "name": "flux-kaley-cuoco",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/flux-kaley-cuoco",
+      "category": "celebrity",
+      "description": "Kaley Cuoco",
+      "is_active": true
+    },
+    {
+      "file": "Katy_Perry_Flux.safetensors",
+      "name": "katy-perry-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/katy-perry-flux",
+      "category": "celebrity",
+      "description": "Katy Perry",
+      "is_active": true
+    },
+    {
+      "file": "JennaOrtega_F1D.safetensors",
+      "name": "jenna-ortega-flux",
+      "weight": 1,
+      "add_prompt": "jenna_ortega",
+      "url": "https://huggingface.co/Keltezaa/jenna-ortega-flux",
+      "category": "celebrity",
+      "description": "Jenna Ortega",
+      "is_active": true
+    },
+    {
+      "file": "Kirsten_Dunst_Flux_V1.safetensors",
+      "name": "kirsten-dunst-actress-2000s-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/kirsten-dunst-actress-2000s-flux",
+      "category": "celebrity",
+      "description": "Kirsten Dunst Actress 2000s",
+      "is_active": true
+    },
+    {
+      "file": "SMGFluxModel.safetensors",
+      "name": "sarah-michelle-gellar-flux-model",
+      "weight": 1,
+      "add_prompt": "smg",
+      "url": "https://huggingface.co/Keltezaa/sarah-michelle-gellar-flux-model",
+      "category": "celebrity",
+      "description": "Sarah Michelle Gellar",
+      "is_active": true
+    },
+    {
+      "file": "Jennifer_Lawrence_V2_Flux.safetensors",
+      "name": "jennifer-lawrence-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/jennifer-lawrence-flux",
+      "category": "celebrity",
+      "description": "Jennifer Lawrence",
+      "is_active": true
+    },
+    {
+      "file": "lora.safetensors",
+      "name": "britney-spears-flux-model",
+      "weight": 1,
+      "add_prompt": "britney",
+      "url": "https://huggingface.co/Keltezaa/britney-spears-flux-model",
+      "category": "celebrity",
+      "description": "Britney Spears",
+      "is_active": true
+    },
+    {
+      "file": "Flux.Livvy-step00000400.safetensors",
+      "name": "flux-livvy-dunne-influencer",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/flux-livvy-dunne-influencer",
+      "category": "celebrity",
+      "description": "Livvy Dunne Influencer",
+      "is_active": true
+    },
+    {
+      "file": "brooke-shields.safetensors",
+      "name": "brooke-shields",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/brooke-shields",
+      "category": "celebrity",
+      "description": "Brooke Shields",
+      "is_active": true
+    },
+    {
+      "file": "AlexandraDaddarioF1D.safetensors",
+      "name": "alexandra-daddario-flux",
+      "weight": 1,
+      "add_prompt": "alexandra_daddario",
+      "url": "https://huggingface.co/Keltezaa/alexandra-daddario-flux",
+      "category": "celebrity",
+      "description": "Alexandra Daddario",
+      "is_active": true
+    },
+    {
+      "file": "4fa088cbab0d4e4198fe0ffd8fb32f2f_pytorch_lora_weights.safetensors",
+      "name": "jessica-simpson-flux-model",
+      "weight": 1,
+      "add_prompt": "jsimp",
+      "url": "https://huggingface.co/Keltezaa/jessica-simpson-flux-model",
+      "category": "celebrity",
+      "description": "Jessica Simpson",
+      "is_active": true
+    },
+    {
+      "file": "Sophie_Turner_Flux.safetensors",
+      "name": "sophie-turner-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/sophie-turner-flux",
+      "category": "celebrity",
+      "description": "Sophie Turner",
+      "is_active": true
+    },
+    {
+      "file": "Jennifer_Connelly_1990-000032.safetensors",
+      "name": "jennifer-connelly-1990-flux",
+      "weight": 1,
+      "add_prompt": "jennifer connelly",
+      "url": "https://huggingface.co/Keltezaa/jennifer-connelly-1990-flux",
+      "category": "celebrity",
+      "description": "Jennifer Connelly 1990",
+      "is_active": true
+    },
+    {
+      "file": "AliciaVikander_F1D.safetensors",
+      "name": "alicia-vikander-sdxl-flux",
+      "weight": 1,
+      "add_prompt": "alicia_vikander",
+      "url": "https://huggingface.co/Keltezaa/alicia-vikander-sdxl-flux",
+      "category": "celebrity",
+      "description": "Alicia Vikander",
+      "is_active": true
+    },
+    {
+      "file": "eva_green_flux_lora_v1_000001200.safetensors",
+      "name": "eva-green-flux",
+      "weight": 1,
+      "add_prompt": "eva gren",
+      "url": "https://huggingface.co/Keltezaa/eva-green-flux",
+      "category": "celebrity",
+      "description": "Eva Green",
+      "is_active": true
+    },
+    {
+      "file": "chanelfenn.safetensors",
+      "name": "chanel-fenn",
+      "weight": 1,
+      "add_prompt": "chanelfenn",
+      "url": "https://huggingface.co/Keltezaa/chanel-fenn",
+      "category": "celebrity",
+      "description": "Chanel Fenn",
+      "is_active": true
+    },
+    {
+      "file": "Anna_Kendrick_Flux.safetensors",
+      "name": "anna-kendrick-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/anna-kendrick-flux",
+      "category": "celebrity",
+      "description": "Anna Kendrick",
+      "is_active": true
+    },
+    {
+      "file": "MaggieG_SoloLoRA_F1V1.safetensors",
+      "name": "maggie-grace-sololora",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/maggie-grace-sololora",
+      "category": "celebrity",
+      "description": "Maggie Grace Solo",
+      "is_active": true
+    },
+    {
+      "file": "lora-small-mckenna-grace-v1.safetensors",
+      "name": "mckenna-grace-768-portrait",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/mckenna-grace-768-portrait",
+      "category": "celebrity",
+      "description": "Mckenna Grace 768 Portrait",
+      "is_active": true
+    },
+    {
+      "file": "Megan_Marx_Flux.safetensors",
+      "name": "megan-marx-flux-adult-film-actress",
+      "weight": 1,
+      "add_prompt": "meganmarx",
+      "url": "https://huggingface.co/Keltezaa/megan-marx-flux-adult-film-actress",
+      "category": "celebrity",
+      "description": "Megan Marx Adult Film Actress",
+      "is_active": true
+    },
+    {
+      "file": "meg-ryan.safetensors",
+      "name": "meg-ryan",
+      "weight": 1,
+      "add_prompt": "mryan",
+      "url": "https://huggingface.co/Keltezaa/meg-ryan",
+      "category": "celebrity",
+      "description": "Meg Ryan",
+      "is_active": true
+    },
+    {
+      "file": "megan_fox_r8_flux_lora_v1_000002400.safetensors",
+      "name": "megan-fox-flux",
+      "weight": 1,
+      "add_prompt": "megan fox",
+      "url": "https://huggingface.co/Keltezaa/megan-fox-flux",
+      "category": "celebrity",
+      "description": "Megan Fox",
+      "is_active": true
+    },
+    {
+      "file": "Gaia__Jaime_Murray_-_Spartacus_Gods_of_the_Arena_Tv_Series-000019.safetensors",
+      "name": "gaia-jaime-murray-spartacus-gods-of-the-arena-tv-series",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/gaia-jaime-murray-spartacus-gods-of-the-arena-tv-series",
+      "category": "celebrity",
+      "description": "Gaia Jaime Murray Spartacus Gods Of The Arena Tv Series",
+      "is_active": true
+    },
+    {
+      "file": "jennifer-lawrence FLUX.safetensors",
+      "name": "jennifer-lawrence-real-persons",
+      "weight": 1,
+      "add_prompt": "Jennifer Lawrence",
+      "url": "https://huggingface.co/Keltezaa/jennifer-lawrence-real-persons",
+      "category": "celebrity",
+      "description": "Jennifer Lawrence Real Persons",
+      "is_active": true
+    },
+    {
+      "file": "Jennifer_Garner_v2.safetensors",
+      "name": "jennifer-garner-mid-2000s",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/jennifer-garner-mid-2000s",
+      "category": "celebrity",
+      "description": "Jennifer Garner Mid 2000s",
+      "is_active": true
+    },
+    {
+      "file": "Jennifer_Morrison.safetensors",
+      "name": "jennifer-morrison",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/jennifer-morrison",
+      "category": "celebrity",
+      "description": "Jennifer Morrison",
+      "is_active": true
+    },
+    {
+      "file": "Jennifer_Carpenter_2012_Flux.safetensors",
+      "name": "jennifer-carpenter-2012-flux-and-sdxl",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/jennifer-carpenter-2012-flux-and-sdxl",
+      "category": "celebrity",
+      "description": "Jennifer Carpenter 2012 And",
+      "is_active": true
+    },
+    {
+      "file": "Katie_Fey.safetensors",
+      "name": "katie-fey-jenya-d-eugenia-diordiychuk",
+      "weight": 1,
+      "add_prompt": "Katie Fey",
+      "url": "https://huggingface.co/Keltezaa/katie-fey-jenya-d-eugenia-diordiychuk",
+      "category": "celebrity",
+      "description": "Katie Fey Jenya D Eugenia Diordiychuk",
+      "is_active": true
+    },
+    {
+      "file": "Yvonne_Flux_CFH-000010.safetensors",
+      "name": "yvonne-flux-cfh",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/yvonne-flux-cfh",
+      "category": "celebrity",
+      "description": "Yvonne Cfh",
+      "is_active": true
+    },
+    {
+      "file": "Yvonne_Strahovski_Flux.safetensors",
+      "name": "yvonne-strahovski-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/yvonne-strahovski-flux",
+      "category": "celebrity",
+      "description": "Yvonne Strahovski",
+      "is_active": true
+    },
+    {
+      "file": "Fff.safetensors",
+      "name": "realistic-elle-from-rick-morty-anime-flux-nsfw",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/realistic-elle-from-rick-morty-anime-flux-nsfw",
+      "category": "celebrity",
+      "description": "Realistic Elle From Rick Morty Anime Nsfw",
+      "is_active": true
+    },
+    {
+      "file": "20241120-ElleFanning-v1-step00002000.safetensors",
+      "name": "elle-fanning",
+      "weight": 1,
+      "add_prompt": "Elle Fanning",
+      "url": "https://huggingface.co/Keltezaa/elle-fanning",
+      "category": "celebrity",
+      "description": "Elle Fanning",
+      "is_active": true
+    },
+    {
+      "file": "EmmaWatson_flux_lora_v1.safetensors",
+      "name": "Emma_Watson_ohwx_Hermione_Flux",
+      "weight": 1,
+      "add_prompt": "as Hermione or ohwx woman",
+      "url": "https://huggingface.co/Keltezaa/Emma_Watson_ohwx_Hermione_Flux",
+      "category": "celebrity",
+      "description": "Emma Watson Ohwx Hermione",
+      "is_active": true
+    },
+    {
+      "file": "shionecooper.safetensors",
+      "name": "Shione_Cooper_Actress",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Shione_Cooper_Actress",
+      "category": "celebrity",
+      "description": "Shione Cooper Actress",
+      "is_active": true
+    },
+    {
+      "file": "TaraReid_flux_lora_v1.safetensors",
+      "name": "Tara_Reid_2000s_Flux",
+      "weight": 1,
+      "add_prompt": "ohwx",
+      "url": "https://huggingface.co/Keltezaa/Tara_Reid_2000s_Flux",
+      "category": "celebrity",
+      "description": "Tara Reid 2000s",
+      "is_active": true
+    },
+    {
+      "file": "avrilflx_flux-lora-000002.safetensors",
+      "name": "avril-lavigne-2000s-flux-lora",
+      "weight": 1,
+      "add_prompt": "avrilflx",
+      "url": "https://huggingface.co/Keltezaa/avril-lavigne-2000s-flux-lora",
+      "category": "celebrity",
+      "description": "Avril Lavigne 2000s",
+      "is_active": true
+    },
+    {
+      "file": "kristen_bell_dev_f1_k.safetensors",
+      "name": "kristen-bell",
+      "weight": 1,
+      "add_prompt": "kristen",
+      "url": "https://huggingface.co/Keltezaa/kristen-bell",
+      "category": "celebrity",
+      "description": "Kristen Bell",
+      "is_active": true
+    },
+    {
+      "file": "candicesflx1.safetensors",
+      "name": "candice-swanepoel-2010s-flux-lora",
+      "weight": 1,
+      "add_prompt": "candicesflx",
+      "url": "https://huggingface.co/Keltezaa/candice-swanepoel-2010s-flux-lora",
+      "category": "celebrity",
+      "description": "Candice Swanepoel 2010s",
+      "is_active": true
+    },
+    {
+      "file": "RachaelLeighCook_flux_lora_v1.safetensors",
+      "name": "rachael-leigh-cook-2000s-flux",
+      "weight": 1,
+      "add_prompt": "ohwx",
+      "url": "https://huggingface.co/Keltezaa/rachael-leigh-cook-2000s-flux",
+      "category": "celebrity",
+      "description": "Rachael Leigh Cook 2000s",
+      "is_active": true
+    },
+    {
+      "file": "OliviaWilde_flux_lora_v1.safetensors",
+      "name": "olivia-wilde-flux",
+      "weight": 1,
+      "add_prompt": "ohwx",
+      "url": "https://huggingface.co/Keltezaa/olivia-wilde-flux",
+      "category": "celebrity",
+      "description": "Olivia Wilde",
+      "is_active": true
+    },
+    {
+      "file": "KatherineHeigl_flux_lora_v1.safetensors",
+      "name": "katherine-heigl-90s-flux",
+      "weight": 1,
+      "add_prompt": "ohwx",
+      "url": "https://huggingface.co/Keltezaa/katherine-heigl-90s-flux",
+      "category": "celebrity",
+      "description": "Katherine Heigl 90s",
+      "is_active": true
+    },
+    {
+      "file": "FLUX-Selena Gomez.safetensors",
+      "name": "selena-gomez",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/selena-gomez",
+      "category": "celebrity",
+      "description": "Selena Gomez",
+      "is_active": true
+    },
+    {
+      "file": "Olivia_Hussey.safetensors",
+      "name": "olivia-hussey-1970s-flux-lora",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/olivia-hussey-1970s-flux-lora",
+      "category": "celebrity",
+      "description": "Olivia Hussey 1970s",
+      "is_active": true
+    },
+    {
+      "file": "Kristen_Stewart_Flux.safetensors",
+      "name": "kristen-stewart-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/kristen-stewart-flux",
+      "category": "celebrity",
+      "description": "Kristen Stewart",
+      "is_active": true
+    },
+    {
+      "file": "KristenStewartF1D.safetensors",
+      "name": "kristen-stewart",
+      "weight": 1,
+      "add_prompt": "kristen_stewart",
+      "url": "https://huggingface.co/Keltezaa/kristen-stewart",
+      "category": "celebrity",
+      "description": "Kristen Stewart",
+      "is_active": true
+    },
+    {
+      "file": "katiethomas.safetensors",
+      "name": "Katie_Thomas_Actress",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Katie_Thomas_Actress",
+      "category": "celebrity",
+      "description": "Katie Thomas Actress",
+      "is_active": true
+    },
+    {
+      "file": "Katie_Holmes_90s.safetensors",
+      "name": "katie-holmes-90-s",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/katie-holmes-90-s",
+      "category": "celebrity",
+      "description": "Katie Holmes 90 S",
+      "is_active": true
+    },
+    {
+      "file": "KristenStewart_Flux.safetensors",
+      "name": "KristenStewart_Flux2",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/KristenStewart_Flux2",
+      "category": "celebrity",
+      "description": "Kristenstewart 2",
+      "is_active": true
+    },
+    {
+      "file": "kate.safetensors",
+      "name": "kate",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/kate",
+      "category": "celebrity",
+      "description": "Kate",
+      "is_active": true
+    },
+    {
+      "file": "katewflx_flux-lora-000003.safetensors",
+      "name": "kate-winslet-young-flux-lora",
+      "weight": 1,
+      "add_prompt": "katewflx",
+      "url": "https://huggingface.co/Keltezaa/kate-winslet-young-flux-lora",
+      "category": "celebrity",
+      "description": "Kate Winslet Young",
+      "is_active": true
+    },
+    {
+      "file": "SelenaGomez_v2.safetensors",
+      "name": "selena-gomez-2012-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/selena-gomez-2012-flux",
+      "category": "celebrity",
+      "description": "Selena Gomez 2012",
+      "is_active": true
+    },
+    {
+      "file": "Kate_Beckinsale_Flux.safetensors",
+      "name": "kate-beckinsale-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/kate-beckinsale-flux",
+      "category": "celebrity",
+      "description": "Kate Beckinsale",
+      "is_active": true
+    },
+    {
+      "file": "Kate_Winslet_1996-000020.safetensors",
+      "name": "kate-winslet-1996-flux",
+      "weight": 1,
+      "add_prompt": "kate winslet",
+      "url": "https://huggingface.co/Keltezaa/kate-winslet-1996-flux",
+      "category": "celebrity",
+      "description": "Kate Winslet 1996",
+      "is_active": true
+    },
+    {
+      "file": "Selene Underworld (s3l3n3) - Flux test-000060.safetensors",
+      "name": "selene-underworld-kate-beckinsale-flux-lora-test",
+      "weight": 1,
+      "add_prompt": "s3l3n3",
+      "url": "https://huggingface.co/Keltezaa/selene-underworld-kate-beckinsale-flux-lora-test",
+      "category": "celebrity",
+      "description": "Selene Underworld Kate Beckinsale Test",
+      "is_active": true
+    },
+    {
+      "file": "Neve_Campbell_Flux.safetensors",
+      "name": "neve-campbell-1990s-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/neve-campbell-1990s-flux",
+      "category": "celebrity",
+      "description": "Neve Campbell 1990s",
+      "is_active": true
+    },
+    {
+      "file": "Alicia_Silverstone_Flux.safetensors",
+      "name": "alicia-silverstone-late-90s-early-2000s-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/alicia-silverstone-late-90s-early-2000s-flux",
+      "category": "celebrity",
+      "description": "Alicia Silverstone Late 90s Early 2000s",
+      "is_active": true
+    },
+    {
+      "file": "Snegh-000001.safetensors",
+      "name": "snegh",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/snegh",
+      "category": "celebrity",
+      "description": "Snegh",
+      "is_active": true
+    },
+    {
+      "file": "Jessica_Alba_Flux.safetensors",
+      "name": "jessica-alba-early-2000s-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/jessica-alba-early-2000s-flux",
+      "category": "celebrity",
+      "description": "Jessica Alba Early 2000s",
+      "is_active": true
+    },
+    {
+      "file": "ninadobrev.safetensors",
+      "name": "nina-dobrev-flux-1d-the-vampire-diaries",
+      "weight": 1,
+      "add_prompt": "ninadobrev",
+      "url": "https://huggingface.co/Keltezaa/nina-dobrev-flux-1d-the-vampire-diaries",
+      "category": "celebrity",
+      "description": "Nina Dobrev 1d The Vampire Diaries",
+      "is_active": true
+    },
+    {
+      "file": "am1d0lenz.safetensors",
+      "name": "ami-dolenz-flux-d-cant-buy-me-love",
+      "weight": 1,
+      "add_prompt": "amidolenz",
+      "url": "https://huggingface.co/Keltezaa/ami-dolenz-flux-d-cant-buy-me-love",
+      "category": "celebrity",
+      "description": "Ami Dolenz D Cant Buy Me Love",
+      "is_active": true
+    },
+    {
+      "file": "SammyNoodleSoupv3.safetensors",
+      "name": "SammyNoodleSoup",
+      "weight": 1,
+      "add_prompt": "Sammy; elven ears; freckles; vampire fangs; ahegao; rolling eyes",
+      "url": "https://huggingface.co/Keltezaa/SammyNoodleSoup",
+      "category": "celebrity",
+      "description": "Sammynoodlesoup",
+      "is_active": true
+    },
+    {
+      "file": "FantasticalRealism.safetensors",
+      "name": "FantasticalRealism",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/FantasticalRealism",
+      "category": "celebrity",
+      "description": "Fantasticalrealism",
+      "is_active": true
+    },
+    {
+      "file": "UltraRealPhoto.safetensors",
+      "name": "Lora_Project",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Lora_Project",
+      "category": "celebrity",
+      "description": "Project",
+      "is_active": true
+    },
+    {
+      "file": "Joey_King_Flux.safetensors",
+      "name": "joey-king-flux",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/joey-king-flux",
+      "category": "celebrity",
+      "description": "Joey King",
+      "is_active": true
+    },
+    {
+      "file": "Rain_Carradine_-_Cailee_Spaeny_-_Alien_Romulus_Flux.safetensors",
+      "name": "Rain_Carradine",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Rain_Carradine",
+      "category": "celebrity",
+      "description": "Rain Carradine",
+      "is_active": true
+    },
+    {
+      "file": "winonaflx.safetensors",
+      "name": "Winona_Rider",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Winona_Rider",
+      "category": "celebrity",
+      "description": "Winona Rider",
+      "is_active": true
+    },
+    {
+      "file": "shirley-manson.safetensors",
+      "name": "Shirley_Manson",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Shirley_Manson",
+      "category": "celebrity",
+      "description": "Shirley Manson",
+      "is_active": true
+    },
+    {
+      "file": "FoxyDi1_flux_lora_v4.safetensors",
+      "name": "Foxy_Di",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Foxy_Di",
+      "category": "celebrity",
+      "description": "Foxy Di",
+      "is_active": true
+    },
+    {
+      "file": "Rosie_Huntington_Whiteley.safetensors",
+      "name": "Rosie_Huntington_Whiteley",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Rosie_Huntington_Whiteley",
+      "category": "celebrity",
+      "description": "Rosie Huntington Whiteley",
+      "is_active": true
+    },
+    {
+      "file": "elisha-v1.safetensors",
+      "name": "elisha-cuthbert-2006s-flux-actress",
+      "weight": 1,
+      "add_prompt": "3L1SH4",
+      "url": "https://huggingface.co/Keltezaa/elisha-cuthbert-2006s-flux-actress",
+      "category": "celebrity",
+      "description": "Elisha Cuthbert 2006s Actress",
+      "is_active": true
+    },
+    {
+      "file": "err00ssvm3.safetensors",
+      "name": "emmy-rossum-shameless-flux1-d",
+      "weight": 1,
+      "add_prompt": "Erossum3",
+      "url": "https://huggingface.co/Keltezaa/emmy-rossum-shameless-flux1-d",
+      "category": "celebrity",
+      "description": "Emmy Rossum Shameless 1 D",
+      "is_active": true
+    },
+    {
+      "file": "isaveloso-v1.safetensors",
+      "name": "isabel-veloso-flux-influencer",
+      "weight": 1,
+      "add_prompt": "1S4B3L",
+      "url": "https://huggingface.co/Keltezaa/isabel-veloso-flux-influencer",
+      "category": "celebrity",
+      "description": "Isabel Veloso Influencer",
+      "is_active": true
+    },
+    {
+      "file": "alisa-v1.safetensors",
+      "name": "alisa-flux-adult-film-actress",
+      "weight": 1,
+      "add_prompt": "ALIS@",
+      "url": "https://huggingface.co/Keltezaa/alisa-flux-adult-film-actress",
+      "category": "celebrity",
+      "description": "Alisa Adult Film Actress",
+      "is_active": true
+    },
+    {
+      "file": "Danielle_Panabaker_Ca2005.safetensors",
+      "name": "danielle-panabaker-ca-2005",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/danielle-panabaker-ca-2005",
+      "category": "celebrity",
+      "description": "Danielle Panabaker Ca 2005",
+      "is_active": true
+    },
+    {
+      "file": "danielle_campbell.safetensors",
+      "name": "danielle-campbell-flux",
+      "weight": 1,
+      "add_prompt": "Danielle Campbell",
+      "url": "https://huggingface.co/Keltezaa/danielle-campbell-flux",
+      "category": "celebrity",
+      "description": "Danielle Campbell",
+      "is_active": true
+    },
+    {
+      "file": "DanielleRR_SoloLoRA_F1V1.safetensors",
+      "name": "danielle-rose-russell-sololora",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/danielle-rose-russell-sololora",
+      "category": "celebrity",
+      "description": "Danielle Rose Russell Solo",
+      "is_active": true
+    },
+    {
+      "file": "flux-lora-alexis-knapp.safetensors",
+      "name": "alexis-knapp-flux-1d",
+      "weight": 1,
+      "add_prompt": "Alexis Knapp",
+      "url": "https://huggingface.co/Keltezaa/alexis-knapp-flux-1d",
+      "category": "celebrity",
+      "description": "Alexis Knapp 1d",
+      "is_active": true
+    },
+    {
+      "file": "AlexisBledel_flux_lora_v1.safetensors",
+      "name": "alexis-bledel-flux",
+      "weight": 1,
+      "add_prompt": "ohwx",
+      "url": "https://huggingface.co/Keltezaa/alexis-bledel-flux",
+      "category": "celebrity",
+      "description": "Alexis Bledel",
+      "is_active": true
+    },
+    {
+      "file": "AliLarter_flux_lora_v5.safetensors",
+      "name": "ali-larter-flux",
+      "weight": 1,
+      "add_prompt": "ohwx",
+      "url": "https://huggingface.co/Keltezaa/ali-larter-flux",
+      "category": "celebrity",
+      "description": "Ali Larter",
+      "is_active": true
+    },
+    {
+      "file": "Annie Edison.safetensors",
+      "name": "annie-edison-community-flux1-d",
+      "weight": 1,
+      "add_prompt": "annie edison, a woman",
+      "url": "https://huggingface.co/Keltezaa/annie-edison-community-flux1-d",
+      "category": "celebrity",
+      "description": "Annie Edison Community 1 D",
+      "is_active": true
+    },
+    {
+      "file": "AmberHeard_flux_lora_v2.safetensors",
+      "name": "Amber_Heard",
+      "weight": 1,
+      "add_prompt": "ohwx",
+      "url": "https://huggingface.co/Keltezaa/Amber_Heard",
+      "category": "celebrity",
+      "description": "Amber Heard",
+      "is_active": true
+    },
+    {
+      "file": "AmySmart_flux_lora_v2.safetensors",
+      "name": "AmySmart",
+      "weight": 1,
+      "add_prompt": "AmySmart",
+      "url": "https://huggingface.co/Keltezaa/AmySmart",
+      "category": "celebrity",
+      "description": "Amysmart",
+      "is_active": true
+    },
+    {
+      "file": "Kirsten_Stewart_v1_000001750.safetensors",
+      "name": "Bella_Swan",
+      "weight": 1,
+      "add_prompt": "Kristen Stewart",
+      "url": "https://huggingface.co/Keltezaa/Bella_Swan",
+      "category": "celebrity",
+      "description": "Bella Swan",
+      "is_active": true
+    },
+    {
+      "file": "HaydenPanettiere_flux_lora_v1.safetensors",
+      "name": "HaydenPanettiere",
+      "weight": 1,
+      "add_prompt": "HaydenPanettiere",
+      "url": "https://huggingface.co/Keltezaa/HaydenPanettiere",
+      "category": "celebrity",
+      "description": "Haydenpanettiere",
+      "is_active": true
+    },
+    {
+      "file": "KayaS_flux_lora_v4.safetensors",
+      "name": "KayaS",
+      "weight": 1,
+      "add_prompt": "KayaS",
+      "url": "https://huggingface.co/Keltezaa/KayaS",
+      "category": "celebrity",
+      "description": "Kayas",
+      "is_active": true
+    },
+    {
+      "file": "Jennifer_Lien_PMv1_Flux-000009.safetensors",
+      "name": "Jennifer_Lien",
+      "weight": 1,
+      "add_prompt": "Jennifer_Lien",
+      "url": "https://huggingface.co/Keltezaa/Jennifer_Lien",
+      "category": "celebrity",
+      "description": "Jennifer Lien",
+      "is_active": true
+    },
+    {
+      "file": "KristinKreuk_flux_lora_v3.safetensors",
+      "name": "Kristin_Kreuk",
+      "weight": 1,
+      "add_prompt": "KristinKreuk",
+      "url": "https://huggingface.co/Keltezaa/Kristin_Kreuk",
+      "category": "celebrity",
+      "description": "Kristin Kreuk",
+      "is_active": true
+    },
+    {
+      "file": "Mary_Amber_Flux.safetensors",
+      "name": "mary-amber-flux-tiktok-star",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/mary-amber-flux-tiktok-star",
+      "category": "celebrity",
+      "description": "Mary Amber Tiktok Star",
+      "is_active": true
+    },
+    {
+      "file": "LilyC_SoloLoRA_F1V1.safetensors",
+      "name": "LilyC_SoloLoRA_F1V1",
+      "weight": 1,
+      "add_prompt": "LilyC",
+      "url": "https://huggingface.co/Keltezaa/LilyC_SoloLoRA_F1V1",
+      "category": "celebrity",
+      "description": "Lilyc Solo F1v1",
+      "is_active": true
+    },
+    {
+      "file": "EmmaW_SoloLoRA_F1V1.safetensors",
+      "name": "Emma_Watson_V3",
+      "weight": 1,
+      "add_prompt": "Emma Watson",
+      "url": "https://huggingface.co/Keltezaa/Emma_Watson_V3",
+      "category": "celebrity",
+      "description": "Emma Watson V3",
+      "is_active": true
+    },
+    {
+      "file": "Mathilda_V2-000031.safetensors",
+      "name": "Mathilda",
+      "weight": 1,
+      "add_prompt": "Natalie Portman as Mathilda",
+      "url": "https://huggingface.co/Keltezaa/Mathilda",
+      "category": "celebrity",
+      "description": "Natalie Portman as Mathilda",
+      "is_active": true
+    },
+    {
+      "file": "SarahMcDaniel_rank16_bf16-step00750.safetensors",
+      "name": "SarahMcDaniel",
+      "weight": 1,
+      "add_prompt": "SarahMcDaniel",
+      "url": "https://huggingface.co/Keltezaa/SarahMcDaniel",
+      "category": "celebrity",
+      "description": "Sarahmcdaniel",
+      "is_active": true
+    },
+    {
+      "file": "PeytonSL.safetensors",
+      "name": "Peyton_Fairchild",
+      "weight": 1,
+      "add_prompt": "Peyton Fairchild",
+      "url": "https://huggingface.co/Keltezaa/Peyton_Fairchild",
+      "category": "celebrity",
+      "description": "Peyton Fairchild",
+      "is_active": true
+    },
+    {
+      "file": "Younger Emma Watson.safetensors",
+      "name": "young_emma_V4",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/young_emma_V4",
+      "category": "celebrity",
+      "description": "Young Emma V4",
+      "is_active": true
+    },
+    {
+      "file": "Anna Tagan v1.safetensors",
+      "name": "Anna_Tagan_v1",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/Anna_Tagan_v1",
+      "category": "celebrity",
+      "description": "Anna Tagan V1",
+      "is_active": true
+    },
+    {
+      "file": "Tifa Lockhart.safetensors",
+      "name": "TifaLockhart",
+      "weight": 1,
+      "add_prompt": "Tifa Lockhart",
+      "url": "https://huggingface.co/Keltezaa/TifaLockhart",
+      "category": "celebrity",
+      "description": "Tifalockhart",
+      "is_active": true
+    },
+    {
+      "file": "Lily James LoRA_SoloLoRA_F1V1.safetensors",
+      "name": "LilyJames",
+      "weight": 1,
+      "add_prompt": "Lily James",
+      "url": "https://huggingface.co/Keltezaa/LilyJames",
+      "category": "celebrity",
+      "description": "Lilyjames",
+      "is_active": true
+    },
+    {
+      "file": "Kelly Preston_SoloLoRA_F1V2.safetensors",
+      "name": "KellyPreston",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/KellyPreston",
+      "category": "celebrity",
+      "description": "Kellypreston",
+      "is_active": true
+    },
+    {
+      "file": "EvannaLynch_SoloLoRA_F1V1.safetensors",
+      "name": "EvannaLynch",
+      "weight": 1,
+      "add_prompt": "EvannaLynch",
+      "url": "https://huggingface.co/Keltezaa/EvannaLynch",
+      "category": "celebrity",
+      "description": "Evannalynch",
+      "is_active": true
+    },
+    {
+      "file": "MillieBB_SoloLoRA_F1V1.safetensors",
+      "name": "MillieBB_v2",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://huggingface.co/Keltezaa/MillieBB_v2",
+      "category": "celebrity",
+      "description": "Milliebb V2",
+      "is_active": true
+    },
+    {
+      "file": "KatieH_SoloLoRA_F1V1.safetensors",
+      "name": "KatieHolmes",
+      "weight": 1,
+      "add_prompt": "Katie Holmes",
+      "url": "https://huggingface.co/Keltezaa/KatieHolmes",
+      "category": "celebrity",
+      "description": "Katieholmes",
+      "is_active": true
+    },
+    {
+      "file": "DemiM_SoloLoRA_F1V1.safetensors",
+      "name": "DemiMoore",
+      "weight": 1,
+      "add_prompt": "Demi Moore",
+      "url": "https://huggingface.co/Keltezaa/DemiMoore",
+      "category": "celebrity",
+      "description": "Demimoore",
+      "is_active": true
+    },
+    {
+      "file": "MonicaB_SoloLoRA_F1V1.safetensors",
+      "name": "MonicaBellucci",
+      "weight": 1,
+      "add_prompt": "Monica Bellucci",
+      "url": "https://huggingface.co/Keltezaa/MonicaBellucci",
+      "category": "celebrity",
+      "description": "Monicabellucci",
+      "is_active": true
+    },
+    {
+      "file": "rebecca-breeds.safetensors",
+      "name": "rebeccabreeds",
+      "weight": 1,
+      "add_prompt": "rebecca-breeds",
+      "url": "https://huggingface.co/Keltezaa/rebeccabreeds",
+      "category": "celebrity",
+      "description": "Rebeccabreeds",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Adriana-Lima_v01e12.safetensors",
+      "name": "adriana-lima",
+      "weight": 1,
+      "add_prompt": "4DR14N4L1M4",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/adriana-lima",
+      "category": "celebrity",
+      "description": "Adriana Lima The Brazilian Supermodel and Icon",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Angela-Raynor_v01e07.safetensors",
+      "name": "angela-raynor",
+      "weight": 1,
+      "add_prompt": "4N63L4R4YN0R, a woman",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/angela-raynor",
+      "category": "celebrity",
+      "description": "Angela Rayner Champion of the Working Class ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Anthony-Faucci_v01e10.safetensors",
+      "name": "anthony-faucci",
+      "weight": 1,
+      "add_prompt": "70NYF4UCC1",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/anthony-faucci",
+      "category": "celebrity",
+      "description": "Anthony Faucci Covids Very Own Multi-Masking Dr Death ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Audrey-Hepburn_v01e09.safetensors",
+      "name": "audrey-hepburn",
+      "weight": 1,
+      "add_prompt": "4UDR3YH3P8URN, a woman",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/audrey-hepburn",
+      "category": "celebrity",
+      "description": "Audrey Hepburn Timeless Icon of Grace and Style",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Ayatollah-Khamenei_v01e09.safetensors",
+      "name": "ayatollah-khamenei",
+      "weight": 1,
+      "add_prompt": "4Y470LL4H, an older man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/ayatollah-khamenei",
+      "category": "celebrity",
+      "description": "Ayatollah Ali Khamenei A Revered Leader with a Profound Legacy",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Benjamin-Netanyahu_v01e09.safetensors",
+      "name": "benjamin-netanyahu",
+      "weight": 1,
+      "add_prompt": "8181N374NY4HU, a man, an older man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/benjamin-netanyahu",
+      "category": "celebrity",
+      "description": "Benjamin Netanyahu An Influential Figure on the Global Stage",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Bill-Gates_v01e07.safetensors",
+      "name": "bill-gates",
+      "weight": 1,
+      "add_prompt": "81LL64T35",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/bill-gates",
+      "category": "celebrity",
+      "description": "Bill Gates ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Brigitte-Bardot_v02e11.safetensors",
+      "name": "brigitte-bardot",
+      "weight": 1,
+      "add_prompt": "8R16177384RD07, a woman",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/brigitte-bardot",
+      "category": "celebrity",
+      "description": "Brigitte Bardot The Timeless Icon of Beauty and Elegance ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Britt-Ekland_v01e11.safetensors",
+      "name": "britt-eckland",
+      "weight": 1,
+      "add_prompt": "8R1773CKL4ND, a woman",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/britt-eckland",
+      "category": "celebrity",
+      "description": "Britt Ekland The Charming Star and Timeless Beauty ",
+      "is_active": true
+    },
+    {
+      "file": "Bruce-Campbell_Flux_v02-e06.safetensors",
+      "name": "bruce-campbell",
+      "weight": 1,
+      "add_prompt": "8ruc3c4mp83ll",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/bruce-campbell",
+      "category": "celebrity",
+      "description": "Bruce Campbell ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Burt-Reynolds_v01e07.safetensors",
+      "name": "burt-reynolds",
+      "weight": 1,
+      "add_prompt": "8UR7R3YN0LD5, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/burt-reynolds",
+      "category": "celebrity",
+      "description": "Burt Reynolds The Smoldering Charmer and Box Office Titan ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Christopher-Lee_v01e07.safetensors",
+      "name": "christopher-lee",
+      "weight": 1,
+      "add_prompt": "CHR1570PH3RL33",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/christopher-lee",
+      "category": "celebrity",
+      "description": "Christopher Lee Timeless Icon of Power and Mystery",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Clark-Gable_v01e10.safetensors",
+      "name": "clark-gable",
+      "weight": 1,
+      "add_prompt": "CL4RK648L3, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/clark-gable",
+      "category": "celebrity",
+      "description": "Clark Gable The King of Classic Hollywood",
+      "is_active": true
+    },
+    {
+      "file": "Donald-Trump_Flux_v01e08.safetensors",
+      "name": "donald-trump",
+      "weight": 1,
+      "add_prompt": "D0N4LD7RUMP",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/donald-trump",
+      "category": "celebrity",
+      "description": "Donald Trump 2024 ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Elon-Musk_v01e07.safetensors",
+      "name": "elon-musk",
+      "weight": 1,
+      "add_prompt": "3L0NMU5K",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/elon-musk",
+      "category": "celebrity",
+      "description": "Elon Musk",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Gary-Coleman_v01e11.safetensors",
+      "name": "gary-coleman",
+      "weight": 1,
+      "add_prompt": "64RYC0L3M4N, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/gary-coleman",
+      "category": "celebrity",
+      "description": "Gary Coleman The Child Star As A Grown Man",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Gavin-Newsom_v01e10.safetensors",
+      "name": "gavin-newsome",
+      "weight": 1,
+      "add_prompt": "64V1NN3W50M, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/gavin-newsome",
+      "category": "celebrity",
+      "description": "Gavin Newsom A Governor Shaping the Future of a New World",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Gene-Hackman_v01e07.safetensors",
+      "name": "gene-hackman",
+      "weight": 1,
+      "add_prompt": "63N3H4CKM4N",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/gene-hackman",
+      "category": "celebrity",
+      "description": "Gene Hackman The Gritty Powerhouse and Academy Award Winner ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_George-Takei_v01e07.safetensors",
+      "name": "george-takei",
+      "weight": 1,
+      "add_prompt": "630R6374K31",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/george-takei",
+      "category": "celebrity",
+      "description": "George Takei A Legendary Icon of the Stars and Beyond",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Jacques-Attali_v01e06.safetensors",
+      "name": "jacques-attali",
+      "weight": 1,
+      "add_prompt": "J4CQU354774L1",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/jacques-attali",
+      "category": "celebrity",
+      "description": "Jacques Attali",
+      "is_active": true
+    },
+    {
+      "file": "F1D_JD-Vance_v01e07.safetensors",
+      "name": "jd-vance",
+      "weight": 1,
+      "add_prompt": "JDV4NC3, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/jd-vance",
+      "category": "celebrity",
+      "description": "JD Vance Hillbilly Energy meets Capitol Hill",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Jeremy-Corbyn_v01e10.safetensors",
+      "name": "jeremy-corbyn",
+      "weight": 1,
+      "add_prompt": "J3R3MYC0R8YN",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/jeremy-corbyn",
+      "category": "celebrity",
+      "description": "Jeremy Corbyn The Politician and Advocate for Social Justice ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_John-McAfee_v01e07.safetensors",
+      "name": "john-mcafee",
+      "weight": 1,
+      "add_prompt": "J0HNMC4F33, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/john-mcafee",
+      "category": "celebrity",
+      "description": "John McAfee The Maverick Tech Pioneer and Controversial Figure ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Kate-Middleton_v01e14.safetensors",
+      "name": "kate-middleton",
+      "weight": 1,
+      "add_prompt": "K473M1DDL370N, a woman",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/kate-middleton",
+      "category": "celebrity",
+      "description": "Kate Middleton (Catherine, Princess of Wales) The British Peoples Favourite Royal",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Keir-Starmer_v02e10.safetensors",
+      "name": "keir-starmer",
+      "weight": 1,
+      "add_prompt": "K31R574RM3R",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/keir-starmer",
+      "category": "celebrity",
+      "description": "Keir Starmer UKs MemeFinder General Is Coming For You ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Kenneth-Copeland_v01e07.safetensors",
+      "name": "kenneth-copeland",
+      "weight": 1,
+      "add_prompt": "K3NC0P3L4ND, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/kenneth-copeland",
+      "category": "celebrity",
+      "description": "Kenneth Copeland ",
+      "is_active": true
+    },
+    {
+      "file": "kim-jon-un_flux-d_v01e08.safetensors",
+      "name": "kim-jong-un",
+      "weight": 1,
+      "add_prompt": "K1MJ0N6UN",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/kim-jong-un",
+      "category": "celebrity",
+      "description": "Kim Jong Un Kim Jong Un 2024 ",
+      "is_active": true
+    },
+    {
+      "file": "King-Charles_Flux_v01e08.safetensors",
+      "name": "king-charles",
+      "weight": 1,
+      "add_prompt": "K1N6CH4RL35",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/king-charles",
+      "category": "celebrity",
+      "description": "King Charles Windsor ",
+      "is_active": true
+    },
+    {
+      "file": "Klaus-Schwab_Flux_v01e07.safetensors",
+      "name": "klaus-schwab",
+      "weight": 1,
+      "add_prompt": "KL4U55CHW48",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/klaus-schwab",
+      "category": "celebrity",
+      "description": "Klaus Schwab ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Larry-Fink_v01e08.safetensors",
+      "name": "larry-fink",
+      "weight": 1,
+      "add_prompt": "L4RRYF1NK, an older man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/larry-fink",
+      "category": "celebrity",
+      "description": "Larry Fink Head of BlackRock and Architect of Global Finance",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Luigi-Mangione_v01e07.safetensors",
+      "name": "luigi-mangione",
+      "weight": 1,
+      "add_prompt": "LU161M4N610N3",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/luigi-mangione",
+      "category": "celebrity",
+      "description": "Luigi Mangione Not my most versatile model",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Matt-Hancock_v01e07.safetensors",
+      "name": "matt-hancock",
+      "weight": 1,
+      "add_prompt": "M477H4NC0CK, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/matt-hancock",
+      "category": "celebrity",
+      "description": "Matt Hancock Ensuring your loved ones had a good death ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Matthew-McConaughey_v01e13.safetensors",
+      "name": "matthew-mcconaughey",
+      "weight": 1,
+      "add_prompt": "MCC0N4U6H3Y, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/matthew-mcconaughey",
+      "category": "celebrity",
+      "description": "Matthew McConaughey The Laid-Back Star and Academy Award Winner ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Melania-Trump_v01e10.safetensors",
+      "name": "melania-trump",
+      "weight": 1,
+      "add_prompt": "M3L4N147RUMP, a woman",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/melania-trump",
+      "category": "celebrity",
+      "description": "Melania Trump From Slovenian ",
+      "is_active": true
+    },
+    {
+      "file": "P-Diddy_Flux_v01e08.safetensors",
+      "name": "p-diddy",
+      "weight": 1,
+      "add_prompt": "PD1DDY",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/p-diddy",
+      "category": "celebrity",
+      "description": "P Diddy Flux Dev v01e08 Trigger PD1DDY .",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Peter-Cushing_v01e07.safetensors",
+      "name": "peter-cushing",
+      "weight": 1,
+      "add_prompt": "P373RCU5H1N6",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/peter-cushing",
+      "category": "celebrity",
+      "description": "Peter Cushing Elegant Master of Gothic Horror",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Prince-Andrew_v01e08.safetensors",
+      "name": "prince-andrew",
+      "weight": 1,
+      "add_prompt": "PR1NC34NDR3W",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/prince-andrew",
+      "category": "celebrity",
+      "description": "Prince Andrew ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Priti-Patel_v01.safetensors",
+      "name": "priti-patel",
+      "weight": 1,
+      "add_prompt": "PR171P473L, a woman",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/priti-patel",
+      "category": "celebrity",
+      "description": "Priti Patel Faster, fairer, firmer removals ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Rachel-Reeves_v01e07.safetensors",
+      "name": "rachel-reeves",
+      "weight": 1,
+      "add_prompt": "R4CH3LR33V35",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/rachel-reeves",
+      "category": "celebrity",
+      "description": "Rachel Reeves ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Steve-Buscemi_v02e08.safetensors",
+      "name": "steve-buscemi",
+      "weight": 1,
+      "add_prompt": "573v38u5c3m1",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/steve-buscemi",
+      "category": "celebrity",
+      "description": "Steve Buscemi ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Vincent-Price_v01e07.safetensors",
+      "name": "vincent-price",
+      "weight": 1,
+      "add_prompt": "V1NC3N7PR1C3",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/vincent-price",
+      "category": "celebrity",
+      "description": "Vincent Price The Voice of Macabre SophisticationOptimal",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Vladimir-Putin_v01e12.safetensors",
+      "name": "vladimir-putin",
+      "weight": 1,
+      "add_prompt": "VL4D1M1RPU71N, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/vladimir-putin",
+      "category": "celebrity",
+      "description": "Vladimir Putin  ",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Volodymyr-Zelenskyy_v01e07.safetensors",
+      "name": "volodymy-zelenskyy",
+      "weight": 1,
+      "add_prompt": "23L3N5KYY, a man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/volodymy-zelenskyy",
+      "category": "celebrity",
+      "description": "Volodymyr Zelenskyy President of Ukraine and Bankers Best Friend",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Winston-Churchill_v01e07.safetensors",
+      "name": "winston-churchill",
+      "weight": 1,
+      "add_prompt": "CHURCH1LL, a man, an overweight man",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/winston-churchill",
+      "category": "celebrity",
+      "description": "Winston Churchill The Iconic British Leader",
+      "is_active": true
+    },
+    {
+      "file": "F1D_Yuval-Noah-Harari_v01e07.safetensors",
+      "name": "yuval-noah-harari",
+      "weight": 1,
+      "add_prompt": "YUV4L04HH4R4R1",
+      "url": "https://huggingface.co/stokemctoke/civitai_celeb-lora-archive/tree/main/yuval-noah-harari",
+      "category": "celebrity",
+      "description": "Yuval Noah Harari ",
+      "is_active": true
+    },
+    {
+      "file": "wackadoodle-000004.safetensors",
+      "name": "wackadoodle",
+      "weight": 1,
+      "add_prompt": "WackadoodleDaal",
+      "url": "https://civitai.com/models/1206432/wackadoodle?modelVersionId=1358640",
+      "category": "artistic",
+      "description": "whimsically weird, delightfully cute, and vibrantly colored art",
+      "is_active": true
+    },
+    {
+      "file": "Medieval02-00_CE_FLUX_AIT.safetensors",
+      "name": "Medieval02-00_CE_FLUX_AIT",
+      "weight": 1,
+      "add_prompt": "mdvlCE",
+      "url": "https://civitai.com/models/754926/medieval-ce?modelVersionId=850999",
+      "category": "architecture",
+      "description": "Create Medieval scenes",
+      "is_active": true
+    }
+  ],
+  "categories": [
+    "aidma",
+    "animal",
+    "anime",
+    "architecture",
+    "artistic",
+    "cartoon",
+    "celebrity",
+    "character",
+    "costume",
+    "fantasy",
+    "modern-art",
+    "outdoors",
+    "photography",
+    "photorealistic",
+    "scifi",
+    "seasonal"
+  ]
+}

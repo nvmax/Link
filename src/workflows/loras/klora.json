@@ -1,0 +1,217 @@
+{
+    "categories": [
+        "Kontext lora"
+    ],
+    "available_loras": [
+        {
+            "file": "pastel.safetensors",
+            "name": "pastel",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into pastel drawing style. Loose drawing, lines.",
+            "url": "https://civitai.com/models/1759567/pastel-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Pastel style",
+            "is_active": true
+        },
+        {
+            "file": "ZKcZdffUM6qyMYiEE8ed0_adapter_model_comfy_converted.safetensors",
+            "name": "Low Poly version",
+            "weight": 1.0,
+            "add_prompt": "Convert this image to low poly version",
+            "url": "https://civitai.com/models/1773070/low-poly-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Low poly images",
+            "is_active": true
+        },
+        {
+            "file": "BFV_pS6p-ZozitXudVFJc_adapter_model_comfy_converted.safetensors",
+            "name": "Anime Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image to anime version",
+            "url": "https://civitai.com/models/1773436/anime-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Anime Style",
+            "is_active": true
+        },
+        {
+            "file": "pencil_drawing.safetensors",
+            "name": "pencil_drawing",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into engrave drawing style",
+            "url": "https://civitai.com/models/1759574/pencil-drawing-kontext-dev-lora-improved",
+            "category": "Kontext lora",
+            "description": "Pencil Drawing Style",
+            "is_active": true
+        },
+        {
+            "file": "oil_painting.safetensors",
+            "name": "oil_painting",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into heavy oil paint brush strokes style",
+            "url": "https://civitai.com/models/1759533/oil-paint-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Oil Painting Style",
+            "is_active": true
+        },
+        {
+            "file": "watercolor.safetensors",
+            "name": "watercolor",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into loose watercolor style",
+            "url": "https://civitai.com/models/1759520/watercolor-kontext-dev-lora-improved",
+            "category": "Kontext lora",
+            "description": "Water Color Style",
+            "is_active": true
+        },
+        {
+            "file": "pwZ5xiRMC8fdAGYSPvtUp_adapter_model_comfy_converted.safetensors",
+            "name": "Acrylic painting",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into acrylic art style",
+            "url": "https://civitai.com/models/1752963/acrylic-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Acrylic Painting Style",
+            "is_active": true
+        },
+        {
+            "file": "nnRFrdzYqUrvqvP0gXf_U_adapter_model.safetensors",
+            "name": "Minimalist Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into minimalist art style",
+            "url": "https://civitai.com/models/1753122/minimalist-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Minimalist style",
+            "is_active": true
+        },
+        {
+            "file": "b6TU_pSM8eoZWyiy-CyFF_adapter_model_comfy_converted.safetensors",
+            "name": "Pop Art Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into pop_art art style",
+            "url": "https://civitai.com/models/1753148/pop-art-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Pop Art Style",
+            "is_active": true
+        },
+        {
+            "file": "g_IGTyyzfC27UT9AVlt-v_adapter_model_comfy_converted.safetensors",
+            "name": "Mosaic Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into mosaic art stylea",
+            "url": "https://civitai.com/models/1753130/mosaic-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Mosaic style",
+            "is_active": true
+        },
+        {
+            "file": "5SX6j2wcLJKgudBqlmver_adapter_model_comfy_converted.safetensors",
+            "name": "Impressionist style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into impressionist art style",
+            "url": "https://civitai.com/models/1753107/impressionist-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Impressionist Style",
+            "is_active": true
+        },
+        {
+            "file": "8nXWPoktw7sdu0Y0GSKFB_adapter_model_comfy_converted.safetensors",
+            "name": "Gouache Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into gouache art style",
+            "url": "https://civitai.com/models/1753098/gouache-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Gouache Style",
+            "is_active": true
+        },
+        {
+            "file": "Vm-BMF5YoW4OOsDhk1F9h_adapter_model_comfy_converted.safetensors",
+            "name": "Expressive ",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into expressive art stylea",
+            "url": "https://civitai.com/models/1753091/expressive-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Expressive Style",
+            "is_active": true
+        },
+        {
+            "file": "59yr4hcEqhdxkEgIu7iwY_adapter_model_comfy_converted.safetensors",
+            "name": "Cubist  Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into cubist art style",
+            "url": "https://civitai.com/models/1753075/cubist-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Cubist Style",
+            "is_active": true
+        },
+        {
+            "file": "MMceKFMMmIkZAoyx6m2Cn_adapter_model_comfy_converted.safetensors",
+            "name": "Collage Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into collage art style",
+            "url": "https://civitai.com/models/1753058/collage-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Collage Style",
+            "is_active": true
+        },
+        {
+            "file": "It2d_UD0qRgotAZjJHXx__adapter_model_comfy_converted.safetensors",
+            "name": "Charcoal Drawing Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into charcoal art style",
+            "url": "https://civitai.com/models/1752985/charcoal-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Charcoal Drawing Style",
+            "is_active": true
+        },
+        {
+            "file": "I_iqVzkUKMbyMntpkSU4J_adapter_model_comfy_converted.safetensors",
+            "name": "Abstract Art Style",
+            "weight": 1.0,
+            "add_prompt": "Convert this image into abstract art style",
+            "url": "https://civitai.com/models/1752922/abstract-art-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "Abstract Art Style",
+            "is_active": true
+        },
+        {
+            "file": "game-assets.safetensors",
+            "name": "3D game-assets",
+            "weight": 1.0,
+            "add_prompt": "Create 3D game asset, isometric view version",
+            "url": "https://civitai.com/models/1752888/3d-asset-kontext-dev-lora",
+            "category": "Kontext lora",
+            "description": "3D game-assets",
+            "is_active": true
+        },
+        {
+            "file": "Oldify.safetensors",
+            "name": "Oldify",
+            "weight": 1.0,
+            "add_prompt": "change the age",
+            "url": "https://civitai.com/models/1765574/oldify?modelVersionId=1998093",
+            "category": "Kontext lora",
+            "description": "Oldify your face",
+            "is_active": true
+        },
+        {
+            "file": "mech-anything-kontext.safetensors",
+            "name": "mech-anything",
+            "weight": 1.0,
+            "add_prompt": "convert the subject to a robot with white translucent panels and exposed red and black wiring and golden accented metal bits",
+            "url": "https://civitai.com/models/1727813/mech-anything-or-kontext?modelVersionId=1955407",
+            "category": "Kontext lora",
+            "description": "Mech Anything",
+            "is_active": true
+        },
+        {
+            "file": "ink_style-4-500.safetensors",
+            "name": "Ink style",
+            "weight": 1.0,
+            "add_prompt": "ink-wash",
+            "url": "https://civitai.com/models/1764421/kontext-ink-style?modelVersionId=1996754",
+            "category": "Kontext lora",
+            "description": "Ink style",
+            "is_active": true
+        }
+    ]
+}

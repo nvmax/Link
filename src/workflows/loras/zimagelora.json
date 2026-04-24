@@ -1,0 +1,18 @@
+{
+  "default": "",
+  "available_loras": [
+    {
+      "file": "zitMj02.safetensors",
+      "name": "zitMj02",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/2285566/midjourney-style?modelVersionId=2572264",
+      "category": "Style",
+      "description": "Midjourney Style",
+      "is_active": true
+    }
+  ],
+  "categories": [
+    "Style"
+  ]
+}

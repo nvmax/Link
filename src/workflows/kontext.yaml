@@ -1,0 +1,70 @@
+workflow_name: kontext
+discord_command: kontext
+description: Run kontext.json workflow
+mapping:
+  text:
+    - '6'
+    - inputs
+    - text
+  image:
+    - '41'
+    - inputs
+    - image
+  ➕ Add Lora:
+    - '66'
+    - inputs
+    - ➕ Add Lora
+inputs:
+  - id: text
+    type: string
+    label: text
+    required: true
+  - id: image
+    type: image_upload
+    label: image
+    required: true
+  - id: ➕ Add Lora
+    type: string
+    label: ➕ Add Lora
+    required: true
+discord:
+  command: kontext
+  inputs:
+    - id: text
+      nodeId: '6'
+      field: text
+      type: string
+      label: text
+      required: true
+    - id: image
+      nodeId: '41'
+      field: image
+      type: image_upload
+      label: image
+      required: true
+    - id: ➕ Add Lora
+      nodeId: '66'
+      field: ➕ Add Lora
+      type: string
+      label: ➕ Add Lora
+      required: true
+  ui:
+    embed:
+      title_template: '{user}''s Generation'
+      color: '#5865F2'
+      show_metadata:
+        - prompt
+        - seed
+        - model
+        - ratio
+    buttons:
+      - type: regenerate
+        label: Regenerate
+        style: primary
+      - type: options
+        label: Options
+        style: secondary
+      - type: delete
+        label: Delete
+        style: danger
+  loras: {}

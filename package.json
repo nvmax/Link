@@ -1,0 +1,9 @@
+{
+  "name": "link-suite",
+  "version": "1.0.0",
+  "description": "Unified Link Image Generation Suite",
+  "scripts": {
+    "dashboard": "npm run dev --prefix dashboard",
+    "bot": "python main.py"
+  }
+}

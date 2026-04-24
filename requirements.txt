@@ -1,0 +1,7 @@
+discord.py
+aiohttp
+python-dotenv
+sqlalchemy
+pyyaml
+websockets
+Pillow
