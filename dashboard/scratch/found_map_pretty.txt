@@ -1,0 +1,10 @@
+"function VisualWorkflowMap({ workflow, onUpdate, selections, toggleInput, updateSelection, objectInfo }: { 
+  workflow: any, 
+  onUpdate: any,
+  selections: any[],
+  toggleInput: any,
+  updateSelection: any,
+  objectInfo: any
+}) {
+  const [coords,
+<truncated 17261 bytes>
