@@ -158,11 +158,8 @@ discord:
       color: '#5865F2'
       show_metadata:
         - prompt
-        - seed
-        - model
-        - ratio
-      show_footer: true
-      image_position: bottom
+      show_footer: false
+      image_position: top
       show_author: false
     buttons:
       - type: regenerate

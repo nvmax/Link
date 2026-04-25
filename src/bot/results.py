@@ -84,8 +84,8 @@ class ResultHandler:
                                     "image/png"
                                 )
                                 
-                                # Register asset in DB for workflow chaining
-                                asset = Asset(job_id=job.id, file_path=local_filename, file_type=mime)
+                                # Register asset in DB for workflow chaining — store FULL absolute path
+                                asset = Asset(job_id=job.id, file_path=local_path, file_type=mime)
                                 db.add(asset)
                                 
                                 files_to_upload.append(discord.File(local_path, filename=filename))
@@ -101,7 +101,8 @@ class ResultHandler:
                     if files_to_upload:
                         # Get UI Config from manifest
                         wf = self.bot.workflow_registry.get_workflow(job.workflow_name)
-                        ui_cfg = wf.get("manifest", {}).get("discord", {}).get("ui", {})
+                        manifest = wf.get("manifest", {})
+                        ui_cfg = manifest.get("discord", {}).get("ui") or manifest.get("ui", {})
                         embed_cfg = ui_cfg.get("embed", {})
                         
                         # Prepare UI View
@@ -134,7 +135,7 @@ class ResultHandler:
                                 
                                 import json
                                 mapping_str = json.dumps(mapping) if isinstance(mapping, dict) else mapping
-                                custom_id = f"link_action_{target}_{source}_{mapping_str}"
+                                custom_id = f"link_action_{target}_{source}_{mapping_str}_{job.id}"
                                 
                                 if custom_id not in existing_ids:
                                     btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
@@ -145,7 +146,7 @@ class ResultHandler:
                                 target = btn_cfg.get("target_workflow", "")
                                 pass_data = btn_cfg.get("pass_data", "image")
                                 target_input = btn_cfg.get("target_input", "image")
-                                custom_id = f"link_chain_{target}|{pass_data}|{target_input}"
+                                custom_id = f"link_chain_{target}|{pass_data}|{target_input}|{job.id}"
                                 
                                 if custom_id not in existing_ids:
                                     btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
@@ -159,6 +160,7 @@ class ResultHandler:
                                         btn.label = label
                                         btn.style = style
                                         btn.emoji = emoji
+                                        btn.custom_id = f"link_gen_delete_{job.id}"
                                         view.add_item(btn)
                                         existing_ids.add("link_gen_delete")
                                         
@@ -169,6 +171,7 @@ class ResultHandler:
                                         btn.label = label
                                         btn.style = style
                                         btn.emoji = emoji
+                                        btn.custom_id = f"link_gen_redo_{job.id}"
                                         view.add_item(btn)
                                         existing_ids.add("link_gen_redo")
                                         
@@ -179,6 +182,7 @@ class ResultHandler:
                                         btn.label = label
                                         btn.style = style
                                         btn.emoji = emoji
+                                        btn.custom_id = f"link_gen_options_{job.id}"
                                         view.add_item(btn)
                                         existing_ids.add("link_gen_options")
 
@@ -258,8 +262,12 @@ class ResultHandler:
 
                         # IMPORTANT: To get the image ON TOP, we DO NOT put it in the embed.
                         # Discord displays message attachments ABOVE the embed by default.
-                        if embed_cfg.get("image_position") == "bottom" and files_to_upload:
-                            embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
+                        if files_to_upload:
+                            first_filename = files_to_upload[0].filename.lower()
+                            is_image = any(first_filename.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp'])
+                            
+                            if is_image and embed_cfg.get("image_position") == "bottom":
+                                embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
 
                         try:
                             # Use attachments for discord.py 2.0+ but it can be picky with new files

@@ -3,16 +3,27 @@ from discord import app_commands
 from discord.ext import commands
 from src.bot.ui import DynamicModal, OptionsView
 from src.api.workflows import PayloadBuilder
-from src.database.models import GenerationJob, JobStatus
+from src.database.models import GenerationJob, JobStatus, Asset
 from src.database.session import SessionLocal
 from src.core.logger import setup_logger
 import uuid
 import random
 import os
+import aiohttp
+import aiofiles
+import asyncio
 from src.core.config import Config
 from src.bot.loras import LoraSelectionView
 
 logger = setup_logger(__name__)
+ 
+class CapturedFile:
+    """Wrapper for file data to allow reading after original message deletion."""
+    def __init__(self, data: bytes, filename: str):
+        self.data = data
+        self.filename = filename
+    async def read(self):
+        return self.data
 
 class GenerationCog(commands.Cog):
     def __init__(self, bot):
@@ -27,133 +38,170 @@ class GenerationCog(commands.Cog):
 
     async def handle_generation_request(self, interaction: discord.Interaction, workflow_name: str, user_values: dict = None, prefilled: dict = None):
         """Common entry point for both slash commands and modal submissions."""
-        # Channel Lockdown Check
-        if Config.ALLOWED_CHANNEL_ID and interaction.channel_id != Config.ALLOWED_CHANNEL_ID:
-            allowed_channel = f"<#{Config.ALLOWED_CHANNEL_ID}>"
-            msg = f"⛔ This command can only be used in {allowed_channel}."
-            if not interaction.response.is_done():
-                return await interaction.response.send_message(msg, ephemeral=True)
-            else:
-                return await interaction.followup.send(msg, ephemeral=True)
-
-        workflow = self.bot.workflow_registry.get_workflow(workflow_name)
-        if not workflow:
-            msg = f"Workflow {workflow_name} not found."
-            if not interaction.response.is_done():
-                return await interaction.response.send_message(msg, ephemeral=True)
-            else:
-                return await interaction.followup.send(msg, ephemeral=True)
-
-        manifest = workflow["manifest"]
-        inputs = manifest.get("inputs", [])
-
-
-        # --- CONTEXT-AWARE AUTO-DETECTION ---
-        # If we're missing a required image/audio and no user_values/prefilled provided,
-        # or if they are explicitly missing, try to find the last asset.
-        if prefilled is None: prefilled = {}
-        
-        for input_cfg in inputs:
-            input_id = input_cfg.get("id")
-            input_type = input_cfg.get("type")
-            
-            # If it's a file upload and not provided, check the database
-            if input_type in ["image_upload", "audio_upload"] and input_id not in prefilled and (user_values is None or input_id not in user_values):
-                db = SessionLocal()
-                try:
-                    from src.database.models import Asset, GenerationJob
-                    # Find the last asset of this type (image or audio) for this user
-                    last_asset = db.query(Asset).join(GenerationJob).filter(
-                        GenerationJob.user_id == str(interaction.user.id),
-                        Asset.file_type.like("image%" if "image" in input_type else "audio%")
-                    ).order_by(Asset.id.desc()).first()
-                    
-                    if last_asset:
-                        prefilled[input_id] = last_asset.file_path
-                        logger.info(f"Auto-detected last asset for {input_id}: {last_asset.file_path}")
-                finally:
-                    db.close()
-        
-        # Check if there are any modal-compatible fields that aren't already in prefilled
-        modal_fields = []
-        for input_cfg in inputs:
-            fid = input_cfg.get("id")
-            itype = input_cfg.get("type")
-            if itype not in ["image_upload", "audio_upload", "video_upload", "select"] and "lora" not in fid.lower() and "➕" not in fid:
-                # Always show modal fields if they exist to allow user editing,
-                # even if prefilled (so they can modify default/prefilled values).
-                # But we MUST have at least one valid modal field to show the modal.
-                modal_fields.append(input_cfg)
-            elif itype == "select":
-                # For select fields, only show in modal if NOT already prefilled with a URL
-                # (i.e., the value was passed from Discord/chaining, not user selection)
-                prefilled_val = prefilled.get(fid, "")
-                if not (isinstance(prefilled_val, str) and prefilled_val.startswith("http")):
-                    modal_fields.append(input_cfg)
-
-        # If user_values is provided (from slash command), use them. 
-        # Otherwise, show modal if there are inputs.
-        if user_values is None and modal_fields:
-            async def modal_callback(modal_interaction: discord.Interaction, values: dict):
-                # Merge with prefilled (hidden) values
-                final_values = prefilled.copy()
-                final_values.update(values)
-                
-                if manifest.get("lora_list"):
-                    await self.show_lora_selection(modal_interaction, workflow_name, workflow, manifest, final_values)
-                else:
-                    await modal_interaction.response.send_message(f"(Queue) Starting generation for '{workflow_name}'...")
-                    message = await modal_interaction.original_response()
-                    await self._execute_generation(modal_interaction, workflow_name, workflow, manifest, final_values, message_id=message.id)
-
-            modal = DynamicModal(
-                title=manifest.get("workflow_name", workflow_name)[:45],
-                inputs=modal_fields,
-                callback=modal_callback,
-                prefilled=prefilled
-            )
-            await interaction.response.send_modal(modal)
-            return
-
-        # If we have values, merge with prefilled and proceed to selection or execution
-        final_values = prefilled.copy()
-        if user_values:
-            final_values.update({k: v for k, v in user_values.items() if v is not None})
-
-        # --- LORA SELECTION STEP ---
-        # Support both legacy lora_list key AND the new dashboard discord.loras node assignments
-        discord_loras = manifest.get('discord', {}).get('loras', {})
-        # Pick the first non-empty lora list assignment as the list to present
-        lora_list_name = manifest.get("lora_list")
-        if not lora_list_name and discord_loras:
-            lora_list_name = next((v for v in discord_loras.values() if v), None)
-        
-        if lora_list_name:
-            # Store which node the lora should be injected into (from the dashboard assignment)
-            if discord_loras:
-                final_values['__lora_node_assignments__'] = discord_loras
-            await self.show_lora_selection(interaction, workflow_name, workflow, manifest, final_values, lora_list=lora_list_name)
-            return
-
-        display_name = manifest.get("workflow_name") or manifest.get("discord_command") or workflow_name
+        logger.info(f"handle_generation_request called for {workflow_name} by {interaction.user.display_name}")
         try:
+            # Channel Lockdown Check
+            if Config.ALLOWED_CHANNEL_ID and interaction.channel_id != Config.ALLOWED_CHANNEL_ID:
+                allowed_channel = f"<#{Config.ALLOWED_CHANNEL_ID}>"
+                msg = f"⛔ This command can only be used in {allowed_channel}."
+                if not interaction.response.is_done():
+                    return await interaction.response.send_message(msg, ephemeral=True)
+                else:
+                    return await interaction.followup.send(msg, ephemeral=True)
+
+            workflow = self.bot.workflow_registry.get_workflow(workflow_name)
+            if not workflow:
+                msg = f"Workflow {workflow_name} not found."
+                if not interaction.response.is_done():
+                    return await interaction.response.send_message(msg, ephemeral=True)
+                else:
+                    return await interaction.followup.send(msg, ephemeral=True)
+
+            manifest = workflow["manifest"]
+            # Prioritize discord-specific inputs (from Modal Studio/Architect) over base inputs
+            inputs = manifest.get("discord", {}).get("inputs", manifest.get("inputs", []))
+
+            # Ensure prefilled is initialized
+            if prefilled is None: prefilled = {}
+            
+            # (Context-aware auto-detection removed per user request to ensure explicit input selection)
+            
+            # Check for missing required upload fields
+            missing_uploads = []
+            for input_cfg in inputs:
+                if input_cfg.get("type") in ["image_upload", "audio_upload", "video_upload"] and input_cfg.get("required"):
+                    fid = input_cfg.get("id")
+                    if fid not in prefilled and (user_values is None or fid not in user_values):
+                        missing_uploads.append(input_cfg)
+            
+            # Check if there are any modal-compatible fields that aren't already in prefilled
+            modal_fields = []
+            for input_cfg in inputs:
+                fid = input_cfg.get("id")
+                itype = input_cfg.get("type")
+                if itype not in ["image_upload", "audio_upload", "video_upload", "select"] and "lora" not in fid.lower() and "➕" not in fid:
+                    modal_fields.append(input_cfg)
+                elif itype == "select":
+                    prefilled_val = prefilled.get(fid, "")
+                    if not (isinstance(prefilled_val, str) and prefilled_val.startswith("http")):
+                        modal_fields.append(input_cfg)
+
+            # --- ATTACHMENT PROMPT HELPER ---
+            async def ensure_attachments(target_interaction: discord.Interaction, current_values: dict):
+                """Helper to prompt for any missing required file uploads."""
+                missing = []
+                for in_cfg in inputs:
+                    if in_cfg.get("type") in ["image_upload", "audio_upload", "video_upload"] and in_cfg.get("required"):
+                        fid = in_cfg.get("id")
+                        if fid not in current_values:
+                            missing.append(in_cfg)
+                
+                if not missing:
+                    return current_values
+
+                # Ask for the first missing file
+                first_missing = missing[0]
+                label = first_missing.get("label", first_missing.get("id"))
+                prompt_msg = f"📤 **Upload Required**: Please upload the **{label}** for this generation."
+                
+                if not target_interaction.response.is_done():
+                    await target_interaction.response.send_message(prompt_msg, ephemeral=True)
+                else:
+                    await target_interaction.followup.send(prompt_msg, ephemeral=True)
+
+                def check(m):
+                    return m.author.id == target_interaction.user.id and m.channel.id == target_interaction.channel_id and m.attachments
+                
+                try:
+                    msg = await self.bot.wait_for('message', check=check, timeout=120.0)
+                    attachment = msg.attachments[0]
+                    
+                    # Materialize the data immediately so we can delete the message without losing the file
+                    attachment_data = await attachment.read()
+                    current_values[first_missing.get("id")] = CapturedFile(attachment_data, attachment.filename)
+                    
+                    try: await msg.delete()
+                    except: pass
+                    # Recursively check for more missing files
+                    return await ensure_attachments(target_interaction, current_values)
+                except asyncio.TimeoutError:
+                    await target_interaction.followup.send("⏳ Timeout waiting for upload. Please try again.", ephemeral=True)
+                    return None
+
+            # If user_values is None and we have modal fields, show the modal first
+            if user_values is None and modal_fields:
+                async def modal_callback(modal_interaction: discord.Interaction, values: dict):
+                    final_values = prefilled.copy()
+                    final_values.update(values)
+                    
+                    # Now check for uploads
+                    final_values = await ensure_attachments(modal_interaction, final_values)
+                    if final_values is None: return # Timeout
+
+                    if manifest.get("lora_list"):
+                        await self.show_lora_selection(modal_interaction, workflow_name, workflow, manifest, final_values)
+                    else:
+                        if not modal_interaction.response.is_done():
+                            await modal_interaction.response.send_message(f"(Queue) Starting generation for '{workflow_name}'...")
+                            message = await modal_interaction.original_response()
+                        else:
+                            message = await modal_interaction.followup.send(f"(Queue) Starting generation for '{workflow_name}'...")
+                        
+                        await self._execute_generation(modal_interaction, workflow_name, workflow, manifest, final_values, message_id=message.id)
+
+                modal = DynamicModal(
+                    title=manifest.get("workflow_name", workflow_name)[:45],
+                    inputs=modal_fields,
+                    callback=modal_callback,
+                    prefilled=prefilled
+                )
+                await interaction.response.send_modal(modal)
+                return
+
+            # No modal needed, but maybe uploads are?
+            final_values = prefilled.copy()
+            if user_values:
+                final_values.update({k: v for k, v in user_values.items() if v is not None})
+            
+            final_values = await ensure_attachments(interaction, final_values)
+            if final_values is None: return # Timeout
+            # --- LORA SELECTION STEP ---
+            # Support both legacy lora_list key AND the new dashboard discord.loras node assignments
+            discord_loras = manifest.get('discord', {}).get('loras', {})
+            # Pick the first non-empty lora list assignment as the list to present
+            lora_list_name = manifest.get("lora_list")
+            if not lora_list_name and discord_loras:
+                lora_list_name = next((v for v in discord_loras.values() if v), None)
+            
+            if lora_list_name:
+                # If lora_list_name is a dict (from manifest discord.loras), extract the filename
+                if isinstance(lora_list_name, dict):
+                    lora_list_name = lora_list_name.get("list")
+                
+                if lora_list_name:
+                    # Store which node the lora should be injected into (from the dashboard assignment)
+                    if discord_loras:
+                        final_values['__lora_node_assignments__'] = discord_loras
+                    await self.show_lora_selection(interaction, workflow_name, workflow, manifest, final_values, lora_list=lora_list_name)
+                    return
+
+            display_name = manifest.get("workflow_name") or manifest.get("discord_command") or workflow_name
+            
             if not interaction.response.is_done():
                 await interaction.response.send_message(f"Initializing generation for **{display_name}**...")
+                message = await interaction.original_response()
             else:
-                await interaction.edit_original_response(content=f"Initializing generation for **{display_name}**...")
+                message = await interaction.followup.send(f"Initializing generation for **{display_name}**...")
             
-            message = await interaction.original_response()
             await self._execute_generation(interaction, workflow_name, workflow, manifest, final_values, message_id=message.id)
+
         except Exception as e:
-            logger.error(f"Error during generation request for {workflow_name}: {e}", exc_info=True)
-            try:
-                err_msg = f"❌ An error occurred while starting generation: `{e}`"
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(err_msg, ephemeral=True)
-                else:
-                    await interaction.followup.send(err_msg, ephemeral=True)
-            except Exception:
-                pass
+            logger.error(f"Top-level error in handle_generation_request: {e}", exc_info=True)
+            err_msg = f"❌ A critical error occurred: `{e}`"
+            if not interaction.response.is_done():
+                await interaction.response.send_message(err_msg, ephemeral=True)
+            else:
+                await interaction.followup.send(err_msg, ephemeral=True)
 
     def _apply_workflow_overrides(self, manifest: dict, template: dict, values: dict):
         """Applies direct .env overrides for model and steps."""
@@ -198,6 +246,37 @@ class GenerationCog(commands.Cog):
                 # We store the actual bytes and filename to avoid CDN 404s after deletion
                 attachment = message.attachments[0]
                 file_bytes = await attachment.read()
+                
+                # Save the uploaded file to data/assets immediately so it can be reused for chaining
+                import aiofiles
+                local_filename = f"upload_{uuid.uuid4().hex[:8]}_{attachment.filename}"
+                local_path = os.path.join(Config.ASSETS_DIR, local_filename)
+                async with aiofiles.open(local_path, 'wb') as f:
+                    await f.write(file_bytes)
+                logger.info(f"Saved Discord upload to {local_path}")
+                
+                # Register in DB so chain buttons can find it later
+                db = SessionLocal()
+                try:
+                    from src.database.models import Asset, GenerationJob
+                    # Find most recent job for this user to associate the asset
+                    recent_job = db.query(GenerationJob).filter(
+                        GenerationJob.user_id == str(user_id)
+                    ).order_by(GenerationJob.created_at.desc()).first()
+                    if recent_job:
+                        ext = attachment.filename.rsplit('.', 1)[-1].lower()
+                        mime = (
+                            "video/mp4" if ext in ["mp4", "webm", "mov"] else
+                            "audio/wav" if ext in ["wav", "mp3", "flac", "ogg"] else
+                            "image/gif" if ext == "gif" else
+                            "image/png"
+                        )
+                        asset = Asset(job_id=recent_job.id, file_path=local_path, file_type=mime)
+                        db.add(asset)
+                        db.commit()
+                        logger.info(f"Registered Discord upload as asset for job {recent_job.id}")
+                finally:
+                    db.close()
                 
                 # We'll use a simple wrapper to mimic the attachment interface for the uploader
                 class CapturedFile:
@@ -355,61 +434,91 @@ class GenerationCog(commands.Cog):
                     uploaded_filename = await self.bot.api_client.upload_file(value)
                     values[field_id] = uploaded_filename
                 elif isinstance(value, str) and (value.startswith("http://") or value.startswith("https://")):
-                    # (URL download logic remains same...)
+                    # Download from URL (e.g. Discord CDN), save locally, upload to ComfyUI, register in DB
                     try:
                         import aiohttp
-                        from io import BytesIO
-                        async with aiohttp.ClientSession() as session:
-                            async with session.get(value, timeout=30) as resp:
+                        import aiofiles
+                        async with aiohttp.ClientSession() as http_sess:
+                            async with http_sess.get(value, timeout=aiohttp.ClientTimeout(total=60)) as resp:
                                 if resp.status == 200:
                                     data = await resp.read()
-                                    filename = f"url_{uuid.uuid4().hex[:8]}.png"
                                     
-                                    class DummyAttachment:
-                                        def __init__(self, data, name):
-                                            self.data = data
-                                            self.filename = name
-                                        async def read(self): return self.data
-                                        
-                                    dummy = DummyAttachment(data, filename)
-                                    values[field_id] = await self.bot.api_client.upload_file(dummy)
+                                    # Detect extension from content-type or URL
+                                    ctype = resp.headers.get("Content-Type", "image/png")
+                                    ext_map = {
+                                        "image/jpeg": ".jpg", "image/jpg": ".jpg",
+                                        "image/png": ".png", "image/gif": ".gif",
+                                        "image/webp": ".webp",
+                                        "video/mp4": ".mp4", "video/webm": ".webm",
+                                        "audio/wav": ".wav", "audio/mpeg": ".mp3",
+                                        "audio/ogg": ".ogg", "audio/flac": ".flac",
+                                    }
+                                    ext = ext_map.get(ctype.split(";")[0].strip(), ".png")
+                                    # Try to preserve original extension from URL
+                                    url_basename = value.split("?")[0].rsplit("/", 1)[-1]
+                                    if "." in url_basename:
+                                        url_ext = "." + url_basename.rsplit(".", 1)[-1].lower()
+                                        if url_ext in ext_map.values():
+                                            ext = url_ext
+                                    
+                                    local_filename = f"dl_{uuid.uuid4().hex[:8]}{ext}"
+                                    local_path = os.path.join(Config.ASSETS_DIR, local_filename)
+                                    async with aiofiles.open(local_path, 'wb') as lf:
+                                        await lf.write(data)
+                                    logger.info(f"Downloaded URL asset to {local_path}")
+                                    
+                                    # Upload to ComfyUI
+                                    comfy_name = await self.bot.api_client.upload_file(CapturedFile(data, local_filename))
+                                    values[field_id] = comfy_name
+                                    logger.info(f"URL asset uploaded to ComfyUI as '{comfy_name}'")
+                                else:
+                                    logger.error(f"URL download failed with status {resp.status}: {value}")
                     except Exception as e:
-                        logger.error(f"URL download failed: {e}")
+                        logger.error(f"URL download failed for {field_id}: {e}")
                 elif isinstance(value, str) and not (value.startswith("http://") or value.startswith("https://")):
-                    # Potential local file path or filename
+                    # Local file path or bare filename — always resolve relative to ASSETS_DIR
                     possible_paths = [
-                        os.path.abspath(value),
-                        os.path.abspath(os.path.join("data", "assets", value)),
-                        os.path.abspath(os.path.join("data", "assets", os.path.basename(value)))
+                        value,  # already an absolute path
+                        os.path.join(Config.ASSETS_DIR, os.path.basename(value)),
+                        os.path.join(Config.ASSETS_DIR, value),
                     ]
                     
                     found_path = None
                     for p in possible_paths:
-                        if os.path.exists(p) and os.path.isfile(p):
-                            found_path = p
+                        logger.debug(f"Checking for asset at: {p}")
+                        if os.path.isabs(p) or os.path.sep in p or (os.altsep and os.altsep in p):
+                            check = p
+                        else:
+                            check = os.path.join(Config.ASSETS_DIR, p)
+                        
+                        if os.path.exists(check) and os.path.isfile(check):
+                            found_path = check
                             break
+                    # Also try the value as-is if it's absolute
+                    if not found_path and os.path.isabs(value) and os.path.isfile(value):
+                        found_path = value
                             
                     if found_path:
                         logger.info(f"Found local asset for {field_id}: {found_path}")
                         try:
-                            with open(found_path, "rb") as f:
-                                data = f.read()
-                                filename = os.path.basename(found_path)
+                            async with aiofiles.open(found_path, 'rb') as af:
+                                data = await af.read()
+                            filename = os.path.basename(found_path)
+                            
+                            class DummyAttachment:
+                                def __init__(self, d, name):
+                                    self.data = d
+                                    self.filename = name
+                                async def read(self): return self.data
                                 
-                                class DummyAttachment:
-                                    def __init__(self, data, name):
-                                        self.data = data
-                                        self.filename = name
-                                    async def read(self): return self.data
-                                    
-                                dummy = DummyAttachment(data, filename)
-                                uploaded_filename = await self.bot.api_client.upload_file(dummy)
-                                values[field_id] = uploaded_filename
-                                logger.info(f"Local asset uploaded as {uploaded_filename}")
+                            dummy = DummyAttachment(data, filename)
+                            uploaded_filename = await self.bot.api_client.upload_file(dummy)
+                            values[field_id] = uploaded_filename
+                            logger.info(f"Local asset '{found_path}' uploaded to ComfyUI as '{uploaded_filename}'")
                         except Exception as e:
-                            logger.error(f"Local file upload failed for {field_id}: {e}")
-                    elif "." in value and (value.endswith(".png") or value.endswith(".jpg") or value.endswith(".jpeg")):
-                        logger.warning(f"Value '{value}' looks like an image but was not found in assets.")
+                            logger.error(f"Local file upload failed for {field_id} ({found_path}): {e}")
+                    elif isinstance(value, str) and any(value.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".wav", ".mp3"]):
+                        logger.warning(f"Field '{field_id}': value '{value}' NOT found in assets dir ({Config.ASSETS_DIR}). Tried paths: {possible_paths}")
 
             final_values = values.copy()
             

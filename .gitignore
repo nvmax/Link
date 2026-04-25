@@ -33,3 +33,5 @@ out/
 .idea/
 *.swp
 *.swo
+
+.agent

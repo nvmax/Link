@@ -40,7 +40,7 @@ inputs:
       - 5:8 [768x1216 portrait]
       - 9:19 [704x1472 portrait]
   - id: ➕ Add Lora
-    type: text
+    type: select
     label: ➕ Add Lora
     required: true
 discord:
@@ -77,7 +77,7 @@ discord:
     - id: ➕ Add Lora
       nodeId: '271'
       field: ➕ Add Lora
-      type: text
+      type: select
       label: ➕ Add Lora
       required: true
   ui:
@@ -89,7 +89,8 @@ discord:
         - seed
         - model
         - ratio
-      show_footer: true
+        - steps
+      show_footer: false
       image_position: top
       show_author: false
     buttons:
@@ -110,5 +111,59 @@ discord:
         style: primary
         target_workflow: LTXVIA2V
         emoji: 📽️
-    positions: {}
-  loras: {}
+    positions:
+      '8':
+        x: 3100
+        'y': 100
+      '152':
+        x: 2600
+        'y': 100
+      '153':
+        x: 100
+        'y': 100
+      '258':
+        x: 2100
+        'y': 100
+      '271':
+        x: 600
+        'y': 100
+      '286':
+        x: 4600
+        'y': 100
+      '287':
+        x: 126.61610921223959
+        'y': 853.2829284667969
+      '288':
+        x: 136.44561767578125
+        'y': 1134.7790018717449
+      '289':
+        x: 4100
+        'y': 100
+      '290':
+        x: 3600
+        'y': 100
+      '198:3':
+        x: 1100
+        'y': 100
+      '198:4':
+        x: 1600
+        'y': 100
+      '198:2':
+        x: 2100
+        'y': 700
+      '198:5':
+        x: 2100
+        'y': 1300
+      '198:0':
+        x: 2100
+        'y': 1900
+      '198:1':
+        x: 2100
+        'y': 2500
+      '198:6':
+        x: 2599.9496459960938
+        'y': 576.6162109375
+  loras:
+    '271':
+      list: lora.json
+      mode: list

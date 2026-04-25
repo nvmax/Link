@@ -1,4 +1,5 @@
 import discord
+import os
 from discord import ui
 from src.database.session import SessionLocal
 from src.database.models import GenerationJob
@@ -11,11 +12,23 @@ class GenerationView(discord.ui.View):
         super().__init__(timeout=None)
 
     async def _get_job_id(self, interaction: discord.Interaction):
+        # 1. Try to get from custom_id (Preferred)
+        custom_id = interaction.data.get("custom_id", "")
+        job_id = None
+        if "link_chain_" in custom_id:
+            job_id = custom_id.split("|")[-1]
+        elif "_" in custom_id:
+            job_id = custom_id.split("_")[-1]
+            
+        if job_id and len(job_id) >= 32:
+            return job_id
+                
+        # 2. Fallback to footer
         if not interaction.message or not interaction.message.embeds:
             return None
-        footer = interaction.message.embeds[0].footer.text
-        if "Job ID: " in footer:
-            return footer.split("Job ID: ")[1].strip()
+        footer = interaction.message.embeds[0].footer
+        if footer and footer.text and "Job ID: " in footer.text:
+            return footer.text.split("Job ID: ")[1].strip()
         return None
 
     @discord.ui.button(label="Regenerate", style=discord.ButtonStyle.primary, custom_id="link_gen_redo")
@@ -55,18 +68,37 @@ async def handle_smart_action(interaction: discord.Interaction):
         return
         
     custom_id = interaction.data.get("custom_id", "")
-    if not (custom_id.startswith("link_action_") or custom_id.startswith("link_chain_")):
+    if not custom_id.startswith("link_"):
         return
+    
+    # Handle simple actions first
+    if custom_id.startswith("link_gen_delete"):
+        try:
+            return await interaction.message.delete()
+        except:
+            return await interaction.response.send_message("❌ Could not delete message.", ephemeral=True)
         
-    # Default values
-    target_wf = ""
-    # Get Job ID from message
-    if not interaction.message or not interaction.message.embeds:
-        return
-    footer = interaction.message.embeds[0].footer.text
-    if "Job ID: " not in footer:
-        return
-    job_id = footer.split("Job ID: ")[1].strip()
+    # Get Job ID
+    job_id = None
+    if "link_chain_" in custom_id:
+        job_id = custom_id.split("|")[-1]
+    elif "_" in custom_id:
+        job_id = custom_id.split("_")[-1]
+    
+    # Validate job_id looks like a UUID (at least 32 chars)
+    if job_id and len(job_id) < 32:
+        job_id = None
+    
+    if not job_id and interaction.message and interaction.message.embeds:
+        footer = interaction.message.embeds[0].footer
+        if footer and footer.text and "Job ID: " in footer.text:
+            job_id = footer.split("Job ID: ")[1].strip()
+            
+    if not job_id:
+        # If it's a regenerate/options button, it might be handled by the View class if custom_id was static
+        # But we want to handle everything here for consistency if Job ID is missing.
+        if "link_gen_" in custom_id: return # Let the View handle it if possible
+        return await interaction.response.send_message("❌ Could not find Job ID for this action. (Footer might be disabled)", ephemeral=True)
     
     db = SessionLocal()
     try:
@@ -132,8 +164,40 @@ async def handle_smart_action(interaction: discord.Interaction):
                             best_inp = c
                     
                     if best_inp and best_inp["id"] not in prefilled:
-                        prefilled[best_inp["id"]] = att.url
-                        logger.info(f"Auto-selected best input '{best_inp['id']}' (score {best_score}) for {ctype}")
+                        # Prefer local DB asset path over Discord CDN URL (CDN URLs can expire)
+                        # Try to find the corresponding local asset in the DB
+                        local_asset_path = None
+                        try:
+                            from src.database.models import Asset as AssetModel, GenerationJob as GenJob
+                            from src.database.session import SessionLocal as DBSession
+                            _db = DBSession()
+                            try:
+                                ctype_check = (att.content_type or "").lower()
+                                if "image" in ctype_check:
+                                    mime_like = "image%"
+                                elif "video" in ctype_check or ctype_check == "image/gif":
+                                    mime_like = "video%"
+                                elif "audio" in ctype_check:
+                                    mime_like = "audio%"
+                                else:
+                                    mime_like = None
+                                
+                                if mime_like:
+                                    last_local = _db.query(AssetModel).join(GenJob).filter(
+                                        GenJob.user_id == str(interaction.user.id),
+                                        AssetModel.file_type.like(mime_like),
+                                        AssetModel.file_path.notlike("http%")
+                                    ).order_by(AssetModel.id.desc()).first()
+                                    if last_local and os.path.isfile(last_local.file_path):
+                                        local_asset_path = last_local.file_path
+                                        logger.info(f"Using local DB asset for chaining: {local_asset_path}")
+                            finally:
+                                _db.close()
+                        except Exception as _e:
+                            logger.warning(f"Could not query local asset from DB: {_e}")
+                        
+                        prefilled[best_inp["id"]] = local_asset_path if local_asset_path else att.url
+                        logger.info(f"Auto-selected best input '{best_inp['id']}' (score {best_score}) for {ctype} -> {'local path' if local_asset_path else 'CDN URL'}")
             
             # Also pass prompt and seed if applicable
             for inp in target_inputs:
@@ -183,5 +247,13 @@ async def handle_smart_action(interaction: discord.Interaction):
             )
         else:
             await interaction.response.send_message("❌ Generation system unavailable.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in handle_smart_action: {e}", exc_info=True)
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        except: pass
     finally:
         db.close()

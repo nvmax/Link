@@ -66,34 +66,42 @@ class LinkBot(commands.Bot):
                     except:
                         pass
                         
-                    gen_cog = self.get_cog("GenerationCog")
-                    if gen_cog:
-                        # ... rest of logic
-                        discord_loras = manifest_data.get('discord', {}).get('loras', {})
-                        has_dynamic_loras = False
-                        for node_id, config in discord_loras.items():
-                            if isinstance(config, str):
-                                if config == 'list': has_dynamic_loras = True
-                            elif isinstance(config, dict):
-                                if config.get('mode', 'list') == 'list': has_dynamic_loras = True
+                    try:
+                        gen_cog = self.get_cog("GenerationCog")
+                        if gen_cog:
+                            # ... rest of logic
+                            discord_loras = manifest_data.get('discord', {}).get('loras', {})
+                            has_dynamic_loras = False
+                            for node_id, config in discord_loras.items():
+                                if isinstance(config, str):
+                                    if config == 'list': has_dynamic_loras = True
+                                elif isinstance(config, dict):
+                                    if config.get('mode', 'list') == 'list': has_dynamic_loras = True
+                                else:
+                                    has_dynamic_loras = True
+                                    
+                            if manifest_data.get('lora_list') and has_dynamic_loras:
+                                kwargs['__lora_node_assignments__'] = discord_loras
+                                await gen_cog.show_lora_selection(
+                                    interaction, wf_name, workflow, manifest_data, kwargs, 
+                                    lora_list=manifest_data.get('lora_list')
+                                )
                             else:
-                                has_dynamic_loras = True
-                                
-                        if manifest_data.get('lora_list') and has_dynamic_loras:
-                            kwargs['__lora_node_assignments__'] = discord_loras
-                            await gen_cog.show_lora_selection(
-                                interaction, wf_name, workflow, manifest_data, kwargs, 
-                                lora_list=manifest_data.get('lora_list')
-                            )
+                                # Use handle_generation_request instead of _execute_generation 
+                                # to ensure status messages and initialization logic are handled
+                                await gen_cog.handle_generation_request(interaction, wf_name, user_values=kwargs)
                         else:
-                            # Use handle_generation_request instead of _execute_generation 
-                            # to ensure status messages and initialization logic are handled
-                            await gen_cog.handle_generation_request(interaction, wf_name, user_values=kwargs)
-                    else:
+                            if not interaction.response.is_done():
+                                await interaction.response.send_message("Generation system not loaded.", ephemeral=True)
+                            else:
+                                await interaction.followup.send("Generation system not loaded.", ephemeral=True)
+                    except Exception as e:
+                        logger.error(f"Error in dynamic command {wf_name}: {e}", exc_info=True)
+                        err_msg = f"❌ Error executing command: `{e}`"
                         if not interaction.response.is_done():
-                            await interaction.response.send_message("Generation system not loaded.", ephemeral=True)
+                            await interaction.response.send_message(err_msg, ephemeral=True)
                         else:
-                            await interaction.followup.send("Generation system not loaded.", ephemeral=True)
+                            await interaction.followup.send(err_msg, ephemeral=True)
                 return callback
 
             callback = create_callback(workflow_name, wf_data, manifest)

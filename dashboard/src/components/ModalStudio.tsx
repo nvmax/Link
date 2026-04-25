@@ -49,7 +49,7 @@ export function ModalStudio() {
                     className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] text-slate-400 font-bold"
                   >
                     <option value="top">Main (Top)</option>
-                    <option value="bottom">Thumbnail (Bottom)</option>
+                    <option value="bottom">Thumbnail (Bottom) do not use for video/audio modal</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -376,7 +376,7 @@ export function ModalStudio() {
                 <span className="text-xs font-black uppercase tracking-widest">Live Visualizer</span>
             </div>
             <p className="text-[10px] text-amber-500/60 leading-relaxed font-medium">
-              Changes here update the Discord interaction manifest in real-time. This defines how users see your workflow outputs.
+              Changes here update the Discord interaction manifest in real-time. This defines how users see your workflow outputs, must reboot bot for it to take effect in discord.
             </p>
           </div>
       </div>
