@@ -30,6 +30,10 @@ class LinkBot(commands.Bot):
         # Register dynamic commands from workflows
         await self.register_workflow_commands()
         
+        # Register global interaction listener for smart actions
+        from src.bot.views import handle_smart_action
+        self.add_listener(handle_smart_action, "on_interaction")
+        
         # Sync commands to Discord
         # For development, we sync to a specific guild for instant updates
         if Config.ALLOWED_GUILD_ID:
@@ -55,28 +59,41 @@ class LinkBot(commands.Bot):
             # Create a dynamic callback
             def create_callback(wf_name, workflow, manifest_data):
                 async def callback(interaction: discord.Interaction, **kwargs):
+                    # Defer immediately to prevent "Application did not respond"
+                    try:
+                        if not interaction.response.is_done():
+                            await interaction.response.defer(ephemeral=False)
+                    except:
+                        pass
+                        
                     gen_cog = self.get_cog("GenerationCog")
                     if gen_cog:
-                        # Check if this workflow uses LoRAs (via assignment or manifest flag)
+                        # ... rest of logic
                         discord_loras = manifest_data.get('discord', {}).get('loras', {})
-                        lora_list_name = manifest_data.get('lora_list')
-                        
-                        # If loras are mapped but no specific list is assigned, use the first assigned one
-                        if not lora_list_name and discord_loras:
-                            lora_list_name = next((v for v in discord_loras.values() if v), None)
-
-                        if lora_list_name:
-                            # Inject lora node mapping into the values so the picker knows where to write
+                        has_dynamic_loras = False
+                        for node_id, config in discord_loras.items():
+                            if isinstance(config, str):
+                                if config == 'list': has_dynamic_loras = True
+                            elif isinstance(config, dict):
+                                if config.get('mode', 'list') == 'list': has_dynamic_loras = True
+                            else:
+                                has_dynamic_loras = True
+                                
+                        if manifest_data.get('lora_list') and has_dynamic_loras:
                             kwargs['__lora_node_assignments__'] = discord_loras
                             await gen_cog.show_lora_selection(
                                 interaction, wf_name, workflow, manifest_data, kwargs, 
-                                lora_list=lora_list_name
+                                lora_list=manifest_data.get('lora_list')
                             )
                         else:
-                            # No LoRAs, proceed to generation
-                            await gen_cog._execute_generation(interaction, wf_name, workflow, manifest_data, kwargs)
+                            # Use handle_generation_request instead of _execute_generation 
+                            # to ensure status messages and initialization logic are handled
+                            await gen_cog.handle_generation_request(interaction, wf_name, user_values=kwargs)
                     else:
-                        await interaction.response.send_message("Generation system not loaded.", ephemeral=True)
+                        if not interaction.response.is_done():
+                            await interaction.response.send_message("Generation system not loaded.", ephemeral=True)
+                        else:
+                            await interaction.followup.send("Generation system not loaded.", ephemeral=True)
                 return callback
 
             callback = create_callback(workflow_name, wf_data, manifest)
@@ -170,8 +187,14 @@ class LinkBot(commands.Bot):
                     continue
                 if "lora" in fid.lower() or "➕" in fid:
                     continue
-                if input_cfg.get("type") in ["image_upload", "audio_upload"]:
+                if input_cfg.get("type") in ["image_upload", "audio_upload", "video_upload"]:
                     continue
+                
+                # Check if it was auto-converted
+                if isinstance(choices_data, list) and choices_data:
+                    first = str(choices_data[0]).lower()
+                    if any(first.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp', '.mp4']):
+                        continue
 
                 if isinstance(choices_data, list):
                     all_choices = choices_data

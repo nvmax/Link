@@ -51,15 +51,22 @@ async def main():
         current_prompt_id = packet.get("data", {}).get("prompt_id")
         logger.info(f"Execution started for prompt {current_prompt_id}")
 
-    async def executed_handler(packet):
+    async def prompt_completed_handler(packet):
         data = packet.get("data", {})
         prompt_id = data.get("prompt_id")
-        logger.info(f"Execution finished for prompt {prompt_id}")
-        await result_handler.handle_execution_done(prompt_id)
+        
+        # If it's an 'executing' event, only trigger if node is None (meaning prompt finished)
+        if packet.get("type") == "executing" and data.get("node") is not None:
+            return
+            
+        if prompt_id:
+            logger.info(f"Execution fully finished for prompt {prompt_id}")
+            await result_handler.handle_execution_done(prompt_id)
 
     ws.register_handler("execution_start", execution_start_handler)
     ws.register_handler("progress", progress_handler)
-    ws.register_handler("executed", executed_handler)
+    ws.register_handler("execution_success", prompt_completed_handler)
+    ws.register_handler("executing", prompt_completed_handler)
 
     try:
         # Start WebSocket listener in the background

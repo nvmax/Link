@@ -93,6 +93,47 @@ export function ListView() {
                       </div>
                     </div>
 
+                    {/* Discord Input Type panel — same as Visual Architect */}
+                    {isSelected && (
+                      <div className="mb-3 p-2 rounded-xl bg-black/40 border border-indigo-500/20 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">ComfyUI type</span>
+                          <span className="text-[7px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
+                            {(() => {
+                              const ii = inputInfo;
+                              if (!ii) return 'unknown';
+                              if (Array.isArray(ii[0])) return `ENUM (${ii[0].length} options)`;
+                              if (typeof ii[0] === 'string') return ii[0];
+                              return 'unknown';
+                            })()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[7px] font-bold text-indigo-300/70 uppercase tracking-widest">Discord input type</span>
+                          {['image_upload','audio_upload','video_upload'].includes(isSelected.type) && (
+                            <span className="text-[7px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">FILE → channel</span>
+                          )}
+                          {isSelected.type === 'text' && (
+                            <span className="text-[7px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">TEXT → modal</span>
+                          )}
+                          {isSelected.type === 'select' && (
+                            <span className="text-[7px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">SELECT → modal</span>
+                          )}
+                        </div>
+                        <select
+                          value={isSelected.type || 'text'}
+                          onChange={(e) => updateSelection(selections.indexOf(isSelected), { type: e.target.value })}
+                          className="w-full bg-black/60 border border-indigo-500/30 rounded-lg text-[10px] px-2 py-1.5 text-slate-200 outline-none focus:border-indigo-500 font-mono"
+                        >
+                          <option value="text">text — free text / prompt (modal)</option>
+                          <option value="image_upload">image_upload — image file (channel)</option>
+                          <option value="audio_upload">audio_upload — audio file (channel)</option>
+                          <option value="video_upload">video_upload — video file (channel)</option>
+                          <option value="select">select — dropdown choices (modal)</option>
+                        </select>
+                      </div>
+                    )}
+
                     {isDropdown ? (
                       <select
                         value={val}

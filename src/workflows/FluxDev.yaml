@@ -1,4 +1,6 @@
+workflow_name: FluxDev
 discord_command: dream
+description: Run dream workflow
 mapping:
   text:
     - '198:3'
@@ -14,7 +16,7 @@ mapping:
     - ➕ Add Lora
 inputs:
   - id: text
-    type: string
+    type: text
     label: text
     required: true
   - id: ratio_selected
@@ -38,7 +40,7 @@ inputs:
       - 5:8 [768x1216 portrait]
       - 9:19 [704x1472 portrait]
   - id: ➕ Add Lora
-    type: string
+    type: text
     label: ➕ Add Lora
     required: true
 discord:
@@ -47,7 +49,7 @@ discord:
     - id: text
       nodeId: '198:3'
       field: text
-      type: string
+      type: text
       label: text
       required: true
     - id: ratio_selected
@@ -75,7 +77,7 @@ discord:
     - id: ➕ Add Lora
       nodeId: '271'
       field: ➕ Add Lora
-      type: string
+      type: text
       label: ➕ Add Lora
       required: true
   ui:
@@ -87,17 +89,26 @@ discord:
         - seed
         - model
         - ratio
+      show_footer: true
+      image_position: top
+      show_author: false
     buttons:
       - type: regenerate
         label: Regenerate
         style: primary
+        emoji: ♻️
       - type: options
         label: Options
         style: secondary
+        emoji: ⚙️
       - type: delete
         label: Delete
         style: danger
-  loras:
-    '271': lora.json
-workflow_name: FluxDev
-description: Run dream workflow
+        emoji: 🗑️
+      - type: chain
+        label: Video This
+        style: primary
+        target_workflow: LTXVIA2V
+        emoji: 📽️
+    positions: {}
+  loras: {}

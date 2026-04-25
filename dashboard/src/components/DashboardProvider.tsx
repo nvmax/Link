@@ -35,13 +35,68 @@ interface DashboardContextType {
   moveLora: (idx: number, dir: 'up' | 'down') => void;
   deleteLora: (idx: number) => void;
   addLora: () => void;
-  loraSelections: Record<string, string>;
-  setLoraSelections: (selections: Record<string, string>) => void;
+  loraSelections: Record<string, any>;
+  setLoraSelections: (selections: Record<string, any>) => void;
+  updateLoraSelection: (nodeId: string, updates: any) => void;
   objectInfo: any;
   updateWorkflowInput: (nodeId: string, field: string, value: any) => void;
+  nodeCoords: Record<string, { x: number, y: number }>;
+  setNodeCoords: (coords: Record<string, { x: number, y: number }> | ((prev: any) => any)) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
+
+// ---------------------------------------------------------------------------
+// Universal type inference — the SINGLE source of truth for Discord input types.
+// Used by both the Architect (when toggling inputs) and loadWorkflow
+// (to normalize types in existing manifests so re-importing always works).
+// ---------------------------------------------------------------------------
+function inferDiscordType(
+  classType: string,
+  field: string,
+  objectInfo: any,
+  existingType?: string
+): { type: string; choices?: any[] } {
+  const classLower = (classType || '').toLowerCase();
+  const fieldLower = (field || '').toLowerCase();
+
+  // 1. ComfyUI objectInfo — enum/choices array → select (most reliable)
+  const nodeInfo = objectInfo?.[classType];
+  const inputInfo = nodeInfo?.input?.required?.[field] || nodeInfo?.input?.optional?.[field];
+  if (Array.isArray(inputInfo) && Array.isArray(inputInfo[0])) {
+    return { type: 'select', choices: inputInfo[0] };
+  }
+
+  // 2. Node class_type keywords (LoadAudio, LoadImage, etc.) — high confidence
+  if (classLower.includes('loadaudio') || (classLower.includes('audio') && fieldLower === 'audio')) {
+    return { type: 'audio_upload' };
+  }
+  if (classLower.includes('loadvideo') || classLower.includes('vhs_loadaudio')) {
+    return { type: 'video_upload' };
+  }
+  if (classLower.includes('loadimage') || classLower.includes('imageinput') || classLower.includes('imageloader')) {
+    return { type: 'image_upload' };
+  }
+
+  // 3. Field name keywords — fallback
+  if (fieldLower.includes('audio') || fieldLower.includes('sound') || fieldLower.includes('music')) {
+    return { type: 'audio_upload' };
+  }
+  if (fieldLower.includes('video') || fieldLower.includes('clip') || fieldLower.includes('footage')) {
+    return { type: 'video_upload' };
+  }
+  if (fieldLower === 'image' || fieldLower === 'img' || fieldLower.includes('image')) {
+    return { type: 'image_upload' };
+  }
+
+  // 4. If existing type is already a valid upload type, keep it
+  if (existingType && ['image_upload', 'audio_upload', 'video_upload', 'select'].includes(existingType)) {
+    return { type: existingType };
+  }
+
+  // 5. Default — free text (shown in modal)
+  return { type: 'text' };
+}
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<'setup' | 'architect' | 'modal-studio' | 'lora-studio'>('setup');
@@ -65,7 +120,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     ]
   });
 
-  const [loraSelections, setLoraSelections] = useState<Record<string, string>>({});
+  const [loraSelections, setLoraSelections] = useState<Record<string, any>>({});
+  const [nodeCoords, setNodeCoords] = useState<Record<string, { x: number, y: number }>>({});
+  
+  const updateLoraSelection = (nodeId: string, updates: any) => {
+    setLoraSelections(prev => {
+      const current = prev[nodeId];
+      const normalized = typeof current === 'string' ? { list: current, mode: 'list' } : (current || { list: '', mode: 'list' });
+      return { ...prev, [nodeId]: { ...normalized, ...updates } };
+    });
+  };
 
   // LoRA Studio State
   const [loraFiles, setLoraFiles] = useState<any[]>([]);
@@ -104,10 +168,36 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           };
         });
       }
+      // Normalize types in loaded selections: apply inferDiscordType so
+      // any old/wrong types (e.g. 'string' for audio) are corrected immediately
+      // when the user opens the workflow in the Architect.
+      if (Array.isArray(loadedSelections) && data.workflow && data.objectInfo) {
+        loadedSelections = loadedSelections.map((sel: any) => {
+          const nodeClassType = data.workflow?.[sel.nodeId]?.class_type || '';
+          const inferred = inferDiscordType(nodeClassType, sel.field, data.objectInfo, sel.type);
+          // Only override if the existing type is a generic/wrong type
+          const genericTypes = ['string', 'text', 'STRING', 'number', 'NUMBER', ''];
+          const normalizedType = genericTypes.includes(sel.type) ? inferred.type : sel.type;
+          return {
+            ...sel,
+            type: normalizedType,
+            choices: normalizedType === 'select' ? (sel.choices || inferred.choices) : sel.choices
+          };
+        });
+      }
       setSelections(loadedSelections || []);
       setCustomCommandName(data.manifest?.discord_command || data.manifest?.discord?.command || '');
       setLoraSelections(data.manifest?.discord?.loras || {});
-      if (data.manifest?.discord?.ui) setUiConfig(data.manifest.discord.ui);
+      if (data.manifest?.discord?.ui) {
+        setUiConfig(data.manifest.discord.ui);
+        if (data.manifest.discord.ui.positions) {
+          setNodeCoords(data.manifest.discord.ui.positions);
+        } else {
+          setNodeCoords({}); // Reset if no positions
+        }
+      } else {
+        setNodeCoords({});
+      }
     } catch (e) {
       console.error('Failed to load workflow:', e);
     }
@@ -163,7 +253,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         discord: {
           command: customCommandName,
           inputs: selections,
-          ui: uiConfig,
+          ui: {
+            ...uiConfig,
+            positions: nodeCoords
+          },
           loras: loraSelections
         }
       };
@@ -187,16 +280,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const existing = selections.find(s => s.nodeId === nodeId && s.field === field);
     if (existing) {
       setSelections(selections.filter(s => s !== existing));
-    } else if (type) {
-      let actualType = type;
-      let choices = undefined;
-      const nodeInfo = objectInfo?.[selectedWorkflow?.content?.[nodeId]?.class_type];
-      const inputInfo = nodeInfo?.input?.required?.[field] || nodeInfo?.input?.optional?.[field];
-      if (Array.isArray(inputInfo) && Array.isArray(inputInfo[0])) {
-         actualType = 'select';
-         choices = inputInfo[0];
-      }
-      setSelections([...selections, { id: field, nodeId, field, type: actualType, label: field, required: true, choices }]);
+    } else if (type !== null) {
+      const classType = selectedWorkflow?.content?.[nodeId]?.class_type || '';
+      const { type: inferredType, choices } = inferDiscordType(classType, field, objectInfo);
+      setSelections([...selections, {
+        id: field,
+        nodeId,
+        field,
+        type: inferredType,
+        label: field,
+        required: true,
+        choices
+      }]);
     }
   };
 
@@ -303,8 +398,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     loadWorkflow, saveWorkflow,
     toggleInput, updateSelection, moveInput,
     loadLoraFile, saveLoraFile, updateLoraField, moveLora, deleteLora, addLora,
-    loraSelections, setLoraSelections,
-    objectInfo, updateWorkflowInput
+    loraSelections, setLoraSelections, updateLoraSelection,
+    objectInfo, updateWorkflowInput,
+    nodeCoords, setNodeCoords
   };
 
   return (

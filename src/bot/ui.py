@@ -14,11 +14,18 @@ class DynamicModal(ui.Modal):
         prefilled = prefilled or {}
 
         for input_cfg in inputs:
-            if input_cfg.get("type") in ["image_upload", "audio_upload", "select"]:
+            itype = input_cfg.get("type", "")
+            fid = input_cfg.get("id", "")
+            fid_lower = fid.lower()
+            # Skip all file-upload types (declared or inferred by field name)
+            FILE_UPLOAD_TYPES = ["image_upload", "audio_upload", "video_upload", "select"]
+            FILE_KEYWORDS = ["audio", "video", "image", "file", "attachment"]
+            if itype in FILE_UPLOAD_TYPES:
+                continue
+            if any(k in fid_lower for k in FILE_KEYWORDS):
                 continue
             # Skip LoRA fields
-            fid = input_cfg["id"]
-            if "lora" in fid.lower() or "➕" in fid:
+            if "lora" in fid_lower or "➕" in fid:
                 continue
 
             label = input_cfg.get("label", fid)[:45]

@@ -14,8 +14,8 @@ export function Sidebar() {
           <Network className="text-white w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-xl font-black tracking-tighter text-white">ATLAS</h1>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Architect Dashboard</p>
+          <h1 className="text-xl font-black tracking-tighter text-white">LINK</h1>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Dashboard</p>
         </div>
       </div>
 

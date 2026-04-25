@@ -24,3 +24,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+select option {
+  background-color: #0d0d0f;
+  color: white;
+  padding: 8px;
+}
+
+select {
+  color-scheme: dark;
+}

@@ -37,20 +37,34 @@ class ResultHandler:
             
             files_to_upload = []
             
-            # 2. Scan ALL nodes for images
+            # 2. Scan ALL output nodes for any media files
+            # Keys used by common ComfyUI nodes:
+            #   images     — standard image nodes (SaveImage, PreviewImage)
+            #   gifs       — animated GIFs
+            #   video      — VHS_VideoCombine (single video)
+            #   videos     — VHS_VideoCombine (list form)
+            #   audio      — audio output nodes
+            #   output     — generic
+            SCAN_KEYS = ["images", "gifs", "video", "videos", "audio", "output"]
+            
             for node_id, node_output in outputs.items():
-                # Some nodes put images in 'images', others in 'gifs', etc.
-                for key in ["images", "gifs", "output"]:
+                for key in SCAN_KEYS:
                     if key in node_output:
-                        for img_info in node_output[key]:
-                            filename = img_info.get("filename")
-                            subfolder = img_info.get("subfolder", "")
-                            folder_type = img_info.get("type", "output")
+                        items = node_output[key]
+                        # Normalise: VHS may return a dict instead of a list for 'video'
+                        if isinstance(items, dict):
+                            items = [items]
+                        for file_info in items:
+                            if not isinstance(file_info, dict):
+                                continue
+                            filename = file_info.get("filename")
+                            subfolder = file_info.get("subfolder", "")
+                            folder_type = file_info.get("type", "output")
                             
                             if not filename:
                                 continue
 
-                            logger.info(f"Found output in node {node_id}: {filename} (subfolder: {subfolder})")
+                            logger.info(f"Found output in node {node_id} [{key}]: {filename} (subfolder={subfolder}, type={folder_type})")
                             
                             try:
                                 img_data = await self.bot.api_client.get_image(filename, subfolder, folder_type)
@@ -61,13 +75,22 @@ class ResultHandler:
                                 async with aiofiles.open(local_path, mode='wb') as f:
                                     await f.write(img_data)
                                 
+                                # Determine MIME type for DB asset
+                                ext = filename.rsplit('.', 1)[-1].lower()
+                                mime = (
+                                    "video/mp4" if ext in ["mp4", "webm", "mov"] else
+                                    "audio/wav" if ext in ["wav", "mp3", "flac", "ogg"] else
+                                    "image/gif" if ext == "gif" else
+                                    "image/png"
+                                )
+                                
                                 # Register asset in DB for workflow chaining
-                                asset = Asset(job_id=job.id, file_path=local_filename, file_type="image/png")
+                                asset = Asset(job_id=job.id, file_path=local_filename, file_type=mime)
                                 db.add(asset)
                                 
                                 files_to_upload.append(discord.File(local_path, filename=filename))
                             except Exception as e:
-                                logger.error(f"Failed to download image {filename}: {e}")
+                                logger.error(f"Failed to download file {filename}: {e}")
 
             # 3. Deliver to Discord (Recycle the progress message)
             channel = self.bot.get_channel(int(job.channel_id))
@@ -78,56 +101,26 @@ class ResultHandler:
                     if files_to_upload:
                         # Get UI Config from manifest
                         wf = self.bot.workflow_registry.get_workflow(job.workflow_name)
-                        ui_cfg = wf.get("manifest", {}).get("ui_config", {})
+                        ui_cfg = wf.get("manifest", {}).get("discord", {}).get("ui", {})
                         embed_cfg = ui_cfg.get("embed", {})
                         
-                        # Get User for title formatting
-                        try:
-                            user = self.bot.get_user(int(job.user_id))
-                            if not user:
-                                user = await self.bot.fetch_user(int(job.user_id))
-                            user_name = user.display_name
-                        except:
-                            user_name = "User"
-                        
-                        title = embed_cfg.get("title_template", "✨ Generation Complete").replace("{user}", user_name)
-                        color_hex = embed_cfg.get("color", "#2b2d31")
-                        
-                        # Detect the prompt field (might be 'prompt' or 'text' from Architect)
-                        display_prompt = job.input_params.get('prompt') or job.input_params.get('text', 'N/A')
-
-                        # Create a beautiful Embed
-                        embed = discord.Embed(
-                            title=title,
-                            description=f"**Prompt:**\n{display_prompt}",
-                            color=discord.Color.from_str(color_hex)
-                        )
-                        
-                        show_meta = embed_cfg.get("show_metadata", ["prompt", "seed", "model", "ratio"])
-                        
-                        if "ratio" in show_meta:
-                            res_val = job.input_params.get("ratio") or job.input_params.get("ratio_selected", "Standard")
-                            embed.add_field(name="📐 Resolution", value=res_val, inline=True)
-                        if "seed" in show_meta:
-                            seed_val = job.input_params.get("seed", "Random")
-                            embed.add_field(name="🎲 Seed", value=f"`{seed_val}`", inline=True)
-                        if "model" in show_meta:
-                            model_val = job.input_params.get("__model__", "Unknown")
-                            embed.add_field(name="🤖 Model", value=f"`{model_val}`", inline=False)
-                        if "steps" in show_meta:
-                            embed.add_field(name="⏱️ Steps", value=f"`{job.input_params.get('steps', '20')}`", inline=True)
+                        # Prepare UI View
                         
                         # Create View and sync with configured buttons
                         from src.bot.views import GenerationView
                         view = GenerationView()
                         
-                        # Track existing custom_ids in the base view to avoid duplicates
-                        existing_ids = {item.custom_id for item in view.children if hasattr(item, 'custom_id')}
+                        # Grab existing items to retain their callbacks
+                        existing_items = {item.custom_id: item for item in view.children if hasattr(item, 'custom_id')}
+                        view.clear_items()
                         
+                        existing_ids = set()
                         for btn_cfg in ui_cfg.get("buttons", []):
                             btn_type = btn_cfg.get("type", "action")
                             label = btn_cfg.get("label", "Button")
                             style_str = btn_cfg.get("style", "secondary")
+                            emoji = btn_cfg.get("emoji")
+                            if not emoji: emoji = None
                             
                             style = discord.ButtonStyle.secondary
                             if style_str == "primary": style = discord.ButtonStyle.primary
@@ -139,47 +132,155 @@ class ResultHandler:
                                 source = btn_cfg.get("source_type", "image")
                                 mapping = btn_cfg.get("input_mapping", "")
                                 
-                                # If mapping is a dict, serialize it to JSON
                                 import json
-                                if isinstance(mapping, dict):
-                                    mapping_str = json.dumps(mapping)
-                                else:
-                                    mapping_str = mapping
-                                    
+                                mapping_str = json.dumps(mapping) if isinstance(mapping, dict) else mapping
                                 custom_id = f"link_action_{target}_{source}_{mapping_str}"
                                 
                                 if custom_id not in existing_ids:
-                                    btn = discord.ui.Button(label=label, style=style, custom_id=custom_id)
+                                    btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
                                     view.add_item(btn)
                                     existing_ids.add(custom_id)
+                                    
+                            elif btn_type == "chain":
+                                target = btn_cfg.get("target_workflow", "")
+                                pass_data = btn_cfg.get("pass_data", "image")
+                                target_input = btn_cfg.get("target_input", "image")
+                                custom_id = f"link_chain_{target}|{pass_data}|{target_input}"
+                                
+                                if custom_id not in existing_ids:
+                                    btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
+                                    view.add_item(btn)
+                                    existing_ids.add(custom_id)
+                                    
                             elif btn_type == "delete":
                                 if "link_gen_delete" not in existing_ids:
-                                    btn = discord.ui.Button(label=label, style=discord.ButtonStyle.danger, custom_id="link_gen_delete")
-                                    view.add_item(btn)
-                                    existing_ids.add("link_gen_delete")
-                            # Add more types here if needed (e.g. regenerate, options are already in base)
+                                    btn = existing_items.get("link_gen_delete")
+                                    if btn:
+                                        btn.label = label
+                                        btn.style = style
+                                        btn.emoji = emoji
+                                        view.add_item(btn)
+                                        existing_ids.add("link_gen_delete")
+                                        
+                            elif btn_type == "regenerate":
+                                if "link_gen_redo" not in existing_ids:
+                                    btn = existing_items.get("link_gen_redo")
+                                    if btn:
+                                        btn.label = label
+                                        btn.style = style
+                                        btn.emoji = emoji
+                                        view.add_item(btn)
+                                        existing_ids.add("link_gen_redo")
+                                        
+                            elif btn_type == "options":
+                                if "link_gen_options" not in existing_ids:
+                                    btn = existing_items.get("link_gen_options")
+                                    if btn:
+                                        btn.label = label
+                                        btn.style = style
+                                        btn.emoji = emoji
+                                        view.add_item(btn)
+                                        existing_ids.add("link_gen_options")
 
-                        # Instead, just attach it and Discord will render the player below the embed
-                        main_file = files_to_upload[0]
-                        filename_lower = main_file.filename.lower()
-                        is_video = any(ext in filename_lower for ext in [".mp4", ".webm", ".mov", ".gif", ".m4v"])
+                        # 3. Build Result Embed (High-Detail "Workstation" Style)
+                        color_hex = embed_cfg.get("color", "#5865F2").replace("#", "")
+                        color = int(color_hex, 16)
                         
-                        if not is_video:
-                            embed.set_image(url=f"attachment://{main_file.filename}")
-                        else:
-                            logger.info(f"Video detected ({main_file.filename}), skipping embed.set_image for native playback.")
-                        
-                        embed.set_footer(text=f"Atlas Creative Suite | Profile: {job.input_params.get('__profile__', 'Standard')} | Job ID: {job.id}")
+                        user = None
+                        try:
+                            user = self.bot.get_user(int(job.user_id))
+                            if not user: user = await self.bot.fetch_user(int(job.user_id))
+                        except: pass
 
-                        await msg.edit(content=None, embed=embed, attachments=files_to_upload, view=view)
+                        embed = discord.Embed(color=color)
+                        
+                        title_text = embed_cfg.get('title_template', '{user}\'s Generation')
+                        if user: title_text = title_text.replace('{user}', user.display_name)
+                        else: title_text = title_text.replace('{user}', 'User')
+                        embed.title = f"✨ {title_text}"
+
+                        # Metadata fields
+                        meta_fields = embed_cfg.get("show_metadata", [])
+                        if meta_fields:
+                            meta_map = {
+                                "prompt": ("Prompt", "📝"),
+                                "seed": ("Seed", "🎲"),
+                                "model": ("Model", "🤖"),
+                                "ratio": ("Resolution", "📐"),
+                                "steps": ("Steps", "⏱️"),
+                                "cfg": ("CFG", "⚙️"),
+                                "sampler": ("Sampler", "🧪"),
+                                "upscale": ("Upscale", "🔍")
+                            }
+                            
+                            # Handle prompt separately as a full-width block if it exists
+                            if "prompt" in meta_fields:
+                                # Try common keys for prompt if literal 'prompt' is missing
+                                p_val = job.input_params.get("prompt")
+                                if not p_val: p_val = job.input_params.get("text")
+                                if not p_val: p_val = job.input_params.get("positive")
+                                if not p_val: p_val = "—"
+                                embed.description = f"📝 **Prompt:**\n{p_val}"
+                            
+                            for field in meta_fields:
+                                if field == "prompt": continue
+                                label, emoji = meta_map.get(field, (field.title(), "🔹"))
+                                val = "Unknown"
+                                
+                                # Smart search for the value
+                                if field == "seed": 
+                                    val = job.input_params.get('seed')
+                                    # If no direct seed, find the first __seed__ internal key
+                                    if not val:
+                                        seed_key = next((k for k in job.input_params.keys() if k.startswith('__seed_')), None)
+                                        if seed_key: val = job.input_params[seed_key]
+                                    if not val: val = "Random"
+                                    val = f"`{val}`"
+                                    
+                                elif field == "model": val = f"`{job.input_params.get('__model__', '—')}`"
+                                elif field == "ratio": 
+                                    val = job.input_params.get("ratio_selected")
+                                    if not val: val = job.input_params.get("resolution")
+                                    if not val: val = job.input_params.get("aspect_ratio", "—")
+                                    
+                                elif field in job.input_params: 
+                                    val = str(job.input_params[field])
+                                else:
+                                    # Last ditch effort for other keys
+                                    val = "—"
+                                
+                                # Inline short values
+                                embed.add_field(name=f"{emoji} **{label}:**", value=val, inline=True)
+
+                        # Footer section
+                        if embed_cfg.get("show_footer", True):
+                            embed.set_footer(text=f"Link | Profile: {job.input_params.get('__profile__', 'Standard')} | Job ID: {job.id}")
+
+                        # IMPORTANT: To get the image ON TOP, we DO NOT put it in the embed.
+                        # Discord displays message attachments ABOVE the embed by default.
+                        if embed_cfg.get("image_position") == "bottom" and files_to_upload:
+                            embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
+
+                        try:
+                            # Use attachments for discord.py 2.0+ but it can be picky with new files
+                            # Falling back to deleting and re-sending if edit fails is often safer for files
+                            await msg.edit(content=None, embed=embed, attachments=files_to_upload, view=view)
+                        except Exception as e:
+                            logger.warning(f"Failed to edit message with attachments: {e}. Trying secondary method...")
+                            try:
+                                # Some versions prefer files= for new attachments during edit
+                                await msg.edit(content=None, embed=embed, view=view)
+                                # If we can't edit in the files, we'll have to send them as a follow-up or re-send
+                                await channel.send(files=files_to_upload)
+                            except Exception as e2:
+                                logger.error(f"Failed secondary edit: {e2}. Falling back to new message.")
+                                await channel.send(content=f"✨ {title_text}", embed=embed, files=files_to_upload, view=view)
                     else:
                         await msg.edit(content="Generation complete, but no output files were found.", embed=None)
                 except Exception as e:
-                    logger.error(f"Failed to edit progress message: {e}")
+                    logger.error(f"Failed to process execution results: {e}")
                     if files_to_upload:
-                        await channel.send(content="Generation ready!", files=files_to_upload)
-            elif channel and files_to_upload:
-                await channel.send(content="Generation ready!", files=files_to_upload)
+                        await channel.send(content="Generation ready!", embed=embed if 'embed' in locals() else None, files=files_to_upload, view=view if 'view' in locals() else None)
 
             # 4. Update Job Status
             job.status = JobStatus.COMPLETED

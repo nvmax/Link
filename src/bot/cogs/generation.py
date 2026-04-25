@@ -30,18 +30,24 @@ class GenerationCog(commands.Cog):
         # Channel Lockdown Check
         if Config.ALLOWED_CHANNEL_ID and interaction.channel_id != Config.ALLOWED_CHANNEL_ID:
             allowed_channel = f"<#{Config.ALLOWED_CHANNEL_ID}>"
-            return await interaction.response.send_message(
-                f"⛔ This command can only be used in {allowed_channel}.", 
-                ephemeral=True
-            )
+            msg = f"⛔ This command can only be used in {allowed_channel}."
+            if not interaction.response.is_done():
+                return await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                return await interaction.followup.send(msg, ephemeral=True)
 
         workflow = self.bot.workflow_registry.get_workflow(workflow_name)
         if not workflow:
-            return await interaction.response.send_message(f"Workflow {workflow_name} not found.", ephemeral=True)
+            msg = f"Workflow {workflow_name} not found."
+            if not interaction.response.is_done():
+                return await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                return await interaction.followup.send(msg, ephemeral=True)
 
         manifest = workflow["manifest"]
         inputs = manifest.get("inputs", [])
-        
+
+
         # --- CONTEXT-AWARE AUTO-DETECTION ---
         # If we're missing a required image/audio and no user_values/prefilled provided,
         # or if they are explicitly missing, try to find the last asset.
@@ -68,9 +74,26 @@ class GenerationCog(commands.Cog):
                 finally:
                     db.close()
         
+        # Check if there are any modal-compatible fields that aren't already in prefilled
+        modal_fields = []
+        for input_cfg in inputs:
+            fid = input_cfg.get("id")
+            itype = input_cfg.get("type")
+            if itype not in ["image_upload", "audio_upload", "video_upload", "select"] and "lora" not in fid.lower() and "➕" not in fid:
+                # Always show modal fields if they exist to allow user editing,
+                # even if prefilled (so they can modify default/prefilled values).
+                # But we MUST have at least one valid modal field to show the modal.
+                modal_fields.append(input_cfg)
+            elif itype == "select":
+                # For select fields, only show in modal if NOT already prefilled with a URL
+                # (i.e., the value was passed from Discord/chaining, not user selection)
+                prefilled_val = prefilled.get(fid, "")
+                if not (isinstance(prefilled_val, str) and prefilled_val.startswith("http")):
+                    modal_fields.append(input_cfg)
+
         # If user_values is provided (from slash command), use them. 
         # Otherwise, show modal if there are inputs.
-        if user_values is None and inputs:
+        if user_values is None and modal_fields:
             async def modal_callback(modal_interaction: discord.Interaction, values: dict):
                 # Merge with prefilled (hidden) values
                 final_values = prefilled.copy()
@@ -84,8 +107,8 @@ class GenerationCog(commands.Cog):
                     await self._execute_generation(modal_interaction, workflow_name, workflow, manifest, final_values, message_id=message.id)
 
             modal = DynamicModal(
-                title=manifest.get("workflow_name", workflow_name),
-                inputs=inputs,
+                title=manifest.get("workflow_name", workflow_name)[:45],
+                inputs=modal_fields,
                 callback=modal_callback,
                 prefilled=prefilled
             )
@@ -117,7 +140,7 @@ class GenerationCog(commands.Cog):
             if not interaction.response.is_done():
                 await interaction.response.send_message(f"Initializing generation for **{display_name}**...")
             else:
-                await interaction.followup.send(f"Initializing generation for **{display_name}**...")
+                await interaction.edit_original_response(content=f"Initializing generation for **{display_name}**...")
             
             message = await interaction.original_response()
             await self._execute_generation(interaction, workflow_name, workflow, manifest, final_values, message_id=message.id)
@@ -227,10 +250,12 @@ class GenerationCog(commands.Cog):
         # Dismiss the picker and post a real visible channel message for progress tracking.
         if not message_id:
             try:
-                await interaction.response.edit_message(
-                    content=f"✅ LoRA selected — queuing **{display_name}**…",
-                    view=None
-                )
+                if not interaction.response.is_done():
+                    await interaction.response.defer()
+                if interaction.message:
+                    await interaction.message.delete()
+                else:
+                    await interaction.delete_original_response()
             except Exception:
                 try:
                     if not interaction.response.is_done():
@@ -240,7 +265,7 @@ class GenerationCog(commands.Cog):
 
             try:
                 queue_msg = await interaction.channel.send(
-                    f"🎨 **{interaction.user.display_name}** — queuing **{display_name}**…"
+                    f"🎨 **{interaction.user.display_name}** — Please wait while we spin this up..."
                 )
                 message_id = queue_msg.id
             except Exception as e:
@@ -316,7 +341,7 @@ class GenerationCog(commands.Cog):
             if message_id:
                 try:
                     msg_obj = await channel.fetch_message(message_id)
-                    await msg_obj.edit(content=f"(Queue) File received! Preparing your {workflow_name} generation...")
+                    await msg_obj.edit(content=f"Please wait while we spin this up...")
                 except:
                     pass
 
@@ -510,13 +535,15 @@ class GenerationCog(commands.Cog):
             # Merge new values over current
             merged = {**current_values, **new_values}
 
-            # Check for LoRA list assignment
+            # Check for dynamic LoRAs
             discord_loras = manifest.get('discord', {}).get('loras', {})
-            lora_list_name = manifest.get('lora_list')
-            if not lora_list_name and discord_loras:
-                lora_list_name = next((v for v in discord_loras.values() if v), None)
+            has_dynamic_loras = any(
+                (c == 'list' if isinstance(c, str) else c.get('mode', 'list') == 'list')
+                for c in discord_loras.values()
+            ) if discord_loras else False
 
-            if lora_list_name:
+            lora_list_name = manifest.get('lora_list')
+            if lora_list_name and has_dynamic_loras:
                 if discord_loras:
                     merged['__lora_node_assignments__'] = discord_loras
                 await self.show_lora_selection(
