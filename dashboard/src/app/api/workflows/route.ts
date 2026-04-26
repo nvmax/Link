@@ -82,6 +82,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: 'success', yamlPath, jsonPath });
     }
     
+    if (action === 'import') {
+      const { filename, workflow } = body;
+      
+      if (typeof workflow !== 'object' || workflow === null || Array.isArray(workflow)) {
+        throw new Error('Invalid JSON structure. Must be a ComfyUI API workflow.');
+      }
+      
+      const keys = Object.keys(workflow);
+      if (keys.length === 0) throw new Error('Empty workflow JSON.');
+      
+      // Check for full workflow markers
+      if ('nodes' in workflow || 'links' in workflow) {
+        throw new Error('This appears to be a "Full" workflow. Please export as "API Format" in ComfyUI.');
+      }
+      
+      // Validate node structure
+      for (const key of keys.slice(0, 3)) {
+        const node = workflow[key];
+        if (typeof node !== 'object' || !node.class_type || !node.inputs) {
+           throw new Error('Invalid node structure. Please ensure this is an API Format workflow.');
+        }
+      }
+      
+      const cleanName = filename.endsWith('.json') ? filename : `${filename}.json`;
+      const importPath = path.join(workflowsDir, cleanName);
+      
+      fs.writeFileSync(importPath, JSON.stringify(workflow, null, 2), 'utf8');
+      return NextResponse.json({ status: 'success', filename: cleanName });
+    }
+    
+    if (action === 'delete') {
+      const { filename } = body;
+      if (!filename) throw new Error('Filename required');
+      
+      const baseName = filename.replace(/\.json$/i, '').replace(/\.yaml$/i, '');
+      const jsonPath = path.join(workflowsDir, `${baseName}.json`);
+      const yamlPath = path.join(workflowsDir, `${baseName}.yaml`);
+      
+      if (fs.existsSync(jsonPath)) fs.unlinkSync(jsonPath);
+      if (fs.existsSync(yamlPath)) fs.unlinkSync(yamlPath);
+      
+      return NextResponse.json({ status: 'success' });
+    }
+    
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

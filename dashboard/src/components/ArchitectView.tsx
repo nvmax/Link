@@ -1,18 +1,65 @@
 "use client";
 
 import React from 'react';
-import { Type, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Type, CheckCircle2, ChevronLeft, ChevronRight, Upload, Trash2 } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 import { VisualWorkflowMap } from './VisualWorkflowMap';
 import { ListView } from './ListView';
 
 export function ArchitectView() {
-  const { workflows, selectedWorkflow, loadWorkflow, viewMode, setViewMode, customCommandName, setCustomCommandName, selections, moveInput } = useDashboard();
+  const { workflows, selectedWorkflow, loadWorkflow, viewMode, setViewMode, customCommandName, setCustomCommandName, selections, moveInput, importWorkflow, deleteWorkflow } = useDashboard();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        importWorkflow(file.name, json);
+      } catch (err) {
+        alert('Invalid JSON file');
+      }
+    };
+    reader.readAsText(file);
+    // Clear the input so the same file can be imported again if needed
+    e.target.value = '';
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="space-y-4">
-        <h3 className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-4">Workflows</h3>
+        <div className="flex flex-col gap-4 mb-4">
+          <h3 className="text-xs text-slate-500 uppercase tracking-widest font-bold">Workflows</h3>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-2 p-4 bg-indigo-500 text-white rounded-2xl hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/20 font-black text-[10px] uppercase tracking-widest"
+              title="Import Workflow (API)"
+            >
+              <Upload className="w-4 h-4" />
+              Import Workflow (API)
+            </button>
+            {selectedWorkflow && (
+              <button 
+                onClick={() => deleteWorkflow(selectedWorkflow.name)}
+                className="p-4 bg-rose-500/10 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20 shadow-lg shadow-rose-500/5 group"
+                title="Delete Workflow"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileImport} 
+            className="hidden" 
+            accept=".json"
+          />
+        </div>
         <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-200px)] pr-2">
           {workflows.map((wf) => (
             <button 

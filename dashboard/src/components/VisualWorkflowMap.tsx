@@ -341,13 +341,20 @@ export function VisualWorkflowMap() {
                       ))}
                    </div>
 
-                   <div 
-                      onMouseDown={(e) => handleNodeDragStart(id, e)}
-                      className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between cursor-move"
-                   >
-                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{workflow[id].class_type}</span>
-                     <span className="text-[8px] text-slate-600 font-mono">#{id}</span>
-                   </div>
+                    <div 
+                       onMouseDown={(e) => handleNodeDragStart(id, e)}
+                       className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between cursor-move"
+                    >
+                      <div className="flex flex-col">
+                        {workflow[id]._meta?.title && (
+                          <span className="text-xs font-black text-white mb-0.5">{workflow[id]._meta.title}</span>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest opacity-80">{workflow[id].class_type}</span>
+                          <span className="text-[7px] text-slate-600 font-mono">#{id}</span>
+                        </div>
+                      </div>
+                    </div>
                        
                        <div className="p-4 space-y-4">
                          {Object.entries(workflow[id].inputs).map(([key, val]) => {

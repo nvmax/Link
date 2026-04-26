@@ -39,8 +39,13 @@ export function ListView() {
           <div key={id} className="bg-black/20 border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all group">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/5">
               <div className="flex flex-col">
-                <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">{node.class_type}</span>
-                <span className="text-[10px] text-slate-500 font-mono">Node #{id}</span>
+                {node._meta?.title && (
+                  <span className="text-sm font-black text-white mb-0.5">{node._meta.title}</span>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest opacity-80">{node.class_type}</span>
+                  <span className="text-[9px] text-slate-500 font-mono">#{id}</span>
+                </div>
               </div>
               {isLoraNode && (
                 <div className="flex items-center gap-3">

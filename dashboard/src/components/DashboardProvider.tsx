@@ -60,14 +60,7 @@ function inferDiscordType(
   const classLower = (classType || '').toLowerCase();
   const fieldLower = (field || '').toLowerCase();
 
-  // 1. ComfyUI objectInfo — enum/choices array → select (most reliable)
-  const nodeInfo = objectInfo?.[classType];
-  const inputInfo = nodeInfo?.input?.required?.[field] || nodeInfo?.input?.optional?.[field];
-  if (Array.isArray(inputInfo) && Array.isArray(inputInfo[0])) {
-    return { type: 'select', choices: inputInfo[0] };
-  }
-
-  // 2. Node class_type keywords (LoadAudio, LoadImage, etc.) — high confidence
+  // 1. Node class_type keywords (LoadAudio, LoadImage, etc.) — highest priority
   if (classLower.includes('loadaudio') || (classLower.includes('audio') && fieldLower === 'audio')) {
     return { type: 'audio_upload' };
   }
@@ -78,7 +71,7 @@ function inferDiscordType(
     return { type: 'image_upload' };
   }
 
-  // 3. Field name keywords — fallback
+  // 2. Field name keywords — fallback for uploads
   if (fieldLower.includes('audio') || fieldLower.includes('sound') || fieldLower.includes('music')) {
     return { type: 'audio_upload' };
   }
@@ -89,12 +82,19 @@ function inferDiscordType(
     return { type: 'image_upload' };
   }
 
+  // 3. ComfyUI objectInfo — enum/choices array → select
+  const nodeInfo = objectInfo?.[classType];
+  const inputInfo = nodeInfo?.input?.required?.[field] || nodeInfo?.input?.optional?.[field];
+  if (Array.isArray(inputInfo) && Array.isArray(inputInfo[0])) {
+    return { type: 'select', choices: inputInfo[0] };
+  }
+
   // 4. If existing type is already a valid upload type, keep it
   if (existingType && ['image_upload', 'audio_upload', 'video_upload', 'select'].includes(existingType)) {
     return { type: existingType };
   }
 
-  // 5. Default — free text (shown in modal)
+  // 5. Default — free text
   return { type: 'text' };
 }
 
@@ -175,13 +175,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         loadedSelections = loadedSelections.map((sel: any) => {
           const nodeClassType = data.workflow?.[sel.nodeId]?.class_type || '';
           const inferred = inferDiscordType(nodeClassType, sel.field, data.objectInfo, sel.type);
-          // Only override if the existing type is a generic/wrong type
+          
+          // Force upgrade to upload types if inferred, or use inferred if generic
           const genericTypes = ['string', 'text', 'STRING', 'number', 'NUMBER', ''];
-          const normalizedType = genericTypes.includes(sel.type) ? inferred.type : sel.type;
+          const isGeneric = genericTypes.includes(sel.type);
+          const isUpload = inferred.type.endsWith('_upload');
+          
+          const normalizedType = (isGeneric || isUpload) ? inferred.type : sel.type;
+          
           return {
             ...sel,
             type: normalizedType,
-            choices: normalizedType === 'select' ? (sel.choices || inferred.choices) : sel.choices
+            choices: normalizedType === 'select' ? (sel.choices || inferred.choices) : undefined
           };
         });
       }
@@ -210,6 +215,51 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     wf.content[nodeId] = { ...wf.content[nodeId] };
     wf.content[nodeId].inputs = { ...wf.content[nodeId].inputs, [field]: value };
     setSelectedWorkflow(wf);
+  };
+
+  const importWorkflow = async (filename: string, workflow: any) => {
+    try {
+      const res = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'import', filename, workflow })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      
+      // Refresh workflow list
+      const listRes = await fetch('/api/workflows');
+      const listData = await listRes.json();
+      setWorkflows(listData.workflows || []);
+      
+      alert('Workflow imported successfully!');
+    } catch (e: any) {
+      alert(`Failed to import: ${e.message}`);
+    }
+  };
+
+  const deleteWorkflow = async (filename: string) => {
+    if (!confirm(`Are you sure you want to delete ${filename}? This will also remove its manifest.`)) return;
+    try {
+      const res = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', filename })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      
+      setSelectedWorkflow(null);
+      setSelections([]);
+      
+      // Refresh list
+      const listRes = await fetch('/api/workflows');
+      const listData = await listRes.json();
+      setWorkflows(listData.workflows || []);
+      
+    } catch (e: any) {
+      alert(`Failed to delete: ${e.message}`);
+    }
   };
 
   const saveWorkflow = async () => {
@@ -252,7 +302,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         inputs: rootInputs,
         discord: {
           command: customCommandName,
-          inputs: selections,
+          inputs: selections.map(s => {
+            const { choices, ...rest } = s;
+            return s.type === 'select' ? s : rest;
+          }),
           ui: {
             ...uiConfig,
             positions: nodeCoords
@@ -395,7 +448,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     loraFiles, setLoraFiles,
     editingLoraFile, setEditingLoraFile,
     loraPage, setLoraPage,
-    loadWorkflow, saveWorkflow,
+    loadWorkflow, saveWorkflow, importWorkflow, deleteWorkflow,
     toggleInput, updateSelection, moveInput,
     loadLoraFile, saveLoraFile, updateLoraField, moveLora, deleteLora, addLora,
     loraSelections, setLoraSelections, updateLoraSelection,
