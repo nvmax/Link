@@ -74,6 +74,15 @@ DATABASE_URL=sqlite:///data/link.db
 ALLOWED_GUILD_ID=your_server_id
 ALLOWED_CHANNEL_ID=your_channel_id
 ```
+Discord bot requirements:
+
+- Must have Presence, server members, and message content intents enabled
+- permissions to give it for install on your own 
+  - Send Messages
+  - Manage Messages
+  - Embed Links
+  - Attach Files
+
 
 ### 4. Run the Suite
 
