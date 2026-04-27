@@ -735,11 +735,23 @@ class GenerationCog(commands.Cog):
             return
 
         lora_file = selected_lora.get('file')
-        lora_weight = selected_lora.get('weight', 1.0)
+        lora_weight = float(selected_lora.get('weight', 1.0))
         add_prompt = selected_lora.get('add_prompt', '')
+
+        # 1. Dynamic Prompt Appending
+        # Identify the primary prompt field and append the trigger prompt
+        prompt_keys = ['text', 'prompt', 'positive', 'positive_prompt']
+        for pk in prompt_keys:
+            if pk in values and isinstance(values[pk], str) and add_prompt:
+                # Avoid double-appending
+                if add_prompt.lower() not in values[pk].lower():
+                    values[pk] = f"{values[pk]} {add_prompt}".strip()
+                logger.info(f"Appended LoRA trigger to prompt field '{pk}'")
+                break
 
         logger.info(f"Injecting LoRA: {lora_file} with weight {lora_weight}")
 
+        # 2. Node Injection
         for node_id, node_data in template.items():
             title = node_data.get('_meta', {}).get('title', '').lower()
             class_type = node_data.get('class_type', '').lower()

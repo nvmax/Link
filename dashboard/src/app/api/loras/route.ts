@@ -32,10 +32,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: 'success' });
     }
 
+    if (action === 'create') {
+      if (fs.existsSync(filePath)) {
+        return NextResponse.json({ error: 'File already exists' }, { status: 400 });
+      }
+      const initialData = {
+        categories: ["General"],
+        available_loras: []
+      };
+      fs.writeFileSync(filePath, JSON.stringify(initialData, null, 2), 'utf8');
+      return NextResponse.json({ status: 'success' });
+    }
+
     if (action === 'load') {
       if (!fs.existsSync(filePath)) throw new Error('File not found');
       const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       return NextResponse.json({ data: content });
+    }
+
+    if (action === 'delete_file') {
+      if (!fs.existsSync(filePath)) throw new Error('File not found');
+      fs.unlinkSync(filePath);
+      return NextResponse.json({ status: 'success' });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

@@ -1,0 +1,114 @@
+{
+  "available_loras": [
+    {
+      "file": "LTX2.3-IC-LORA-Dual-Character.safetensors",
+      "name": "LTX2.3 IC LORA Dual Character",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "Dual Character IC ",
+      "is_active": true
+    },
+    {
+      "file": "LTX2.3_Crisp_Enhance.safetensors",
+      "name": "LTX2.3 Crisp Enhance",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "Enhance the details of video",
+      "is_active": true
+    },
+    {
+      "file": "LTX-2.3-22b-AV-LoRA-talking-head-v1.safetensors",
+      "name": "LTX 2.3 22b AV LoRA Talking Head V1",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "Allows you to create a talking head ",
+      "is_active": true
+    },
+    {
+      "file": "ltx-2-19b-lora-camera-control-static.safetensors",
+      "name": "Ltx 2 19b Lora Camera Control Static",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "Camera Control Stay in place ",
+      "is_active": true
+    },
+    {
+      "file": "ltx-2-19b-lora-camera-control-jib-up.safetensors",
+      "name": "Ltx 2 19b Lora Camera Control Jib Up",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "Moves camera up over head",
+      "is_active": true
+    },
+    {
+      "file": "ltx-2-19b-lora-camera-control-jib-down.safetensors",
+      "name": "Ltx 2 19b Lora Camera Control Jib Down",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "Moves Camera Down from starting position ",
+      "is_active": true
+    },
+    {
+      "file": "ltx-2-19b-lora-camera-control-dolly-right (1).safetensors",
+      "name": "Ltx 2 19b Lora Camera Control Dolly Right (1)",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "moves camera right of the perspective",
+      "is_active": true
+    },
+    {
+      "file": "ltx-2-19b-lora-camera-control-dolly-left (1).safetensors",
+      "name": "Ltx 2 19b Lora Camera Control Dolly Left (1)",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "moves camera left of the perspective",
+      "is_active": true
+    },
+    {
+      "file": "ltx-2-19b-lora-camera-control-dolly-out.safetensors",
+      "name": "Ltx 2 19b Lora Camera Control Dolly Out",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "moves camera out from initial point",
+      "is_active": true
+    },
+    {
+      "file": "LTX-2.3-danceV2.comfy.safetensors",
+      "name": "LTX 2.3 DanceV2.comfy",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "Have your character dance",
+      "is_active": true
+    },
+    {
+      "file": "ltx2.3-transition.safetensors",
+      "name": "Ltx2.3 Transition",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "LTXV",
+      "description": "Transitions, describe your transition point and timing",
+      "is_active": true
+    }
+  ]
+}

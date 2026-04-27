@@ -29,12 +29,16 @@ interface DashboardContextType {
   toggleInput: (nodeId: string, field: string, type: string | null) => void;
   updateSelection: (idx: number, updates: any) => void;
   moveInput: (idx: number, dir: 'up' | 'down') => void;
+  deleteWorkflow: (wf: any) => Promise<void>;
+  importWorkflow: (json: any, name: string) => Promise<void>;
   loadLoraFile: (file: any) => Promise<void>;
   saveLoraFile: () => Promise<void>;
   updateLoraField: (idx: number, field: string, value: any) => void;
   moveLora: (idx: number, dir: 'up' | 'down') => void;
   deleteLora: (idx: number) => void;
-  addLora: () => void;
+  addLora: (initialData?: any) => void;
+  createNewLoraList: () => Promise<void>;
+  deleteLoraList: (file: any) => Promise<void>;
   loraSelections: Record<string, any>;
   setLoraSelections: (selections: Record<string, any>) => void;
   updateLoraSelection: (nodeId: string, updates: any) => void;
@@ -420,7 +424,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setEditingLoraFile({ ...editingLoraFile, content: newContent });
   };
 
-  const addLora = () => {
+  const addLora = (initialData: any = {}) => {
     if (!editingLoraFile) return;
     const newContent = [...editingLoraFile.content];
     newContent.push({
@@ -431,9 +435,62 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       url: "",
       category: "",
       description: "",
-      is_active: true
+      is_active: true,
+      ...initialData
     });
     setEditingLoraFile({ ...editingLoraFile, content: newContent });
+  };
+  const createNewLoraList = async () => {
+    const name = prompt("Enter new list name (e.g. cinematic_styles):");
+    if (!name) return;
+    
+    try {
+      const res = await fetch('/api/loras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', filename: name })
+      });
+      if (res.ok) {
+        // We need a way to refresh. refreshLoraLists is not exported but we can just reload the page or add it.
+        // Actually, let's just use the current fetch logic.
+        const listRes = await fetch('/api/loras');
+        const listData = await listRes.json();
+        setLoraFiles(listData.loras || []);
+        
+        const fname = name.endsWith('.json') ? name : `${name}.json`;
+        loadLoraFile({ name: fname, path: fname });
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to create list');
+      }
+    } catch (e) {
+      alert('Error creating list');
+    }
+  };
+
+  const deleteLoraList = async (file: any) => {
+    if (!confirm(`Are you sure you want to delete ${file.name}? This cannot be undone.`)) return;
+    
+    try {
+      const res = await fetch('/api/loras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_file', filename: file.name })
+      });
+      if (res.ok) {
+        if (editingLoraFile?.name === file.name) {
+          setEditingLoraFile(null);
+        }
+        const listRes = await fetch('/api/loras');
+        const listData = await listRes.json();
+        setLoraFiles(listData.loras || []);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete list');
+      }
+    } catch (e) {
+      alert('Error deleting list');
+    }
   };
 
   const value = {
@@ -451,6 +508,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     loadWorkflow, saveWorkflow, importWorkflow, deleteWorkflow,
     toggleInput, updateSelection, moveInput,
     loadLoraFile, saveLoraFile, updateLoraField, moveLora, deleteLora, addLora,
+    createNewLoraList, deleteLoraList,
     loraSelections, setLoraSelections, updateLoraSelection,
     objectInfo, updateWorkflowInput,
     nodeCoords, setNodeCoords
