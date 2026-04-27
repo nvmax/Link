@@ -1,0 +1,97 @@
+workflow_name: videosegment
+discord_command: videosegment
+description: Run videosegment workflow
+mapping:
+  image:
+    - '48'
+    - inputs
+    - image
+  text:
+    - '104'
+    - inputs
+    - text
+  audio:
+    - '121'
+    - inputs
+    - audio
+  start_index:
+    - '122'
+    - inputs
+    - start_index
+inputs:
+  - id: image
+    type: image_upload
+    label: image
+    required: true
+  - id: text
+    type: text
+    label: text
+    required: true
+  - id: audio
+    type: audio_upload
+    label: audio
+    required: true
+  - id: start_index
+    type: text
+    label: start_index
+    required: true
+discord:
+  command: videosegment
+  inputs:
+    - id: image
+      nodeId: '48'
+      field: image
+      type: image_upload
+      label: image
+      required: true
+    - id: text
+      nodeId: '104'
+      field: text
+      type: text
+      label: text
+      required: true
+    - id: audio
+      nodeId: '121'
+      field: audio
+      type: audio_upload
+      label: audio
+      required: true
+    - id: start_index
+      nodeId: '122'
+      field: start_index
+      type: text
+      label: start_index
+      required: true
+  ui:
+    embed:
+      title_template: '{user}''s Generation'
+      color: '#5865F2'
+      show_metadata:
+        - prompt
+        - seed
+        - model
+        - ratio
+        - steps
+      show_footer: false
+      image_position: top
+      show_author: false
+    buttons:
+      - type: regenerate
+        label: Regenerate
+        style: primary
+        emoji: ♻️
+      - type: options
+        label: Options
+        style: secondary
+        emoji: ⚙️
+      - type: delete
+        label: Delete
+        style: danger
+        emoji: 🗑️
+      - type: chain
+        label: Video This
+        style: primary
+        target_workflow: LTXVIA2V
+        emoji: 📽️
+    positions: {}
+  loras: {}
