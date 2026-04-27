@@ -29,7 +29,7 @@ export function ArchitectView() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="space-y-4">
         <div className="flex flex-col gap-4 mb-4">
           <h3 className="text-xs text-slate-500 uppercase tracking-widest font-bold">Workflows</h3>

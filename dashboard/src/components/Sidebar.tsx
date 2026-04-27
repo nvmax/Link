@@ -8,7 +8,7 @@ export function Sidebar() {
   const { activeTab, setActiveTab } = useDashboard();
 
   return (
-    <div className="w-80 bg-[#0d0d0f] border-r border-white/5 flex flex-col p-6 z-20 shadow-2xl relative">
+    <div className="w-60 bg-[#0d0d0f] border-r border-white/5 flex flex-col p-6 z-20 shadow-2xl relative">
       <div className="flex items-center gap-4 mb-10 px-2">
         <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 rotate-3 transition-transform">
           <Network className="text-white w-6 h-6" />
