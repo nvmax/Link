@@ -76,9 +76,21 @@ ALLOWED_CHANNEL_ID=your_channel_id
 ```
 
 ### 4. Run the Suite
+
+**Option A: The One-Click Way (Recommended for Windows)**
+Simply double-click the **`launch.bat`** file in the project root. This will automatically open two separate terminal windows for you—one for the Dashboard and one for the Bot.
+
+**Option B: The Manual Way**
+If you prefer manual control, open **two terminal windows** and run:
+
+**Terminal 1: The Dashboard**
 ```bash
-# Start the Dashboard & Bot
-npm run dev
+npm run dashboard
+```
+
+**Terminal 2: The Bot**
+```bash
+npm run bot
 ```
 
 ---
