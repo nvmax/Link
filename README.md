@@ -48,6 +48,7 @@ A professional-grade management system for your model library.
 
 > [!IMPORTANT]
 > New to LINK? Follow our **[Getting Started Guide](./GETTING_STARTED.md)** for a full step-by-step walkthrough.
+> To see what we're building next, check out our **[Coming Soon / Roadmap](./ROADMAP.md)**.
 
 ### 1. Requirements
 - **ComfyUI** running workflows working.
