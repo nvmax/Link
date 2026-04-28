@@ -9,6 +9,7 @@ interface DashboardContextType {
   setViewMode: (mode: 'list' | 'visual') => void;
   config: any;
   setConfig: (config: any) => void;
+  saveConfig: (newConfig: any) => Promise<void>;
   workflows: any[];
   selectedWorkflow: any;
   setSelectedWorkflow: (wf: any) => void;
@@ -142,10 +143,25 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize
   useEffect(() => {
-    fetch('/api/config').then(res => res.json()).then(data => setConfig(data));
+    fetch('/api/config').then(res => res.json()).then(data => setConfig(data.config || data));
     fetch('/api/workflows').then(res => res.json()).then(data => setWorkflows(data.workflows || []));
     fetch('/api/loras').then(res => res.json()).then(data => setLoraFiles(data.loras || []));
   }, []);
+
+  const saveConfig = async (newConfig: any) => {
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: newConfig })
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      setConfig(newConfig);
+      alert('Settings saved successfully!');
+    } catch (e) {
+      alert('Failed to save settings');
+    }
+  };
 
   const loadWorkflow = async (wf: any) => {
     try {
@@ -496,7 +512,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const value = {
     activeTab, setActiveTab,
     viewMode, setViewMode,
-    config, setConfig,
+    config, setConfig, saveConfig,
     workflows,
     selectedWorkflow, setSelectedWorkflow,
     selections, setSelections,

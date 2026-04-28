@@ -28,18 +28,45 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { config } = await request.json();
+    const body = await request.json();
+    // Support both { config: { ... } } and { ... }
+    const config = body.config || body;
+    
     let content = '';
+    if (fs.existsSync(envPath)) {
+      content = fs.readFileSync(envPath, 'utf8');
+    }
     
-    // We try to preserve comments if we want, but for now let's just write the keys
-    // For a cleaner approach, we just rebuild the file
-    Object.entries(config).forEach(([key, value]) => {
-      content += `${key}=${value}\n`;
-    });
+    const lines = content.split('\n');
+    const updatedLines = [];
+    const keysHandled = new Set();
     
-    fs.writeFileSync(envPath, content, 'utf8');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const key = trimmed.split('=')[0].trim();
+        if (config[key] !== undefined && typeof config[key] !== 'object') {
+          updatedLines.push(`${key}=${config[key]}`);
+          keysHandled.add(key);
+        } else {
+          updatedLines.push(line);
+        }
+      } else {
+        updatedLines.push(line);
+      }
+    }
+    
+    // add any new keys
+    for (const [key, value] of Object.entries(config)) {
+      if (!keysHandled.has(key) && key !== 'config' && typeof value !== 'object') {
+        updatedLines.push(`${key}=${value}`);
+      }
+    }
+    
+    fs.writeFileSync(envPath, updatedLines.join('\n'), 'utf8');
     return NextResponse.json({ status: 'success' });
   } catch (error) {
+    console.error('Config save error:', error);
     return NextResponse.json({ error: 'Failed to save config' }, { status: 500 });
   }
 }
