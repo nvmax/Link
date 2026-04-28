@@ -148,15 +148,29 @@ export function ModalStudio() {
           </div>
 
           <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                  <Type className="w-3 h-3" /> Action Buttons
-                </h4>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                    <Type className="w-3 h-3" /> Action Buttons
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-medium">
+                    Discord enforces a strict limit of 5 buttons per message. This is a Discord limitation, not a bot limitation.
+                  </p>
+                </div>
                 <button 
-                  onClick={() => setUiConfig({ ...uiConfig, buttons: [...uiConfig.buttons, { type: 'options', label: 'New Button', style: 'secondary' }] })}
-                  className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-[10px] px-3 py-1.5 rounded-lg font-black transition-all flex items-center gap-2"
+                  onClick={() => {
+                    if (uiConfig.buttons.length < 5) {
+                      setUiConfig({ ...uiConfig, buttons: [...uiConfig.buttons, { type: 'options', label: 'New Button', style: 'secondary' }] });
+                    }
+                  }}
+                  disabled={uiConfig.buttons.length >= 5}
+                  className={`text-[10px] px-3 py-1.5 rounded-lg font-black transition-all flex items-center gap-2 shrink-0 ${
+                    uiConfig.buttons.length >= 5
+                      ? 'bg-rose-500/10 text-rose-500/50 cursor-not-allowed'
+                      : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400'
+                  }`}
                 >
-                  <Plus className="w-3 h-3" /> Add Button
+                  <Plus className="w-3 h-3" /> {uiConfig.buttons.length >= 5 ? 'Max Limit (5)' : 'Add Button'}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
