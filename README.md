@@ -84,6 +84,11 @@ Discord bot requirements:
   - Embed Links
   - Attach Files
 
+.env must be populated before running. This can be done by copying .env.example to .env and populating it with the appropriate values.
+your discord bot must be setup and added to your discord server https://discord.com/developers/applications only settings that need to be populated are:
+- bot token
+- Server ID 
+- Channel ID
 
 ### 4. Run the Suite
 
