@@ -49,7 +49,11 @@ class GenerationCog(commands.Cog):
                 else:
                     return await interaction.followup.send(msg, ephemeral=True)
 
+            # Refresh registry to ensure changes from Dashboard are live
+            self.bot.workflow_registry.refresh()
+            
             workflow = self.bot.workflow_registry.get_workflow(workflow_name)
+
             if not workflow:
                 msg = f"Workflow {workflow_name} not found."
                 if not interaction.response.is_done():

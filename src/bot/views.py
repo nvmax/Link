@@ -58,9 +58,14 @@ class GenerationView(discord.ui.View):
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger, custom_id="link_gen_delete")
     async def delete(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
+            # Acknowledge the interaction first
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
             await interaction.message.delete()
-        except Exception:
-            await interaction.response.send_message("❌ Could not delete message. Bot might lack permissions.", ephemeral=True)
+        except Exception as e:
+            # Silence errors if message is already gone
+            if "Unknown Message" not in str(e):
+                logger.warning(f"Failed to delete message: {e}")
 
 async def handle_smart_action(interaction: discord.Interaction):
     """Global listener for smart actions (buttons from ui_config)."""
@@ -74,9 +79,13 @@ async def handle_smart_action(interaction: discord.Interaction):
     # Handle simple actions first
     if custom_id.startswith("link_gen_delete"):
         try:
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
             return await interaction.message.delete()
-        except:
-            return await interaction.response.send_message("❌ Could not delete message.", ephemeral=True)
+        except Exception as e:
+            if "Unknown Message" not in str(e):
+                logger.warning(f"Global delete failed: {e}")
+            return
         
     # Get Job ID
     job_id = None
