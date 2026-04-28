@@ -205,29 +205,12 @@ class GenerationCog(commands.Cog):
 
     def _apply_workflow_overrides(self, manifest: dict, template: dict, values: dict):
         """Applies direct .env overrides for model and steps."""
-        if manifest.get("workflow_name", "").lower() == "fluxdev":
-            model_file = Config.FLUX_MODEL
-            steps = Config.FLUX_STEPS
-            
-            logger.info(f"Applying direct overrides: Model={model_file}, Steps={steps}")
-            
-            # 1. Automatic Node Detection & Re-wiring
-            # Node 287 = GGUF, Node 288 = Safetensors
-            if "271" in template:
-                target_node = "287" if model_file.endswith(".gguf") else "288"
-                template["271"]["inputs"]["model"] = [target_node, 0]
-                
-                # Update the filename in the target loader node
-                if target_node in template:
-                    template[target_node]["inputs"]["unet_name"] = model_file
-            
-            # 2. Direct Step Injection
-            if "198:1" in template:
-                template["198:1"]["inputs"]["steps"] = steps
-            
-            # Store for display
-            values["__profile__"] = f"{steps} Steps"
-            values["__model__"] = model_file
+        # Removed hardcoded FluxDev override to allow Dashboard/Manifest to control the model
+        # if manifest.get("workflow_name", "").lower() == "fluxdev":
+        #     model_file = Config.FLUX_MODEL
+        #     steps = Config.FLUX_STEPS
+        #     ...
+        pass
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
