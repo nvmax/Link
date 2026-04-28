@@ -211,7 +211,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         });
       }
       setSelections(loadedSelections || []);
-      setCustomCommandName(data.manifest?.discord_command || data.manifest?.discord?.command || '');
+      const fallbackName = wf.name.replace(/\.json$/i, '').toLowerCase();
+      setCustomCommandName(data.manifest?.discord_command || data.manifest?.discord?.command || fallbackName);
       setLoraSelections(data.manifest?.discord?.loras || {});
       if (data.manifest?.discord?.ui) {
         setUiConfig(data.manifest.discord.ui);
@@ -316,12 +317,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const manifest = {
         ...(selectedWorkflow.manifest || {}),
         workflow_name: selectedWorkflow.name.replace(/\.json$/i, ''), // e.g. "FluxDev"
-        discord_command: customCommandName,
-        description: (selectedWorkflow.manifest?.description) || `Run ${customCommandName || selectedWorkflow.name} workflow`,
+        discord_command: customCommandName || selectedWorkflow.name.replace(/\.json$/i, '').toLowerCase(),
+        description: (selectedWorkflow.manifest?.description) || `Run ${customCommandName || selectedWorkflow.name.replace(/\.json$/i, '')} workflow`,
         mapping: rootMapping,
         inputs: rootInputs,
         discord: {
-          command: customCommandName,
+          command: customCommandName || selectedWorkflow.name.replace(/\.json$/i, '').toLowerCase(),
           inputs: selections.map(s => {
             const { choices, ...rest } = s;
             return s.type === 'select' ? s : rest;

@@ -53,7 +53,14 @@ class LinkBot(commands.Bot):
             wf_data = self.workflow_registry.get_workflow(workflow_name)
             manifest = wf_data.get("manifest", {})
             command_name = manifest.get("discord_command", workflow_name).lower()
+            
+            # Safety check for valid Discord command name
+            if not command_name or not re.match(r'^[\w-]{1,32}$', command_name):
+                logger.warning(f"Skipping workflow '{workflow_name}': Invalid discord_command '{command_name}'")
+                continue
+                
             description = manifest.get("description", f"Generate using {workflow_name}")
+
             inputs = manifest.get("inputs", [])
             
             # Create a dynamic callback
