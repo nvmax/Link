@@ -261,6 +261,7 @@ export function ModalStudio() {
                             <option value="options">Options</option>
                             <option value="delete">Delete</option>
                             <option value="chain">Chain Workflow</option>
+                            <option value="selector">Workflow Selector</option>
                           </select>
                         </div>
                         <div className="grid gap-1">
@@ -288,6 +289,37 @@ export function ModalStudio() {
                                 <option key={wf.name} value={wf.name.replace(/\.json$/i, '')}>{wf.name.replace(/\.json$/i, '')}</option>
                               ))}
                             </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {btn.type === 'selector' && (
+                        <div className="grid gap-3 pt-2 border-t border-white/5">
+                          <label className="text-[8px] text-amber-500 uppercase font-black">Target Workflows (Curated List)</label>
+                          <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto bg-black/40 p-2 rounded-xl border border-white/5">
+                            {workflows.map((wf: any) => {
+                              const wfName = wf.name.replace(/\.json$/i, '');
+                              const isChecked = btn.target_workflows?.includes(wfName);
+                              return (
+                                <label key={wfName} className="flex items-center gap-2 cursor-pointer hover:bg-white/5 p-1 rounded transition-colors group/wf">
+                                  <input 
+                                    type="checkbox"
+                                    checked={isChecked || false}
+                                    onChange={(e) => {
+                                      const current = btn.target_workflows || [];
+                                      const next = e.target.checked 
+                                        ? [...current, wfName] 
+                                        : current.filter((w: string) => w !== wfName);
+                                      const nb = [...uiConfig.buttons];
+                                      nb[i].target_workflows = next;
+                                      setUiConfig({ ...uiConfig, buttons: nb });
+                                    }}
+                                    className="w-3 h-3 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                  />
+                                  <span className={`text-[10px] font-bold ${isChecked ? 'text-indigo-400' : 'text-slate-500 group-hover/wf:text-slate-300'}`}>{wfName}</span>
+                                </label>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
