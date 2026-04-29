@@ -1,5 +1,5 @@
 workflow_name: imagetext2video
-display_name: imagetext2video
+display_name: Image and text to video
 discord_command: imagetext2video
 description: Run imagetext2video workflow
 mapping:

@@ -24,6 +24,7 @@ Turn complex ComfyUI graphs into simple Discord commands.
 Design the perfect user experience for your generation results.
 - **Visual Branding**: Customize embed colors, titles, and metadata layouts.
 - **Dynamic Action Buttons**: Add custom buttons (Regenerate, Upscale, Video-ify) that trigger chained workflows.
+- **Dynamic Modal Selection**: Allows users to select a different workflow to run after a successful generation. 
 - **Asset Propagation**: Automatically pass generated images or videos from one workflow to the next.
 
 ### 📁 LoRA Studio
