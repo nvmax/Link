@@ -61,7 +61,7 @@ export function MissionControl() {
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                 <span className="text-xs text-slate-400 font-medium">Discord Pipeline</span>
-                <span className="text-xs text-emerald-400 font-bold">READY</span>
+                <BotStatus />
               </div>
           </div>
         </div>
@@ -84,52 +84,210 @@ export function MissionControl() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
-          <div className="space-y-2">
-            <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Discord Token</label>
-            <input 
-              type="password" 
-              value={config.DISCORD_TOKEN || ''} 
-              onChange={(e) => handleConfigChange('DISCORD_TOKEN', e.target.value)}
-              placeholder="MTQ5NjI0MzYz..."
-              className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10" 
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Database URL</label>
-            <input 
-              type="text" 
-              value={config.DATABASE_URL || 'sqlite:///data/link.db'} 
-              onChange={(e) => handleConfigChange('DATABASE_URL', e.target.value)}
-              className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all" 
-            />
+        <div className="space-y-8 pt-4 border-t border-white/5">
+          {/* Discord Access Management */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Guild Management */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Whitelisted Servers</label>
+                <span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-full">{config.ALLOWED_GUILD_ID?.split(',').filter(Boolean).length || 0} Active</span>
+              </div>
+              
+              <div className="space-y-3">
+                {config.ALLOWED_GUILD_ID?.split(',').filter(Boolean).map((gid: string) => (
+                  <GuildCard key={gid} id={gid} onRemove={(id) => {
+                    const newIds = config.ALLOWED_GUILD_ID.split(',').filter((x: string) => x !== id).join(',');
+                    handleConfigChange('ALLOWED_GUILD_ID', newIds);
+                  }} />
+                ))}
+                
+                <div className="flex gap-2 p-2 bg-black/40 border border-white/5 rounded-2xl">
+                  <input 
+                    type="text"
+                    placeholder="Enter Server ID..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = e.currentTarget.value.trim();
+                        if (val) {
+                          const current = config.ALLOWED_GUILD_ID || '';
+                          const next = current ? `${current},${val}` : val;
+                          handleConfigChange('ALLOWED_GUILD_ID', next);
+                          e.currentTarget.value = '';
+                        }
+                      }
+                    }}
+                    className="flex-1 bg-transparent border-none px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600"
+                  />
+                  <button className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 rounded-xl text-[10px] font-black uppercase transition-all">Add</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Channel Management */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Whitelisted Channels</label>
+                <span className="text-[10px] text-fuchsia-400 font-bold bg-fuchsia-500/10 px-2 py-0.5 rounded-full">{config.ALLOWED_CHANNEL_ID?.split(',').filter(Boolean).length || 0} Active</span>
+              </div>
+              
+              <div className="space-y-3">
+                {config.ALLOWED_CHANNEL_ID?.split(',').filter(Boolean).map((cid: string) => (
+                  <ChannelCard key={cid} id={cid} onRemove={(id) => {
+                    const newIds = config.ALLOWED_CHANNEL_ID.split(',').filter((x: string) => x !== id).join(',');
+                    handleConfigChange('ALLOWED_CHANNEL_ID', newIds);
+                  }} />
+                ))}
+                
+                <div className="flex gap-2 p-2 bg-black/40 border border-white/5 rounded-2xl">
+                  <input 
+                    type="text"
+                    placeholder="Enter Channel ID..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = e.currentTarget.value.trim();
+                        if (val) {
+                          const current = config.ALLOWED_CHANNEL_ID || '';
+                          const next = current ? `${current},${val}` : val;
+                          handleConfigChange('ALLOWED_CHANNEL_ID', next);
+                          e.currentTarget.value = '';
+                        }
+                      }
+                    }}
+                    className="flex-1 bg-transparent border-none px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600"
+                  />
+                  <button className="bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-400 px-4 rounded-xl text-[10px] font-black uppercase transition-all">Add</button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Allowed Guild ID</label>
-            <input 
-              type="text" 
-              value={config.ALLOWED_GUILD_ID || ''} 
-              onChange={(e) => handleConfigChange('ALLOWED_GUILD_ID', e.target.value)}
-              placeholder="e.g. 1303406664258420769"
-              className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10" 
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Allowed Channel ID</label>
-            <input 
-              type="text" 
-              value={config.ALLOWED_CHANNEL_ID || ''} 
-              onChange={(e) => handleConfigChange('ALLOWED_CHANNEL_ID', e.target.value)}
-              placeholder="e.g. 1333207521606897727"
-              className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10" 
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 border-t border-white/5">
+            <div className="space-y-2">
+              <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Discord Token</label>
+              <input 
+                type="password" 
+                value={config.DISCORD_TOKEN || ''} 
+                onChange={(e) => handleConfigChange('DISCORD_TOKEN', e.target.value)}
+                placeholder="MTQ5NjI0MzYz..."
+                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10" 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Database URL</label>
+              <input 
+                type="text" 
+                value={config.DATABASE_URL || 'sqlite:///data/link.db'} 
+                onChange={(e) => handleConfigChange('DATABASE_URL', e.target.value)}
+                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all" 
+              />
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
 
+function BotStatus() {
+  const [connected, setConnected] = React.useState(false);
+
+  React.useEffect(() => {
+    const check = () => {
+      fetch('http://127.0.0.1:8001/health')
+        .then(res => res.json())
+        .then(data => setConnected(data.bot_connected))
+        .catch(() => setConnected(false));
+    };
+    check();
+    const interval = setInterval(check, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${connected ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'}`}>
+      {connected ? 'Ready' : 'Offline'}
+    </span>
+  );
+}
+
+function GuildCard({ id, onRemove }: { id: string, onRemove: (id: string) => void }) {
+  const [data, setData] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetch(`http://127.0.0.1:8001/api/discord/guild/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Not found');
+        return res.json();
+      })
+      .then(d => {
+        setData(d);
+        setLoading(false);
+      })
+      .catch(() => {
+        setData(null);
+        setLoading(false);
+      });
+  }, [id]);
+
+  return (
+    <div className="group flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-2xl hover:border-indigo-500/30 transition-all">
+      <div className="flex items-center gap-3">
+        {data?.icon ? (
+          <img src={data.icon} className="w-8 h-8 rounded-lg shadow-lg" alt="" />
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-black text-[10px]">
+            {loading ? '...' : (data?.name?.charAt(0) || '?')}
+          </div>
+        )}
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-white leading-none mb-1">{loading ? 'Loading...' : (data?.name || 'Unknown Server')}</span>
+          <span className="text-[9px] text-slate-500 font-mono tracking-tight">{id}</span>
+        </div>
+      </div>
+      <button onClick={() => onRemove(id)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-500 transition-all">
+        <Save className="w-3.5 h-3.5 rotate-45" /> {/* Using Save as a temp placeholder for a close icon since I didn't import X */}
+      </button>
+    </div>
+  );
+}
+
+function ChannelCard({ id, onRemove }: { id: string, onRemove: (id: string) => void }) {
+  const [data, setData] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetch(`http://127.0.0.1:8001/api/discord/channel/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Not found');
+        return res.json();
+      })
+      .then(d => {
+        setData(d);
+        setLoading(false);
+      })
+      .catch(() => {
+        setData(null);
+        setLoading(false);
+      });
+  }, [id]);
+
+  return (
+    <div className="group flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-2xl hover:border-fuchsia-500/30 transition-all">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-400 font-black text-[10px]">
+          #
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-white leading-none mb-1">{loading ? 'Loading...' : (data?.name || 'Unknown Channel')}</span>
+          <span className="text-[9px] text-slate-500 font-mono tracking-tight">{data?.guild_name || '...'} · {id}</span>
+        </div>
+      </div>
+      <button onClick={() => onRemove(id)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-500 transition-all">
+        <Save className="w-3.5 h-3.5 rotate-45" />
+      </button>
     </div>
   );
 }

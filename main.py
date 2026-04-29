@@ -8,6 +8,7 @@ from src.core.logger import setup_logger
 from src.core.config import Config
 from src.api.client import ComfyClient
 from src.api.workflows import WorkflowRegistry
+from src.api.server import start_api_server
 
 logger = setup_logger("main")
 
@@ -71,6 +72,9 @@ async def main():
     try:
         # Start WebSocket listener in the background
         ws_task = asyncio.create_task(ws.connect())
+        
+        # Start Internal API server for Dashboard (port 8001)
+        api_task = asyncio.create_task(start_api_server(bot, port=8001))
         
         # Start Discord Bot
         await bot.start(Config.DISCORD_TOKEN)

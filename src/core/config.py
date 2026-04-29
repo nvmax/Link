@@ -36,11 +36,13 @@ class Config:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     
     # Lockdown Settings
-    _guild_id = os.getenv("ALLOWED_GUILD_ID")
-    ALLOWED_GUILD_ID = int(_guild_id) if _guild_id else None
+    _guild_ids = os.getenv("ALLOWED_GUILD_ID", "")
+    ALLOWED_GUILD_IDS = [int(x.strip()) for x in _guild_ids.split(",") if x.strip().isdigit()]
+    ALLOWED_GUILD_ID = ALLOWED_GUILD_IDS[0] if ALLOWED_GUILD_IDS else None
     
-    _channel_id = os.getenv("ALLOWED_CHANNEL_ID")
-    ALLOWED_CHANNEL_ID = int(_channel_id) if _channel_id else None
+    _channel_ids = os.getenv("ALLOWED_CHANNEL_ID", "")
+    ALLOWED_CHANNEL_IDS = [int(x.strip()) for x in _channel_ids.split(",") if x.strip().isdigit()]
+    ALLOWED_CHANNEL_ID = ALLOWED_CHANNEL_IDS[0] if ALLOWED_CHANNEL_IDS else None
 
     # Create directories if they don't exist
     for path in [DATA_DIR, LOGS_DIR, ASSETS_DIR, WORKFLOWS_DIR, LORAS_DIR]:

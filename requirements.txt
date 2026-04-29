@@ -5,3 +5,5 @@ sqlalchemy
 pyyaml
 websockets
 Pillow
+fastapi
+uvicorn

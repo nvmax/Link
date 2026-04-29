@@ -41,9 +41,9 @@ class GenerationCog(commands.Cog):
         logger.info(f"handle_generation_request called for {workflow_name} by {interaction.user.display_name}")
         try:
             # Channel Lockdown Check
-            if Config.ALLOWED_CHANNEL_ID and interaction.channel_id != Config.ALLOWED_CHANNEL_ID:
-                allowed_channel = f"<#{Config.ALLOWED_CHANNEL_ID}>"
-                msg = f"⛔ This command can only be used in {allowed_channel}."
+            if Config.ALLOWED_CHANNEL_IDS and interaction.channel_id not in Config.ALLOWED_CHANNEL_IDS:
+                allowed_list = ", ".join([f"<#{cid}>" for cid in Config.ALLOWED_CHANNEL_IDS])
+                msg = f"⛔ This command can only be used in: {allowed_list}"
                 if not interaction.response.is_done():
                     return await interaction.response.send_message(msg, ephemeral=True)
                 else:

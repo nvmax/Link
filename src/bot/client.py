@@ -35,15 +35,15 @@ class LinkBot(commands.Bot):
         self.add_listener(handle_smart_action, "on_interaction")
         
         # Sync commands to Discord
-        # For development, we sync to a specific guild for instant updates
-        if Config.ALLOWED_GUILD_ID:
-            guild = discord.Object(id=Config.ALLOWED_GUILD_ID)
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-            logger.info(f"Synced slash commands to guild {Config.ALLOWED_GUILD_ID}")
+        if Config.ALLOWED_GUILD_IDS:
+            for gid in Config.ALLOWED_GUILD_IDS:
+                guild = discord.Object(id=gid)
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                logger.info(f"Synced slash commands to guild {gid}")
         else:
             await self.tree.sync()
-            logger.info("Synced slash commands")
+            logger.info("Synced slash commands globally")
 
     async def register_workflow_commands(self):
         """Dynamically register a slash command for each workflow in the registry."""
