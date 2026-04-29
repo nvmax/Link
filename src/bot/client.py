@@ -66,17 +66,29 @@ class LinkBot(commands.Bot):
             # Create a dynamic callback
             def create_callback(wf_name, workflow, manifest_data):
                 async def callback(interaction: discord.Interaction, **kwargs):
-                    # Defer immediately to prevent "Application did not respond"
+                    # Check if interaction is already handled or too old
+                    if interaction.response.is_done():
+                        logger.info(f"Interaction for {wf_name} already handled by another listener.")
+                        return
+
+                    # Defer immediately with a try-block that handles "Already responded" gracefully
                     try:
-                        if not interaction.response.is_done():
-                            await interaction.response.defer(ephemeral=False)
-                    except:
-                        pass
+                        await interaction.response.defer(ephemeral=False)
+                        logger.info(f"Interaction deferred for command {wf_name}")
+                    except discord.errors.NotFound:
+                        logger.warning(f"Interaction for {wf_name} expired or not found immediately. This often means multiple bot instances are running.")
+                        return
+                    except Exception as defer_err:
+                        # If already acknowledged, we can still proceed with followup
+                        if "already been acknowledged" in str(defer_err).lower():
+                            logger.info(f"Interaction for {wf_name} was already acknowledged, proceeding with followup.")
+                        else:
+                            logger.warning(f"Failed to defer interaction for {wf_name}: {defer_err}")
                         
                     try:
                         gen_cog = self.get_cog("GenerationCog")
                         if gen_cog:
-                            # ... rest of logic
+                            # Proceed with workflow logic...
                             discord_loras = manifest_data.get('discord', {}).get('loras', {})
                             has_dynamic_loras = False
                             for node_id, config in discord_loras.items():
@@ -94,21 +106,23 @@ class LinkBot(commands.Bot):
                                     lora_list=manifest_data.get('lora_list')
                                 )
                             else:
-                                # Use handle_generation_request instead of _execute_generation 
-                                # to ensure status messages and initialization logic are handled
                                 await gen_cog.handle_generation_request(interaction, wf_name, user_values=kwargs)
                         else:
+                            msg = "Generation system not loaded."
                             if not interaction.response.is_done():
-                                await interaction.response.send_message("Generation system not loaded.", ephemeral=True)
+                                await interaction.response.send_message(msg, ephemeral=True)
                             else:
-                                await interaction.followup.send("Generation system not loaded.", ephemeral=True)
+                                await interaction.followup.send(msg, ephemeral=True)
                     except Exception as e:
                         logger.error(f"Error in dynamic command {wf_name}: {e}", exc_info=True)
                         err_msg = f"❌ Error executing command: `{e}`"
-                        if not interaction.response.is_done():
-                            await interaction.response.send_message(err_msg, ephemeral=True)
-                        else:
-                            await interaction.followup.send(err_msg, ephemeral=True)
+                        try:
+                            if not interaction.response.is_done():
+                                await interaction.response.send_message(err_msg, ephemeral=True)
+                            else:
+                                await interaction.followup.send(err_msg, ephemeral=True)
+                        except:
+                            pass
                 return callback
 
             callback = create_callback(workflow_name, wf_data, manifest)

@@ -1,0 +1,164 @@
+workflow_name: FluxDev
+discord_command: dream
+description: Run fluxdev workflow
+mapping:
+  text:
+    - '198:3'
+    - inputs
+    - text
+  ratio_selected:
+    - '258'
+    - inputs
+    - ratio_selected
+  ➕ Add Lora:
+    - '271'
+    - inputs
+    - ➕ Add Lora
+inputs:
+  - id: text
+    type: text
+    label: text
+    required: true
+  - id: ratio_selected
+    type: select
+    label: ratio_selected
+    required: true
+    choices:
+      - 1:1 [1024x1024 square]
+      - 8:5 [1216x768 landscape]
+      - 4:3 [1152x896 landscape]
+      - 3:2 [1216x832 landscape]
+      - 7:5 [1176x840 landscape]
+      - 16:9 [1344x768 landscape]
+      - 21:9 [1536x640 landscape]
+      - 19:9 [1472x704 landscape]
+      - 3:4 [896x1152 portrait]
+      - 2:3 [832x1216 portrait]
+      - 5:7 [840x1176 portrait]
+      - 9:16 [768x1344 portrait]
+      - 9:21 [640x1536 portrait]
+      - 5:8 [768x1216 portrait]
+      - 9:19 [704x1472 portrait]
+  - id: ➕ Add Lora
+    type: text
+    label: ➕ Add Lora
+    required: true
+discord:
+  command: dream
+  inputs:
+    - id: text
+      nodeId: '198:3'
+      field: text
+      type: text
+      label: text
+      required: true
+    - id: ratio_selected
+      nodeId: '258'
+      field: ratio_selected
+      type: select
+      label: ratio_selected
+      required: true
+      choices:
+        - 1:1 [1024x1024 square]
+        - 8:5 [1216x768 landscape]
+        - 4:3 [1152x896 landscape]
+        - 3:2 [1216x832 landscape]
+        - 7:5 [1176x840 landscape]
+        - 16:9 [1344x768 landscape]
+        - 21:9 [1536x640 landscape]
+        - 19:9 [1472x704 landscape]
+        - 3:4 [896x1152 portrait]
+        - 2:3 [832x1216 portrait]
+        - 5:7 [840x1176 portrait]
+        - 9:16 [768x1344 portrait]
+        - 9:21 [640x1536 portrait]
+        - 5:8 [768x1216 portrait]
+        - 9:19 [704x1472 portrait]
+    - id: ➕ Add Lora
+      nodeId: '271'
+      field: ➕ Add Lora
+      type: text
+      label: ➕ Add Lora
+      required: true
+  ui:
+    embed:
+      title_template: '{user}''s Generation'
+      color: '#5865F2'
+      show_metadata:
+        - prompt
+        - seed
+        - model
+        - ratio
+      use_role_color: true
+    buttons:
+      - type: regenerate
+        label: Regenerate
+        style: primary
+      - type: options
+        label: Options
+        style: secondary
+      - type: delete
+        label: Delete
+        style: danger
+      - type: selector
+        label: workflow
+        style: primary
+        emoji: 🚀
+        target_workflows:
+          - kontext
+          - LTXVIA2V
+          - videosegment
+    positions:
+      '8':
+        x: 3100
+        'y': 100
+      '152':
+        x: 2600
+        'y': 100
+      '153':
+        x: 100
+        'y': 100
+      '258':
+        x: 2100
+        'y': 100
+      '271':
+        x: 600
+        'y': 100
+      '286':
+        x: 4600
+        'y': 100
+      '287':
+        x: 4600
+        'y': 700
+      '288':
+        x: 121.77775065104169
+        'y': 815.1111857096354
+      '289':
+        x: 4100
+        'y': 100
+      '290':
+        x: 3600
+        'y': 100
+      '198:3':
+        x: 1100
+        'y': 100
+      '198:4':
+        x: 1600
+        'y': 100
+      '198:2':
+        x: 2100
+        'y': 700
+      '198:5':
+        x: 2100
+        'y': 1300
+      '198:0':
+        x: 2100
+        'y': 1900
+      '198:1':
+        x: 2100
+        'y': 2500
+      '198:6':
+        x: 2600
+        'y': 700
+  loras: {}
+display_name: FluxDev

@@ -119,4 +119,60 @@ class PayloadBuilder:
                         logger.warning(f"Node ID {node_id} not found in template for field {key}")
                     
         logger.info("Payload assembly complete.")
-        return payload
+        return PayloadBuilder.prune_unreachable(payload)
+
+    @staticmethod
+    def prune_unreachable(payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Removes nodes that are not reachable from any terminal (output) node."""
+        if not payload:
+            return payload
+
+        # 1. Identify all nodes that are referenced as inputs
+        referenced_nodes = set()
+        for node_data in payload.values():
+            for input_val in node_data.get("inputs", {}).values():
+                if isinstance(input_val, list) and len(input_val) >= 2:
+                    referenced_nodes.add(str(input_val[0]))
+
+        # 2. Terminal nodes are nodes that are NOT referenced by anyone else
+        # AND look like they are intended to be outputs (SaveImage, PreviewImage, etc.)
+        output_keywords = ["save", "preview", "output", "display", "combine", "vhs", "animation", "video"]
+        
+        terminal_nodes = []
+        for node_id, node_data in payload.items():
+            if node_id not in referenced_nodes:
+                class_type = node_data.get("class_type", "").lower()
+                title = node_data.get("_meta", {}).get("title", "").lower()
+                # Check if it looks like an output node
+                if any(kw in class_type for kw in output_keywords) or any(kw in title for kw in output_keywords):
+                    terminal_nodes.append(node_id)
+        
+        logger.info(f"Pruning: Found {len(terminal_nodes)} terminal nodes: {terminal_nodes}")
+        
+        if not terminal_nodes:
+            logger.warning("No output nodes found in payload, skipping pruning")
+            return payload
+
+        # 3. Traverse backwards from terminal nodes to find all reachable nodes
+        reachable = set()
+        stack = list(terminal_nodes)
+        
+        while stack:
+            curr_id = stack.pop()
+            if curr_id in reachable or curr_id not in payload:
+                continue
+            
+            reachable.add(curr_id)
+            node_data = payload[curr_id]
+            for input_val in node_data.get("inputs", {}).values():
+                if isinstance(input_val, list) and len(input_val) >= 2:
+                    stack.append(str(input_val[0]))
+
+        # 4. Filter the payload
+        pruned_payload = {node_id: payload[node_id] for node_id in reachable}
+        
+        removed_ids = [nid for nid in payload if nid not in reachable]
+        if removed_ids:
+            logger.info(f"Pruned {len(removed_ids)} unreachable nodes: {removed_ids}")
+            
+        return pruned_payload

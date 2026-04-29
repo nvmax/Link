@@ -58,8 +58,9 @@ discord:
         - model
         - ratio
       show_footer: true
-      image_position: bottom
+      image_position: top
       show_author: false
+      use_role_color: true
     buttons:
       - type: regenerate
         label: Regenerate
@@ -76,3 +77,4 @@ discord:
     positions: {}
   loras:
     '66': klora.json
+display_name: Change something in the image

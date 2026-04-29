@@ -70,6 +70,9 @@ class GenerationView(discord.ui.View):
 async def handle_smart_action(interaction: discord.Interaction):
     """Global listener for smart actions (buttons from ui_config)."""
     if not interaction.type == discord.InteractionType.component:
+        # Log to see if we're accidentally seeing slash commands here
+        if interaction.type == discord.InteractionType.application_command:
+            logger.debug(f"handle_smart_action ignoring slash command: {interaction.data.get('name')}")
         return
         
     custom_id = interaction.data.get("custom_id", "")
@@ -137,16 +140,18 @@ async def handle_smart_action(interaction: discord.Interaction):
             from src.bot.ui import ChainSelectView
             
             async def on_select(sel_interaction, target_wf_name, original_job_id):
+                # Use the original interaction's message for attachments
+                original_msg = interaction.message
                 # We need to re-fetch the job in the callback to ensure DB session is fresh
                 _db = SessionLocal()
                 try:
                     _job = _db.query(GenerationJob).filter(GenerationJob.id == original_job_id).first()
                     if _job:
-                        await _execute_chain(sel_interaction, _job, target_wf_name)
+                        await _execute_chain(sel_interaction, _job, target_wf_name, source_message=original_msg)
                 finally:
                     _db.close()
 
-            view = ChainSelectView(target_workflows, job.id, on_select)
+            view = ChainSelectView(target_workflows, job.id, on_select, registry=interaction.client.workflow_registry)
             await interaction.response.send_message("Choose a workflow to chain to:", view=view, ephemeral=True)
         else:
             # custom_id format: link_action_{target_wf}_{source_type}_{input_mapping}
@@ -201,8 +206,11 @@ async def handle_smart_action(interaction: discord.Interaction):
     finally:
         db.close()
 
-async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, target_wf: str):
+async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, target_wf: str, source_message: discord.Message = None):
     """Internal helper to execute a chain request from a job result."""
+    # Use provided source_message (from original button click) or fallback to current interaction message
+    msg_with_attachments = source_message or interaction.message
+    
     # Get target workflow manifest to find where to put things
     target_workflow = interaction.client.workflow_registry.get_workflow(target_wf)
     if not target_workflow:
@@ -218,8 +226,8 @@ async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, t
     prefilled = {}
     
     # Auto-detect mapping based on attachment types
-    if interaction.message and interaction.message.attachments:
-        for att in interaction.message.attachments:
+    if msg_with_attachments and msg_with_attachments.attachments:
+        for att in msg_with_attachments.attachments:
             ctype = (att.content_type or "").lower()
             
             # Filter candidates by type — match both explicit upload types AND name keywords
@@ -274,8 +282,8 @@ async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, t
                             mime_like = None
                         
                         if mime_like:
-                            last_local = _db.query(AssetModel).join(GenJob).filter(
-                                GenJob.user_id == str(interaction.user.id),
+                            last_local = _db.query(AssetModel).filter(
+                                AssetModel.job_id == job.id,
                                 AssetModel.file_type.like(mime_like),
                                 AssetModel.file_path.notlike("http%")
                             ).order_by(AssetModel.id.desc()).first()

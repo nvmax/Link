@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { Maximize2, CheckSquare, Square, Check, Layers, CheckCircle2 } from 'lucide-react';
+import { Maximize2, CheckSquare, Square, Check, Layers, CheckCircle2, Trash2 } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
 const EMPTY_WORKFLOW = {};
@@ -270,6 +270,33 @@ export function VisualWorkflowMap() {
     columns[l] = Object.keys(levels).filter(id => levels[id] === l);
   });
 
+  const reachableNodes = useMemo(() => {
+    const reachable = new Set<string>();
+    // Identify terminal nodes (not referenced as inputs)
+    const referenced = new Set<string>();
+    Object.values(workflow).forEach((node: any) => {
+      Object.values(node.inputs || {}).forEach((val: any) => {
+        if (Array.isArray(val)) referenced.add(String(val[0]));
+      });
+    });
+    
+    const terminals = Object.keys(workflow).filter(id => !referenced.has(id));
+    const stack = [...terminals];
+    
+    while (stack.length > 0) {
+      const id = stack.pop()!;
+      if (reachable.has(id)) continue;
+      reachable.add(id);
+      const node = workflow[id];
+      if (node?.inputs) {
+        Object.values(node.inputs).forEach((val: any) => {
+          if (Array.isArray(val)) stack.push(String(val[0]));
+        });
+      }
+    }
+    return reachable;
+  }, [workflow]);
+
   if (!selectedWorkflow) {
     return <div className="h-full flex items-center justify-center text-slate-500">Select a workflow to view the visual map.</div>;
   }
@@ -311,6 +338,10 @@ export function VisualWorkflowMap() {
              {Object.keys(workflow).map(id => {
                const isLoraNode = workflow[id].class_type.toLowerCase().includes('lora');
                const pos = nodeCoords[id] || { x: 0, y: 0 };
+               const isReachable = reachableNodes.has(id);
+               const hasSelection = selections.some(s => s.nodeId === id);
+               const hasOrphanedSelection = hasSelection && !isReachable;
+
                return (
                  <div 
                     key={id} 
@@ -322,8 +353,14 @@ export function VisualWorkflowMap() {
                       top: pos.y,
                       zIndex: draggingNode?.nodeId === id ? 100 : 10
                     }}
-                    className={`w-72 bg-[#111114]/80 backdrop-blur-md border rounded-3xl shadow-2xl overflow-visible transition-all pointer-events-auto group ${activeWire && activeWire.nodeId !== id ? 'ring-4 ring-indigo-500/50 scale-[1.02] cursor-pointer' : 'border-white/5 hover:border-indigo-500/50'} ${draggingNode?.nodeId === id ? 'shadow-indigo-500/20' : ''}`}
+                    className={`w-72 bg-[#111114]/80 backdrop-blur-md border rounded-3xl shadow-2xl overflow-visible transition-all pointer-events-auto group ${activeWire && activeWire.nodeId !== id ? 'ring-4 ring-indigo-500/50 scale-[1.02] cursor-pointer' : 'border-white/5 hover:border-indigo-500/50'} ${draggingNode?.nodeId === id ? 'shadow-indigo-500/20' : ''} ${!isReachable ? 'opacity-40 grayscale-[0.5] hover:opacity-80' : ''} ${hasOrphanedSelection ? 'ring-2 ring-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.1)]' : ''}`}
+                    title={!isReachable ? "This node is unreachable and will be pruned during execution." : ""}
                   >
+                   {hasOrphanedSelection && (
+                      <div className="absolute -top-3 -right-3 bg-rose-500 text-white p-1.5 rounded-full z-50 animate-bounce shadow-lg shadow-rose-500/50" title="Orphaned Selection: This node is disconnected!">
+                        <Trash2 className="w-4 h-4" />
+                      </div>
+                    )}
                    {/* Output Handle Section (Right Side) */}
                    <div className="absolute -right-3 top-[65px] flex flex-col gap-[18px] pointer-events-none">
                       {(objectInfo?.[workflow[id].class_type]?.output || ["OUTPUT"]).map((outName: string, idx: number) => (

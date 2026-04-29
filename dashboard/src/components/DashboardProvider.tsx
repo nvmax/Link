@@ -17,6 +17,8 @@ interface DashboardContextType {
   setSelections: (selections: any[]) => void;
   customCommandName: string;
   setCustomCommandName: (name: string) => void;
+  displayName: string;
+  setDisplayName: (name: string) => void;
   uiConfig: any;
   setUiConfig: (config: any) => void;
   loraFiles: any[];
@@ -99,8 +101,21 @@ function inferDiscordType(
     return { type: existingType };
   }
 
-  // 5. Default — free text
+  // Default — free text
   return { type: 'text' };
+}
+
+function getPrimaryField(classType: string): string | null {
+  const c = classType.toLowerCase();
+  if (c.includes('unetloader')) return 'unet_name';
+  if (c.includes('checkpointloader')) return 'ckpt_name';
+  if (c.includes('cliptextencode')) return 'text';
+  if (c.includes('loraloader')) return 'lora_name';
+  if (c.includes('vaeloader')) return 'vae_name';
+  if (c.includes('upscalemodel')) return 'model_name';
+  if (c.includes('controlnetloader')) return 'control_net_name';
+  if (c.includes('empty潜') || c.includes('emptylatent')) return 'width'; // or batch_size
+  return null;
 }
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
@@ -112,10 +127,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [objectInfo, setObjectInfo] = useState<any>(null);
   const [selections, setSelections] = useState<any[]>([]);
   const [customCommandName, setCustomCommandName] = useState<string>('');
+  const [displayName, setDisplayName] = useState<string>('');
   const [uiConfig, setUiConfig] = useState<any>({
     embed: {
       title_template: "{user}'s Generation",
       color: "#5865F2",
+      use_role_color: true,
       show_metadata: ["prompt", "seed", "model", "ratio"]
     },
     buttons: [
@@ -213,6 +230,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setSelections(loadedSelections || []);
       const fallbackName = wf.name.replace(/\.json$/i, '').toLowerCase();
       setCustomCommandName(data.manifest?.discord_command || data.manifest?.discord?.command || fallbackName);
+      setDisplayName(data.manifest?.display_name || data.manifest?.workflow_name || '');
       setLoraSelections(data.manifest?.discord?.loras || {});
       if (data.manifest?.discord?.ui) {
         setUiConfig(data.manifest.discord.ui);
@@ -317,6 +335,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const manifest = {
         ...(selectedWorkflow.manifest || {}),
         workflow_name: selectedWorkflow.name.replace(/\.json$/i, ''), // e.g. "FluxDev"
+        display_name: displayName,
         discord_command: customCommandName || selectedWorkflow.name.replace(/\.json$/i, '').toLowerCase(),
         description: (selectedWorkflow.manifest?.description) || `Run ${customCommandName || selectedWorkflow.name.replace(/\.json$/i, '')} workflow`,
         mapping: rootMapping,
@@ -351,18 +370,37 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleInput = (nodeId: string, field: string, type: string | null) => {
-    const existing = selections.find(s => s.nodeId === nodeId && s.field === field);
+    // 1. Resolve "Smart Mapping" — if this is a link, follow it to the source node
+    let targetNodeId = nodeId;
+    let targetField = field;
+    
+    const nodeData = selectedWorkflow?.content?.[nodeId];
+    const val = nodeData?.inputs?.[field];
+    
+    if (Array.isArray(val) && val.length >= 2) {
+      const sourceNodeId = String(val[0]);
+      const sourceNode = selectedWorkflow?.content?.[sourceNodeId];
+      if (sourceNode) {
+        const primary = getPrimaryField(sourceNode.class_type);
+        if (primary) {
+          targetNodeId = sourceNodeId;
+          targetField = primary;
+        }
+      }
+    }
+
+    const existing = selections.find(s => s.nodeId === targetNodeId && s.field === targetField);
     if (existing) {
       setSelections(selections.filter(s => s !== existing));
     } else if (type !== null) {
-      const classType = selectedWorkflow?.content?.[nodeId]?.class_type || '';
-      const { type: inferredType, choices } = inferDiscordType(classType, field, objectInfo);
+      const classType = selectedWorkflow?.content?.[targetNodeId]?.class_type || '';
+      const { type: inferredType, choices } = inferDiscordType(classType, targetField, objectInfo);
       setSelections([...selections, {
-        id: field,
-        nodeId,
-        field,
+        id: targetField,
+        nodeId: targetNodeId,
+        field: targetField,
         type: inferredType,
-        label: field,
+        label: targetField,
         required: true,
         choices
       }]);
@@ -518,6 +556,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     selectedWorkflow, setSelectedWorkflow,
     selections, setSelections,
     customCommandName, setCustomCommandName,
+    displayName, setDisplayName,
     uiConfig, setUiConfig,
     loraFiles, setLoraFiles,
     editingLoraFile, setEditingLoraFile,

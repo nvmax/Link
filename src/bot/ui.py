@@ -122,6 +122,7 @@ class OptionsView(ui.View):
         )
         confirm_btn.callback = self._confirm
         self.add_item(confirm_btn)
+        row += 1
 
         cancel_btn = ui.Button(
             label="Cancel",
@@ -188,35 +189,49 @@ class _FieldSelect(ui.Select):
             ov._build()
             await interaction.response.edit_message(
                 content=ov._status_text(),
+                view=ov,
+            )
+        except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"FieldSelect error: {e}", exc_info=True)
 
 
-class ChainSelectView(ui.View):
-    """View containing the workflow selection dropdown."""
-    def __init__(self, workflows: List[str], job_id: str, callback: Callable):
-        super().__init__(timeout=120)
-        self.add_item(ChainSelect(workflows, job_id, callback))
-
-
 class ChainSelect(ui.Select):
     """Dropdown menu for curated workflow selection."""
-    def __init__(self, workflows: List[str], job_id: str, callback: Callable):
+    def __init__(self, workflow_names: List[str], job_id: str, callback: Callable):
         self.job_id = job_id
         self.trigger_callback = callback
+        self.workflow_names = workflow_names
         
-        # Limit to 25 items (Discord limit)
         options = [
-            discord.SelectOption(
-                label=wf[:100],
-                value=wf,
-                emoji="🪄"
-            )
-            for wf in workflows[:25]
+            discord.SelectOption(label=name[:100], value=name, emoji="🪄")
+            for name in workflow_names[:25]
         ]
         super().__init__(placeholder="Choose a workflow to chain to...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        # Edit the message to show selection and remove view
-        await interaction.response.edit_message(content=f"🔄 Chaining to **{self.values[0]}**...", view=None)
         await self.trigger_callback(interaction, self.values[0], self.job_id)
+
+
+class ChainSelectView(ui.View):
+    """View containing the workflow selection dropdown."""
+    def __init__(self, workflow_names: List[str], job_id: str, callback: Callable, registry=None):
+        super().__init__(timeout=120)
+        select = ChainSelect(workflow_names, job_id, callback)
+        
+        if registry:
+            refined_options = []
+            for name in workflow_names[:25]:
+                wf_data = registry.get_workflow(name)
+                label = name
+                if wf_data:
+                    manifest = wf_data.get("manifest", {})
+                    # Priority: display_name > workflow_name > discord_command > internal name
+                    label = manifest.get("display_name") or manifest.get("workflow_name") or manifest.get("discord_command") or name
+                
+                refined_options.append(
+                    discord.SelectOption(label=label[:100], value=name, emoji="🪄")
+                )
+            select.options = refined_options
+            
+        self.add_item(select)

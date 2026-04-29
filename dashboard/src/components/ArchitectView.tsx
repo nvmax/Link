@@ -7,7 +7,7 @@ import { VisualWorkflowMap } from './VisualWorkflowMap';
 import { ListView } from './ListView';
 
 export function ArchitectView() {
-  const { workflows, selectedWorkflow, loadWorkflow, viewMode, setViewMode, customCommandName, setCustomCommandName, selections, moveInput, importWorkflow, deleteWorkflow } = useDashboard();
+  const { workflows, selectedWorkflow, loadWorkflow, viewMode, setViewMode, customCommandName, setCustomCommandName, displayName, setDisplayName, selections, moveInput, importWorkflow, deleteWorkflow } = useDashboard();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,15 +87,30 @@ export function ArchitectView() {
                   <button onClick={() => setViewMode('visual')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'visual' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Visual Architect</button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
-                  <Type className="w-3 h-3 text-indigo-400" />
-                  <input 
-                    value={customCommandName} 
-                    onChange={(e) => setCustomCommandName(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                    placeholder="Command Name"
-                    className="bg-transparent border-none text-xs font-bold text-indigo-400 outline-none w-32 placeholder-indigo-400/30"
-                  />
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter ml-1">Discord Workflow list name</span>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20 shadow-inner">
+                    <Type className="w-3 h-3 text-indigo-400" />
+                    <input 
+                      value={displayName} 
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Display Name"
+                      className="bg-transparent border-none text-xs font-bold text-indigo-400 outline-none w-36 placeholder-indigo-400/30"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter ml-1">Discord Command</span>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-500/10 rounded-lg border border-white/5 shadow-inner">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">/</span>
+                    <input 
+                      value={customCommandName} 
+                      onChange={(e) => setCustomCommandName(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                      placeholder="Command"
+                      className="bg-transparent border-none text-xs font-bold text-slate-400 outline-none w-28 placeholder-slate-600"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

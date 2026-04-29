@@ -32,10 +32,32 @@ export function ModalStudio() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 uppercase font-bold">Accent Color</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-slate-500 uppercase font-bold">Accent Color</label>
+                    <label className="flex items-center gap-1.5 cursor-pointer group">
+                      <input 
+                        type="checkbox"
+                        checked={uiConfig.embed?.use_role_color || false}
+                        onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, use_role_color: e.target.checked } })}
+                        className="w-3 h-3 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                      />
+                      <span className="text-[9px] font-bold text-slate-500 group-hover:text-indigo-400 transition-colors uppercase">Role Color</span>
+                    </label>
+                  </div>
                   <div className="flex gap-2">
-                    <input type="color" value={uiConfig.embed?.color || '#5865F2'} onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, color: e.target.value } })} className="w-10 h-10 rounded-lg bg-transparent border-none cursor-pointer" />
-                    <input value={uiConfig.embed?.color || '#5865F2'} onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, color: e.target.value } })} className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-indigo-500/50" />
+                    <input 
+                      type="color" 
+                      value={uiConfig.embed?.color || '#5865F2'} 
+                      disabled={uiConfig.embed?.use_role_color}
+                      onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, color: e.target.value } })} 
+                      className={`w-10 h-10 rounded-lg bg-transparent border-none cursor-pointer ${uiConfig.embed?.use_role_color ? 'opacity-30' : ''}`} 
+                    />
+                    <input 
+                      value={uiConfig.embed?.color || '#5865F2'} 
+                      disabled={uiConfig.embed?.use_role_color}
+                      onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, color: e.target.value } })} 
+                      className={`flex-1 bg-black/40 border border-white/5 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-indigo-500/50 ${uiConfig.embed?.use_role_color ? 'opacity-30' : ''}`} 
+                    />
                   </div>
                 </div>
               </div>

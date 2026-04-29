@@ -191,10 +191,13 @@ class GenerationCog(commands.Cog):
 
             display_name = manifest.get("workflow_name") or manifest.get("discord_command") or workflow_name
             
+            logger.info(f"Interaction state before response: is_done={interaction.response.is_done()}")
             if not interaction.response.is_done():
+                logger.info("Attempting to send initial message via interaction.response.send_message")
                 await interaction.response.send_message(f"Initializing generation for **{display_name}**...")
                 message = await interaction.original_response()
             else:
+                logger.info("Attempting to send initial message via interaction.followup.send")
                 message = await interaction.followup.send(f"Initializing generation for **{display_name}**...")
             
             await self._execute_generation(interaction, workflow_name, workflow, manifest, final_values, message_id=message.id)

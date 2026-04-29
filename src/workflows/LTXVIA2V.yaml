@@ -36,110 +36,6 @@ discord:
       type: image_upload
       label: image
       required: true
-      choices:
-        - ComfyUI-45_left_00002_.png
-        - ComfyUI-wide_shot_00007_.png
-        - ComfyUI-wide_shot_00012_.png
-        - ComfyUI-wide_shot_00019_.png
-        - ComfyUI_00002_.png
-        - ComfyUI_00004_.png
-        - ComfyUI_00007_.png
-        - ComfyUI_00008_.png
-        - ComfyUI_00014_ (1).png
-        - ComfyUI_00014_ (2).png
-        - ComfyUI_00014_.png
-        - ComfyUI_00043_ (1).png
-        - ComfyUI_00043_.png
-        - ComfyUI_temp_bhrdk_00001_.png
-        - ComfyUI_temp_iprhd_00001_.png
-        - ComfyUI_temp_iprhd_00002_.png
-        - ComfyUI_temp_khyev_00001_ (1).png
-        - ComfyUI_temp_khyev_00001_.png
-        - ComfyUI_temp_kueiy_00001_ (1).png
-        - ComfyUI_temp_kueiy_00001_.png
-        - ComfyUI_temp_nlxfo_00001_.png
-        - ComfyUI_temp_nlxfo_00002_.png
-        - ComfyUI_temp_nlxfo_00003_.png
-        - ComfyUI_temp_nlxfo_00005_.png
-        - ComfyUI_temp_nlxfo_00006_.png
-        - ComfyUI_temp_nlxfo_00007_.png
-        - ComfyUI_temp_nvxgv_00001_.png
-        - ComfyUI_temp_phpco_00001_.png
-        - ComfyUI_temp_sjyii_00001_.png
-        - ComfyUI_temp_stvyz_00001_.png
-        - ComfyUI_temp_stvyz_00002_.png
-        - ComfyUI_temp_txobp_00002_.png
-        - Flux2-Klein_00004_.png
-        - Flux2-Klein_00005_.png
-        - Flux2-Klein_00037_.png
-        - Flux2-Klein_00043_.png
-        - Flux2-Klein_00045_.png
-        - Flux2-Klein_00047_.png
-        - Flux2-Klein_00053_.png
-        - Flux2-Klein_00061_.png
-        - Flux2-Klein_00062_.png
-        - Flux2-Klein_00064_.png
-        - Flux2-Klein_00066_.png
-        - Flux2-Klein_00070_.png
-        - Flux2-Klein_00072_.png
-        - Flux2-Klein_00079_.png
-        - Flux2-Klein_00096_.png
-        - Flux2-Klein_00101_.png
-        - Flux2-Klein_00110_ (1).png
-        - Flux2-Klein_00110_.png
-        - Flux2-Klein_00115_.png
-        - Flux2-Klein_00133_ (1).png
-        - Flux2-Klein_00133_.png
-        - Flux2-Klein_00140_.png
-        - Flux2-Klein_00146_ (1).png
-        - Flux2-Klein_00146_.png
-        - Flux2-Klein_00148_.png
-        - Flux2-Klein_00166_.png
-        - Flux2-Klein_00170_.png
-        - Flux2-Klein_00172_.png
-        - Flux2-Klein_00188_.png
-        - Flux2-Klein_00189_.png
-        - Flux2-Klein_00200_.png
-        - Flux2-Klein_00210_.png
-        - Flux2-Klein_00211_.png
-        - Flux2-Klein_00230_.png
-        - Flux2-Klein_00242_.png
-        - Flux2-Klein_00250_.png
-        - Flux2-Klein_00256_.png
-        - Flux2-Klein_00267_.png
-        - Flux2-Klein_00268_.png
-        - Flux2-Klein_00272_.png
-        - Flux2-Klein_00274_.png
-        - Flux2-Klein_00291_.png
-        - Flux2-Klein_00292_.png
-        - Flux2-Klein_00295_.png
-        - Flux2-Klein_00306_.png
-        - Flux2-Klein_00339_.png
-        - Gemini_Generated_Image_4qakq74qakq74qak.png
-        - Gemini_Generated_Image_8dfipt8dfipt8dfi.png
-        - Gemini_Generated_Image_aukzrnaukzrnaukz.png
-        - Gemini_Generated_Image_c5mgz5c5mgz5c5mg.png
-        - Gemini_Generated_Image_cxf0brcxf0brcxf0.png
-        - Gemini_Generated_Image_eds8n0eds8n0eds8.png
-        - Gemini_Generated_Image_mcu9rymcu9rymcu9.png
-        - Gemini_Generated_Image_o7eofyo7eofyo7eo.png
-        - Gemini_Generated_Image_og4ximog4ximog4x.png
-        - Gemini_Generated_Image_oq82rdoq82rdoq82.png
-        - Gemini_Generated_Image_rjq5d4rjq5d4rjq5.png
-        - Gemini_Generated_Image_sal2mhsal2mhsal2 (1).png
-        - Gemini_Generated_Image_sal2mhsal2mhsal2 (2).png
-        - Gemini_Generated_Image_sal2mhsal2mhsal2.png
-        - Gemini_Generated_Image_vf0oxavf0oxavf0o.png
-        - Pose_sheet_v02.png
-        - a4ad79ff-0074-490a-a093-b0163c264d2d_Flux_gen_00024.jpeg
-        - ava3.png
-        - b5f6c2df-8988-4bd9-9e14-2692fc2587d3_Flux_gen_00027.jpeg
-        - ca4f1925-e827-46fc-8ae0-3ab60e07a7c3_Flux_gen_00026.jpeg
-        - download.png
-        - example.png
-        - grok-image-5a2dc404-7003-4c53-8a1a-f3f860302560.png
-        - image_gZJ3m8uL_1722942344022_raw-1376502067.jpg
-        - output.jpg
     - id: text
       nodeId: '4'
       field: text
@@ -161,6 +57,7 @@ discord:
       show_footer: false
       image_position: top
       show_author: false
+      use_role_color: true
     buttons:
       - type: regenerate
         label: Regenerate
@@ -176,3 +73,4 @@ discord:
         emoji: 🗑️
     positions: {}
   loras: {}
+display_name: Create video, upload audio, describe actions

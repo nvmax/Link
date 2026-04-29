@@ -75,6 +75,7 @@ discord:
       show_footer: false
       image_position: top
       show_author: false
+      use_role_color: true
     buttons:
       - type: regenerate
         label: Regenerate
@@ -95,3 +96,4 @@ discord:
         emoji: 📽️
     positions: {}
   loras: {}
+display_name: Video based on uploaded audio length

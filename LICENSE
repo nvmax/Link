@@ -1,26 +1,37 @@
-# LINK License Agreement
+PolyForm Noncommercial License 1.0.0
+Copyright (c) 2026 [Jerrod Linderman/NVMax]
+Project: https://github.com/nvmax/Link
 
-Copyright (c) 2026 Jerrod Linderman
+1. Grant of Rights
+The author grants you a non-exclusive, royalty-free, worldwide, non-sublicensable license to use, reproduce, prepare derivative works of, and distribute this software for Permitted Purposes only.
 
-## Non-Commercial License
+2. Permitted Purposes
+"Permitted Purposes" are limited to:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to use the Software for **personal, non-commercial purposes only**, subject to the following conditions:
+Personal Use: Use by an individual for private entertainment, hobbyist experimentation, or personal projects.
 
-1. **Personal Use**: You may use, copy, modify, and merge the Software for your own personal projects, learning, and non-profit experimentation.
-2. **Attribution**: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-3. **No Commercial Use**: You may NOT use this Software or any substantial portion of it for commercial purposes, including but not limited to:
-   - Using the Software to generate revenue or provide a paid service.
-   - Using the Software within a commercial company or organization.
-   - Selling or redistributing the Software as part of a paid package.
+Research and Education: Use for learning, teaching, or academic research.
 
-## Commercial Licensing
+Private Testing: Use to evaluate the software for personal interest.
 
-If you wish to use **LINK** for commercial purposes, you must obtain a separate commercial license. 
+3. Commercial Restrictions
+Any use for a commercial purpose is strictly prohibited. A "commercial purpose" includes any use intended for or directed toward commercial advantage or monetary compensation. This includes, but is not limited to:
 
-For inquiries regarding commercial licensing, please contact:
-**Jerrod Linderman**  
-📧 [JerrodLinderman@gmail.com](mailto:JerrodLinderman@gmail.com)
+Using the software in a business environment or for-profit organization.
 
-## Disclaimer
+Using the software to provide a service for which a fee is charged.
 
+Selling, leasing, or renting the software or any derivative works.
+
+Including the software as part of a commercial product or paid subscription.
+
+If you wish to use this software for commercial purposes, you must obtain prior written permission or a separate commercial license from the author.
+
+4. Rights Reserved
+The author retains all rights, title, and interest in and to the software, including all intellectual property rights. The author specifically reserves the right to sell the software, its intellectual property, or provide commercial licenses to third parties at any time.
+
+5. Conditions
+You must include a copy of this license and all original copyright notices in every copy or derivative work of the software you distribute.
+
+6. Disclaimer of Warranty
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

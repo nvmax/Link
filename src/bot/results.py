@@ -194,8 +194,25 @@ class ResultHandler:
                                         existing_ids.add("link_gen_options")
 
                         # 3. Build Result Embed (High-Detail "Workstation" Style)
-                        color_hex = embed_cfg.get("color", "#5865F2").replace("#", "")
-                        color = int(color_hex, 16)
+                        use_role_color = embed_cfg.get("use_role_color", True)
+                        color = None
+                        
+                        if use_role_color and job.user_id:
+                            try:
+                                # Try to get the member to find their role color
+                                guild = channel.guild if channel and hasattr(channel, 'guild') else None
+                                member = None
+                                if guild:
+                                    member = guild.get_member(int(job.user_id)) or await guild.fetch_member(int(job.user_id))
+                                
+                                if member and member.color != discord.Color.default():
+                                    color = member.color
+                            except Exception as e:
+                                logger.debug(f"Could not resolve role color for user {job.user_id}: {e}")
+                                
+                        if color is None:
+                            color_hex = embed_cfg.get("color", "#5865F2").replace("#", "")
+                            color = int(color_hex, 16)
                         
                         user = None
                         try:
