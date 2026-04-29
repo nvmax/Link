@@ -118,102 +118,36 @@ async def handle_smart_action(interaction: discord.Interaction):
         if custom_id.startswith("link_chain_"):
             raw_target = custom_id.replace("link_chain_", "")
             target_wf = raw_target.split("|")[0]
+            await _execute_chain(interaction, job, target_wf)
+        elif custom_id.startswith("link_selector_"):
+            # New handler for curated selector
+            wf_config = interaction.client.workflow_registry.get_workflow(job.workflow_name)
+            manifest = wf_config.get("manifest", {})
+            ui_cfg = manifest.get("discord", {}).get("ui") or manifest.get("ui", {})
             
-            # Get target workflow manifest to find where to put things
-            target_workflow = interaction.client.workflow_registry.get_workflow(target_wf)
-            if not target_workflow:
-                return await interaction.response.send_message(f"❌ Target workflow '{target_wf}' not found.", ephemeral=True)
-                
-            target_manifest = target_workflow.get("manifest", {})
-            target_inputs = target_manifest.get("inputs", [])
+            target_workflows = []
+            for btn in ui_cfg.get("buttons", []):
+                if btn.get("type") == "selector":
+                    target_workflows = btn.get("target_workflows", [])
+                    break
             
-            prefilled = {}
+            if not target_workflows:
+                return await interaction.response.send_message("❌ No target workflows configured for this selector.", ephemeral=True)
+
+            from src.bot.ui import ChainSelectView
             
-            # Auto-detect mapping based on attachment types
-            if interaction.message and interaction.message.attachments:
-                for att in interaction.message.attachments:
-                    ctype = (att.content_type or "").lower()
-                    
-                    # Filter candidates by type — match both explicit upload types AND name keywords
-                    candidates = []
-                    for inp in target_inputs:
-                        itype = inp.get("type", "")
-                        iid = inp.get("id", "").lower()
-                        label = inp.get("label", "").lower()
-                        
-                        is_image_field = itype == "image_upload" or (itype not in ["audio_upload","video_upload"] and any(k in iid or k in label for k in ["image","img","photo","picture","frame"]))
-                        is_video_field = itype == "video_upload" or (itype not in ["image_upload","audio_upload"] and any(k in iid or k in label for k in ["video","clip","film","footage"]))
-                        is_audio_field = itype == "audio_upload" or (itype not in ["image_upload","video_upload"] and any(k in iid or k in label for k in ["audio","sound","music","voice","track"]))
-                        
-                        if "image" in ctype and is_image_field: candidates.append(inp)
-                        elif ("video" in ctype or ctype == "image/gif") and is_video_field: candidates.append(inp)
-                        elif "audio" in ctype and is_audio_field: candidates.append(inp)
-                    
-                    if not candidates: continue
-                    
-                    # Rank candidates to find the "Main" one
-                    # Score based on keywords
-                    best_score = -1
-                    best_inp = None
-                    
-                    for c in candidates:
-                        cid = c.get("id", "").lower()
-                        clabel = c.get("label", "").lower()
-                        score = 0
-                        
-                        # Exact matches
-                        if cid in ["image", "video", "audio", "input", "source"]: score += 10
-                        # Primary keywords
-                        if any(k in cid or k in clabel for k in ["main", "source", "input", "primary", "base"]): score += 5
-                        # Negative keywords (mask, style, control)
-                        if any(k in cid or k in clabel for k in ["mask", "style", "control", "depth", "pose", "canny"]): score -= 5
-                        
-                        if score > best_score:
-                            best_score = score
-                            best_inp = c
-                    
-                    if best_inp and best_inp["id"] not in prefilled:
-                        # Prefer local DB asset path over Discord CDN URL (CDN URLs can expire)
-                        # Try to find the corresponding local asset in the DB
-                        local_asset_path = None
-                        try:
-                            from src.database.models import Asset as AssetModel, GenerationJob as GenJob
-                            from src.database.session import SessionLocal as DBSession
-                            _db = DBSession()
-                            try:
-                                ctype_check = (att.content_type or "").lower()
-                                if "image" in ctype_check:
-                                    mime_like = "image%"
-                                elif "video" in ctype_check or ctype_check == "image/gif":
-                                    mime_like = "video%"
-                                elif "audio" in ctype_check:
-                                    mime_like = "audio%"
-                                else:
-                                    mime_like = None
-                                
-                                if mime_like:
-                                    last_local = _db.query(AssetModel).join(GenJob).filter(
-                                        GenJob.user_id == str(interaction.user.id),
-                                        AssetModel.file_type.like(mime_like),
-                                        AssetModel.file_path.notlike("http%")
-                                    ).order_by(AssetModel.id.desc()).first()
-                                    if last_local and os.path.isfile(last_local.file_path):
-                                        local_asset_path = last_local.file_path
-                                        logger.info(f"Using local DB asset for chaining: {local_asset_path}")
-                            finally:
-                                _db.close()
-                        except Exception as _e:
-                            logger.warning(f"Could not query local asset from DB: {_e}")
-                        
-                        prefilled[best_inp["id"]] = local_asset_path if local_asset_path else att.url
-                        logger.info(f"Auto-selected best input '{best_inp['id']}' (score {best_score}) for {ctype} -> {'local path' if local_asset_path else 'CDN URL'}")
-            
-            # Also pass prompt and seed if applicable
-            for inp in target_inputs:
-                iid = inp.get("id", "")
-                if iid in prefilled: continue
-                if "prompt" in iid.lower(): prefilled[iid] = job.input_params.get("prompt", "")
-                if "seed" in iid.lower(): prefilled[iid] = str(job.input_params.get("seed", ""))
+            async def on_select(sel_interaction, target_wf_name, original_job_id):
+                # We need to re-fetch the job in the callback to ensure DB session is fresh
+                _db = SessionLocal()
+                try:
+                    _job = _db.query(GenerationJob).filter(GenerationJob.id == original_job_id).first()
+                    if _job:
+                        await _execute_chain(sel_interaction, _job, target_wf_name)
+                finally:
+                    _db.close()
+
+            view = ChainSelectView(target_workflows, job.id, on_select)
+            await interaction.response.send_message("Choose a workflow to chain to:", view=view, ephemeral=True)
         else:
             # custom_id format: link_action_{target_wf}_{source_type}_{input_mapping}
             raw = custom_id.replace("link_action_", "")
@@ -247,15 +181,15 @@ async def handle_smart_action(interaction: discord.Interaction):
                 elif source_ref == "seed": prefilled[target_field] = str(job.input_params.get("seed", ""))
                 elif source_ref in job.input_params: prefilled[target_field] = job.input_params[source_ref]
 
-        gen_cog = interaction.client.get_cog("GenerationCog")
-        if gen_cog:
-            await gen_cog.handle_generation_request(
-                interaction, 
-                target_wf, 
-                prefilled=prefilled
-            )
-        else:
-            await interaction.response.send_message("❌ Generation system unavailable.", ephemeral=True)
+            gen_cog = interaction.client.get_cog("GenerationCog")
+            if gen_cog:
+                await gen_cog.handle_generation_request(
+                    interaction, 
+                    target_wf, 
+                    prefilled=prefilled
+                )
+            else:
+                await interaction.response.send_message("❌ Generation system unavailable.", ephemeral=True)
     except Exception as e:
         logger.error(f"Error in handle_smart_action: {e}", exc_info=True)
         try:
@@ -266,3 +200,99 @@ async def handle_smart_action(interaction: discord.Interaction):
         except: pass
     finally:
         db.close()
+
+async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, target_wf: str):
+    """Internal helper to execute a chain request from a job result."""
+    # Get target workflow manifest to find where to put things
+    target_workflow = interaction.client.workflow_registry.get_workflow(target_wf)
+    if not target_workflow:
+        return await interaction.response.send_message(f"❌ Target workflow '{target_wf}' not found.", ephemeral=True)
+        
+    target_manifest = target_workflow.get("manifest", {})
+    target_inputs = target_manifest.get("inputs", [])
+    
+    prefilled = {}
+    
+    # Auto-detect mapping based on attachment types
+    if interaction.message and interaction.message.attachments:
+        for att in interaction.message.attachments:
+            ctype = (att.content_type or "").lower()
+            
+            # Filter candidates by type — match both explicit upload types AND name keywords
+            candidates = []
+            for inp in target_inputs:
+                itype = inp.get("type", "")
+                iid = inp.get("id", "").lower()
+                label = inp.get("label", "").lower()
+                
+                is_image_field = itype == "image_upload" or (itype not in ["audio_upload","video_upload"] and any(k in iid or k in label for k in ["image","img","photo","picture","frame"]))
+                is_video_field = itype == "video_upload" or (itype not in ["image_upload","audio_upload"] and any(k in iid or k in label for k in ["video","clip","film","footage"]))
+                is_audio_field = itype == "audio_upload" or (itype not in ["image_upload","video_upload"] and any(k in iid or k in label for k in ["audio","sound","music","voice","track"]))
+                
+                if "image" in ctype and is_image_field: candidates.append(inp)
+                elif ("video" in ctype or ctype == "image/gif") and is_video_field: candidates.append(inp)
+                elif "audio" in ctype and is_audio_field: candidates.append(inp)
+            
+            if not candidates: continue
+            
+            # Rank candidates to find the "Main" one
+            best_score = -1
+            best_inp = None
+            
+            for c in candidates:
+                cid = c.get("id", "").lower()
+                clabel = c.get("label", "").lower()
+                score = 0
+                
+                if cid in ["image", "video", "audio", "input", "source"]: score += 10
+                if any(k in cid or k in clabel for k in ["main", "source", "input", "primary", "base"]): score += 5
+                if any(k in cid or k in clabel for k in ["mask", "style", "control", "depth", "pose", "canny"]): score -= 5
+                
+                if score > best_score:
+                    best_score = score
+                    best_inp = c
+            
+            if best_inp and best_inp["id"] not in prefilled:
+                local_asset_path = None
+                try:
+                    from src.database.models import Asset as AssetModel, GenerationJob as GenJob
+                    from src.database.session import SessionLocal as DBSession
+                    _db = DBSession()
+                    try:
+                        ctype_check = (att.content_type or "").lower()
+                        if "image" in ctype_check:
+                            mime_like = "image%"
+                        elif "video" in ctype_check or ctype_check == "image/gif":
+                            mime_like = "video%"
+                        elif "audio" in ctype_check:
+                            mime_like = "audio%"
+                        else:
+                            mime_like = None
+                        
+                        if mime_like:
+                            last_local = _db.query(AssetModel).join(GenJob).filter(
+                                GenJob.user_id == str(interaction.user.id),
+                                AssetModel.file_type.like(mime_like),
+                                AssetModel.file_path.notlike("http%")
+                            ).order_by(AssetModel.id.desc()).first()
+                            if last_local and os.path.isfile(last_local.file_path):
+                                local_asset_path = last_local.file_path
+                    finally:
+                        _db.close()
+                except Exception as _e:
+                    logger.warning(f"Could not query local asset from DB: {_e}")
+                
+                prefilled[best_inp["id"]] = local_asset_path if local_asset_path else att.url
+    
+    # Also pass prompt and seed if applicable
+    for inp in target_inputs:
+        iid = inp.get("id", "")
+        if iid in prefilled: continue
+        if "prompt" in iid.lower(): prefilled[iid] = job.input_params.get("prompt", "")
+        if "seed" in iid.lower(): prefilled[iid] = str(job.input_params.get("seed", ""))
+
+    gen_cog = interaction.client.get_cog("GenerationCog")
+    if gen_cog:
+        await gen_cog.handle_generation_request(interaction, target_wf, prefilled=prefilled)
+    else:
+        await interaction.response.send_message("❌ Generation system unavailable.", ephemeral=True)
