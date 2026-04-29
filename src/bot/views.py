@@ -206,7 +206,11 @@ async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, t
     # Get target workflow manifest to find where to put things
     target_workflow = interaction.client.workflow_registry.get_workflow(target_wf)
     if not target_workflow:
-        return await interaction.response.send_message(f"❌ Target workflow '{target_wf}' not found.", ephemeral=True)
+        msg = f"❌ Target workflow '{target_wf}' not found."
+        if not interaction.response.is_done():
+            return await interaction.response.send_message(msg, ephemeral=True)
+        else:
+            return await interaction.followup.send(msg, ephemeral=True)
         
     target_manifest = target_workflow.get("manifest", {})
     target_inputs = target_manifest.get("inputs", [])
@@ -295,4 +299,8 @@ async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, t
     if gen_cog:
         await gen_cog.handle_generation_request(interaction, target_wf, prefilled=prefilled)
     else:
-        await interaction.response.send_message("❌ Generation system unavailable.", ephemeral=True)
+        msg = "❌ Generation system unavailable."
+        if not interaction.response.is_done():
+            await interaction.response.send_message(msg, ephemeral=True)
+        else:
+            await interaction.followup.send(msg, ephemeral=True)
