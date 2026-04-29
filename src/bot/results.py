@@ -153,6 +153,13 @@ class ResultHandler:
                                     view.add_item(btn)
                                     existing_ids.add(custom_id)
                                     
+                            elif btn_type == "selector":
+                                custom_id = f"link_selector_{job.id}"
+                                if custom_id not in existing_ids:
+                                    btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
+                                    view.add_item(btn)
+                                    existing_ids.add(custom_id)
+                                    
                             elif btn_type == "delete":
                                 if "link_gen_delete" not in existing_ids:
                                     btn = existing_items.get("link_gen_delete")
