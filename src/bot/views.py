@@ -153,6 +153,14 @@ async def handle_smart_action(interaction: discord.Interaction):
 
             view = ChainSelectView(target_workflows, job.id, on_select, registry=interaction.client.workflow_registry)
             await interaction.response.send_message("Choose a workflow to chain to:", view=view, ephemeral=True)
+        elif custom_id.startswith("link_gen_redo"):
+            gen_cog = interaction.client.get_cog("GenerationCog")
+            if gen_cog:
+                await gen_cog.handle_regeneration(interaction, job.id)
+        elif custom_id.startswith("link_gen_options"):
+            gen_cog = interaction.client.get_cog("GenerationCog")
+            if gen_cog:
+                await gen_cog.handle_options_request(interaction, job.id)
         else:
             # custom_id format: link_action_{target_wf}_{source_type}_{input_mapping}
             raw = custom_id.replace("link_action_", "")

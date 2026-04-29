@@ -1,0 +1,71 @@
+workflow_name: imagetext2video
+display_name: imagetext2video
+discord_command: imagetext2video
+description: Run imagetext2video workflow
+mapping:
+  text:
+    - '281'
+    - inputs
+    - text
+  image:
+    - '269'
+    - inputs
+    - image
+inputs:
+  - id: text
+    type: text
+    label: text
+    required: true
+  - id: image
+    type: image_upload
+    label: image
+    required: true
+discord:
+  command: imagetext2video
+  inputs:
+    - id: text
+      nodeId: '281'
+      field: text
+      type: text
+      label: text
+      required: true
+    - id: image
+      nodeId: '269'
+      field: image
+      type: image_upload
+      label: image
+      required: true
+  ui:
+    embed:
+      title_template: '{user}''s Generation'
+      color: '#5865F2'
+      show_metadata:
+        - prompt
+        - seed
+        - model
+        - ratio
+        - steps
+      show_footer: false
+      image_position: top
+      show_author: false
+      use_role_color: true
+    buttons:
+      - type: regenerate
+        label: Regenerate
+        style: primary
+        emoji: ♻️
+      - type: options
+        label: Options
+        style: secondary
+        emoji: ⚙️
+      - type: delete
+        label: Delete
+        style: danger
+        emoji: 🗑️
+      - type: chain
+        label: Video This
+        style: primary
+        target_workflow: LTXVIA2V
+        emoji: 📽️
+    positions: {}
+  loras: {}

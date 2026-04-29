@@ -600,15 +600,23 @@ class GenerationCog(commands.Cog):
         for k in list(values.keys()):
             if "seed" in k.lower():
                 values[k] = -1
-        
         db.close()
         
         wf = self.bot.workflow_registry.get_workflow(workflow_name)
         if not wf:
-            return await interaction.response.send_message("Workflow no longer exists.", ephemeral=True)
+            msg = "Workflow no longer exists."
+            if not interaction.response.is_done():
+                return await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                return await interaction.followup.send(msg, ephemeral=True)
 
-        await interaction.response.send_message(f"🔄 Regenerating '{workflow_name}'...")
-        message = await interaction.original_response()
+        msg = f"🔄 Regenerating '{workflow_name}'..."
+        if not interaction.response.is_done():
+            await interaction.response.send_message(msg)
+            message = await interaction.original_response()
+        else:
+            message = await interaction.followup.send(msg)
+            
         await self._execute_generation(interaction, workflow_name, wf, wf["manifest"], values, message_id=message.id)
 
     async def handle_options_request(self, interaction: discord.Interaction, job_id: str):
