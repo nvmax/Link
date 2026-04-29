@@ -188,8 +188,35 @@ class _FieldSelect(ui.Select):
             ov._build()
             await interaction.response.edit_message(
                 content=ov._status_text(),
-                view=ov,
-            )
-        except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"FieldSelect error: {e}", exc_info=True)
+
+
+class ChainSelectView(ui.View):
+    """View containing the workflow selection dropdown."""
+    def __init__(self, workflows: List[str], job_id: str, callback: Callable):
+        super().__init__(timeout=120)
+        self.add_item(ChainSelect(workflows, job_id, callback))
+
+
+class ChainSelect(ui.Select):
+    """Dropdown menu for curated workflow selection."""
+    def __init__(self, workflows: List[str], job_id: str, callback: Callable):
+        self.job_id = job_id
+        self.trigger_callback = callback
+        
+        # Limit to 25 items (Discord limit)
+        options = [
+            discord.SelectOption(
+                label=wf[:100],
+                value=wf,
+                emoji="🪄"
+            )
+            for wf in workflows[:25]
+        ]
+        super().__init__(placeholder="Choose a workflow to chain to...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        # Edit the message to show selection and remove view
+        await interaction.response.edit_message(content=f"🔄 Chaining to **{self.values[0]}**...", view=None)
+        await self.trigger_callback(interaction, self.values[0], self.job_id)
