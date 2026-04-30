@@ -252,6 +252,7 @@ export function VisualWorkflowMap() {
   const getLevels = () => {
     const levels: Record<string, number> = {};
     const visit = (id: string, level: number) => {
+      if (level > 50) return; // Prevent infinite recursion on cycles
       levels[id] = Math.max(levels[id] || 0, level);
       if (workflow[id]?.inputs) {
         Object.values(workflow[id].inputs).forEach(val => {

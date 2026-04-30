@@ -235,6 +235,7 @@ class ResultHandler:
                                 "seed": ("Seed", "🎲"),
                                 "model": ("Model", "🤖"),
                                 "ratio": ("Resolution", "📐"),
+                                "lora": ("LoRAs", "🧩"),
                                 "steps": ("Steps", "⏱️"),
                                 "cfg": ("CFG", "⚙️"),
                                 "sampler": ("Sampler", "🧪"),
@@ -266,6 +267,14 @@ class ResultHandler:
                                     val = f"`{val}`"
                                     
                                 elif field == "model": val = f"`{job.input_params.get('__model__', '—')}`"
+                                elif field == "lora":
+                                    lora_data = job.input_params.get("__selected_lora__")
+                                    if lora_data:
+                                        l_name = lora_data.get("name") or lora_data.get("file", "—").split(".")[0]
+                                        l_weight = lora_data.get("weight", 1.0)
+                                        val = f"`{l_name}` ({l_weight})"
+                                    else:
+                                        val = "—"
                                 elif field == "ratio": 
                                     val = job.input_params.get("ratio_selected")
                                     if not val: val = job.input_params.get("resolution")

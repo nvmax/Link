@@ -108,7 +108,7 @@ export function ModalStudio() {
                 <Layout className="w-3 h-3" /> Display Metadata
               </h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {['prompt', 'seed', 'model', 'ratio', 'steps', 'sampler', 'cfg'].map((field) => (
+                {['prompt', 'seed', 'model', 'lora', 'ratio', 'steps', 'sampler', 'cfg'].map((field) => (
                   <label key={field} className="flex items-center gap-2 bg-black/40 border border-white/5 rounded-xl p-3 cursor-pointer hover:border-indigo-500/50 transition-colors">
                     <input 
                       type="checkbox"
@@ -391,6 +391,7 @@ export function ModalStudio() {
                                  const metaMap: any = {
                                    seed: { label: 'Seed', icon: '🎲' },
                                    model: { label: 'Model', icon: '🤖' },
+                                   lora: { label: 'LoRAs', icon: '🧩' },
                                    ratio: { label: 'Resolution', icon: '📐' },
                                    steps: { label: 'Steps', icon: '⏱️' }
                                  };
