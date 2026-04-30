@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Network, Puzzle, Settings, Save } from 'lucide-react';
+import { Network, Puzzle, Settings, Save, X } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
 export function MissionControl() {
@@ -9,6 +9,35 @@ export function MissionControl() {
 
   const handleConfigChange = (key: string, value: string) => {
     setConfig({ ...config, [key]: value });
+  };
+
+  const [newGuildId, setNewGuildId] = React.useState('');
+  const [newChannelId, setNewChannelId] = React.useState('');
+
+  const handleAddGuild = () => {
+    const val = newGuildId.trim();
+    if (val) {
+      const current = config.ALLOWED_GUILD_ID || '';
+      const ids = current.split(',').filter(Boolean);
+      if (!ids.includes(val)) {
+        const next = current ? `${current},${val}` : val;
+        handleConfigChange('ALLOWED_GUILD_ID', next);
+      }
+      setNewGuildId('');
+    }
+  };
+
+  const handleAddChannel = () => {
+    const val = newChannelId.trim();
+    if (val) {
+      const current = config.ALLOWED_CHANNEL_ID || '';
+      const ids = current.split(',').filter(Boolean);
+      if (!ids.includes(val)) {
+        const next = current ? `${current},${val}` : val;
+        handleConfigChange('ALLOWED_CHANNEL_ID', next);
+      }
+      setNewChannelId('');
+    }
   };
 
   return (
@@ -102,25 +131,26 @@ export function MissionControl() {
                   }} />
                 ))}
                 
-                <div className="flex gap-2 p-2 bg-black/40 border border-white/5 rounded-2xl">
-                  <input 
-                    type="text"
-                    placeholder="Enter Server ID..."
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const val = e.currentTarget.value.trim();
-                        if (val) {
-                          const current = config.ALLOWED_GUILD_ID || '';
-                          const next = current ? `${current},${val}` : val;
-                          handleConfigChange('ALLOWED_GUILD_ID', next);
-                          e.currentTarget.value = '';
+                  <div className="flex gap-2 p-2 bg-black/40 border border-white/5 rounded-2xl">
+                    <input 
+                      type="text"
+                      placeholder="Enter Server ID..."
+                      value={newGuildId}
+                      onChange={(e) => setNewGuildId(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddGuild();
                         }
-                      }
-                    }}
-                    className="flex-1 bg-transparent border-none px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600"
-                  />
-                  <button className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 rounded-xl text-[10px] font-black uppercase transition-all">Add</button>
-                </div>
+                      }}
+                      className="flex-1 bg-transparent border-none px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600"
+                    />
+                    <button 
+                      onClick={handleAddGuild}
+                      className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 rounded-xl text-[10px] font-black uppercase transition-all"
+                    >
+                      Add
+                    </button>
+                  </div>
               </div>
             </div>
 
@@ -139,25 +169,26 @@ export function MissionControl() {
                   }} />
                 ))}
                 
-                <div className="flex gap-2 p-2 bg-black/40 border border-white/5 rounded-2xl">
-                  <input 
-                    type="text"
-                    placeholder="Enter Channel ID..."
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const val = e.currentTarget.value.trim();
-                        if (val) {
-                          const current = config.ALLOWED_CHANNEL_ID || '';
-                          const next = current ? `${current},${val}` : val;
-                          handleConfigChange('ALLOWED_CHANNEL_ID', next);
-                          e.currentTarget.value = '';
+                  <div className="flex gap-2 p-2 bg-black/40 border border-white/5 rounded-2xl">
+                    <input 
+                      type="text"
+                      placeholder="Enter Channel ID..."
+                      value={newChannelId}
+                      onChange={(e) => setNewChannelId(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddChannel();
                         }
-                      }
-                    }}
-                    className="flex-1 bg-transparent border-none px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600"
-                  />
-                  <button className="bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-400 px-4 rounded-xl text-[10px] font-black uppercase transition-all">Add</button>
-                </div>
+                      }}
+                      className="flex-1 bg-transparent border-none px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600"
+                    />
+                    <button 
+                      onClick={handleAddChannel}
+                      className="bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-400 px-4 rounded-xl text-[10px] font-black uppercase transition-all"
+                    >
+                      Add
+                    </button>
+                  </div>
               </div>
             </div>
           </div>
@@ -248,7 +279,7 @@ function GuildCard({ id, onRemove }: { id: string, onRemove: (id: string) => voi
         </div>
       </div>
       <button onClick={() => onRemove(id)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-500 transition-all">
-        <Save className="w-3.5 h-3.5 rotate-45" /> {/* Using Save as a temp placeholder for a close icon since I didn't import X */}
+        <X className="w-3.5 h-3.5" />
       </button>
     </div>
   );
@@ -286,7 +317,7 @@ function ChannelCard({ id, onRemove }: { id: string, onRemove: (id: string) => v
         </div>
       </div>
       <button onClick={() => onRemove(id)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-500 transition-all">
-        <Save className="w-3.5 h-3.5 rotate-45" />
+        <X className="w-3.5 h-3.5" />
       </button>
     </div>
   );
