@@ -76,9 +76,38 @@ class PayloadBuilder:
         logger.info("Building payload...")
         payload = json.loads(json.dumps(template)) # Deep copy
         
+        # Build a lookup of valid choices per field for normalization
+        valid_choices_by_field: Dict[str, List[str]] = {}
+        for input_cfg in manifest.get("inputs", []):
+            choices = input_cfg.get("choices")
+            if isinstance(choices, list) and choices:
+                valid_choices_by_field[input_cfg["id"]] = [str(c) for c in choices]
+        # Also check discord.inputs section
+        for input_cfg in manifest.get("discord", {}).get("inputs", []):
+            choices = input_cfg.get("choices")
+            if isinstance(choices, list) and choices:
+                valid_choices_by_field[input_cfg["id"]] = [str(c) for c in choices]
+
         mappings = manifest.get("mapping", {})
         for key, value in user_inputs.items():
             if key in mappings and value is not None and value != "":
+                # Normalize stale select values (e.g. Discord cache sending '9:16' when '16:9' is valid)
+                if key in valid_choices_by_field and isinstance(value, str):
+                    valid_choices = valid_choices_by_field[key]
+                    if value not in valid_choices:
+                        # Try exact match first, then fuzzy: strip ratio prefix and match by resolution label
+                        normalized = None
+                        value_lower = value.lower()
+                        for choice in valid_choices:
+                            # Strip the ratio part (everything before first space) and compare the rest
+                            value_suffix = value.split(" ", 1)[-1].lower()
+                            choice_suffix = choice.split(" ", 1)[-1].lower()
+                            if value_suffix == choice_suffix:
+                                normalized = choice
+                                break
+                        if normalized:
+                            logger.warning(f"Normalized stale value '{value}' → '{normalized}' for field '{key}' (Discord cache mismatch)")
+                            value = normalized
                 mapping_items = mappings[key]
                 logger.info(f"Mapping field: {key} -> {value}")
                 

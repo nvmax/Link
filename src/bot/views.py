@@ -33,42 +33,24 @@ class GenerationView(discord.ui.View):
 
     @discord.ui.button(label="Regenerate", style=discord.ButtonStyle.primary, custom_id="link_gen_redo")
     async def regenerate(self, interaction: discord.Interaction, button: discord.ui.Button):
-        job_id = await self._get_job_id(interaction)
-        if not job_id:
-            return await interaction.response.send_message("❌ Could not find Job ID in message.", ephemeral=True)
-
-        gen_cog = interaction.client.get_cog("GenerationCog")
-        if gen_cog:
-            await gen_cog.handle_regeneration(interaction, job_id)
-        else:
-            await interaction.response.send_message("❌ Generation system not available.", ephemeral=True)
+        # We now handle this globally in handle_smart_action to prevent double-processing
+        pass
 
     @discord.ui.button(label="Options", style=discord.ButtonStyle.secondary, custom_id="link_gen_options")
     async def options(self, interaction: discord.Interaction, button: discord.ui.Button):
-        job_id = await self._get_job_id(interaction)
-        if not job_id:
-            return await interaction.response.send_message("❌ Could not find Job ID in message.", ephemeral=True)
-
-        gen_cog = interaction.client.get_cog("GenerationCog")
-        if gen_cog:
-            await gen_cog.handle_options_request(interaction, job_id)
-        else:
-            await interaction.response.send_message("❌ Generation system not available.", ephemeral=True)
+        # We now handle this globally in handle_smart_action to prevent double-processing
+        pass
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger, custom_id="link_gen_delete")
     async def delete(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            # Acknowledge the interaction first
-            if not interaction.response.is_done():
-                await interaction.response.defer(ephemeral=True)
-            await interaction.message.delete()
-        except Exception as e:
-            # Silence errors if message is already gone
-            if "Unknown Message" not in str(e):
-                logger.warning(f"Failed to delete message: {e}")
+        # We now handle this globally in handle_smart_action
+        pass
 
 async def handle_smart_action(interaction: discord.Interaction):
     """Global listener for smart actions (buttons from ui_config)."""
+    if interaction.response.is_done():
+        return
+
     if not interaction.type == discord.InteractionType.component:
         # Log to see if we're accidentally seeing slash commands here
         if interaction.type == discord.InteractionType.application_command:

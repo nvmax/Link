@@ -96,8 +96,13 @@ function inferDiscordType(
     return { type: 'select', choices: inputInfo[0] };
   }
 
-  // 4. If existing type is already a valid upload type, keep it
-  if (existingType && ['image_upload', 'audio_upload', 'video_upload', 'select'].includes(existingType)) {
+  // 4. ComfyUI objectInfo — Number types (INT, FLOAT) → number
+  if (Array.isArray(inputInfo) && (inputInfo[0] === 'INT' || inputInfo[0] === 'FLOAT' || inputInfo[0] === 'NUMBER')) {
+    return { type: 'number' };
+  }
+
+  // 5. If existing type is already a valid upload type, keep it
+  if (existingType && ['image_upload', 'audio_upload', 'video_upload', 'select', 'number'].includes(existingType)) {
     return { type: existingType };
   }
 

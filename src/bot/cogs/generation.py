@@ -611,11 +611,18 @@ class GenerationCog(commands.Cog):
                 return await interaction.followup.send(msg, ephemeral=True)
 
         msg = f"🔄 Regenerating '{workflow_name}'..."
-        if not interaction.response.is_done():
-            await interaction.response.send_message(msg)
-            message = await interaction.original_response()
-        else:
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg)
+                message = await interaction.original_response()
+            else:
+                message = await interaction.followup.send(msg)
+        except discord.errors.InteractionResponded:
+            # Already responded, just use followup
             message = await interaction.followup.send(msg)
+        except Exception as e:
+            logger.error(f"Error sending regeneration message: {e}")
+            message = await interaction.channel.send(msg)
             
         await self._execute_generation(interaction, workflow_name, wf, wf["manifest"], values, message_id=message.id)
 
@@ -685,11 +692,21 @@ class GenerationCog(commands.Cog):
             on_confirm=on_options_confirm,
             workflow_name=workflow_name,
         )
-        await interaction.response.send_message(
-            content=view._status_text(),
-            view=view,
-            ephemeral=True,
-        )
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    content=view._status_text(),
+                    view=view,
+                    ephemeral=True,
+                )
+            else:
+                await interaction.followup.send(
+                    content=view._status_text(),
+                    view=view,
+                    ephemeral=True,
+                )
+        except Exception as e:
+            logger.error(f"Error sending options message: {e}")
 
     @generate.autocomplete("workflow")
     async def workflow_autocomplete(self, interaction: discord.Interaction, current: str):
