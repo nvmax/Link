@@ -71,15 +71,27 @@ class LinkBot(commands.Bot):
                         logger.info(f"Interaction for {wf_name} already handled by another listener.")
                         return
 
-                    # Defer immediately with a try-block that handles "Already responded" gracefully
+                    # Pre-check: does this workflow need a LoRA picker?
+                    # If so, defer as ephemeral so the picker is only visible to the user.
+                    discord_loras = manifest_data.get('discord', {}).get('loras', {})
+                    has_dynamic_loras = False
+                    for node_id, config in discord_loras.items():
+                        if isinstance(config, str):
+                            if config == 'list': has_dynamic_loras = True
+                        elif isinstance(config, dict):
+                            if config.get('mode', 'list') == 'list': has_dynamic_loras = True
+                        else:
+                            has_dynamic_loras = True
+                    needs_lora_picker = bool(manifest_data.get('lora_list')) and has_dynamic_loras
+
+                    # Defer — ephemeral only if LoRA picker is needed (keeps picker private)
                     try:
-                        await interaction.response.defer(ephemeral=False)
-                        logger.info(f"Interaction deferred for command {wf_name}")
+                        await interaction.response.defer(ephemeral=needs_lora_picker)
+                        logger.info(f"Interaction deferred for command {wf_name} (ephemeral={needs_lora_picker})")
                     except discord.errors.NotFound:
                         logger.warning(f"Interaction for {wf_name} expired or not found immediately. This often means multiple bot instances are running.")
                         return
                     except Exception as defer_err:
-                        # If already acknowledged, we can still proceed with followup
                         if "already been acknowledged" in str(defer_err).lower():
                             logger.info(f"Interaction for {wf_name} was already acknowledged, proceeding with followup.")
                         else:
@@ -88,18 +100,7 @@ class LinkBot(commands.Bot):
                     try:
                         gen_cog = self.get_cog("GenerationCog")
                         if gen_cog:
-                            # Proceed with workflow logic...
-                            discord_loras = manifest_data.get('discord', {}).get('loras', {})
-                            has_dynamic_loras = False
-                            for node_id, config in discord_loras.items():
-                                if isinstance(config, str):
-                                    if config == 'list': has_dynamic_loras = True
-                                elif isinstance(config, dict):
-                                    if config.get('mode', 'list') == 'list': has_dynamic_loras = True
-                                else:
-                                    has_dynamic_loras = True
-                                    
-                            if manifest_data.get('lora_list') and has_dynamic_loras:
+                            if needs_lora_picker:
                                 kwargs['__lora_node_assignments__'] = discord_loras
                                 await gen_cog.show_lora_selection(
                                     interaction, wf_name, workflow, manifest_data, kwargs, 

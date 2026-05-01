@@ -30,11 +30,7 @@ class GenerationCog(commands.Cog):
         self.bot = bot
         self.pending_uploads = {} # {user_id: {workflow_name, values, missing_fields, message_id}}
 
-    @app_commands.command(name="gen", description="Generate an image using a workflow")
-    @app_commands.describe(workflow="The name of the workflow to use")
-    async def generate(self, interaction: discord.Interaction, workflow: str):
-        # The generic /gen command will still trigger the modal flow
-        await self.handle_generation_request(interaction, workflow)
+
 
     async def handle_generation_request(self, interaction: discord.Interaction, workflow_name: str, user_values: dict = None, prefilled: dict = None):
         """Common entry point for both slash commands and modal submissions."""
@@ -708,13 +704,6 @@ class GenerationCog(commands.Cog):
         except Exception as e:
             logger.error(f"Error sending options message: {e}")
 
-    @generate.autocomplete("workflow")
-    async def workflow_autocomplete(self, interaction: discord.Interaction, current: str):
-        workflows = self.bot.workflow_registry.list_workflows()
-        return [
-            app_commands.Choice(name=wf, value=wf)
-            for wf in workflows if current.lower() in wf.lower()
-        ]
 
     async def show_lora_selection(self, interaction: discord.Interaction, workflow_name: str, workflow: dict, manifest: dict, values: dict, message_id: int = None, lora_list: str = None):
         lora_list_name = lora_list or manifest.get("lora_list")
