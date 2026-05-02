@@ -1,6 +1,6 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 import os
 import yaml
 import inspect
@@ -21,8 +21,11 @@ class LinkBot(commands.Bot):
         self.workflow_registry = None
         self.api_client = None
         self.client_id = None
+        self.node_display_names = {}
 
     async def setup_hook(self):
+        self.sync_node_info.start()
+        
         # Load Cogs
         await self.load_extension("src.bot.cogs.generation")
         await self.load_extension("src.bot.cogs.utility")
@@ -266,3 +269,21 @@ class LinkBot(commands.Bot):
     async def on_ready(self):
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
         logger.info("------")
+
+    @tasks.loop(minutes=5)
+    async def sync_node_info(self):
+        try:
+            if not self.api_client:
+                return
+            info = await self.api_client.get_object_info()
+            for node_class, node_data in info.items():
+                display_name = node_data.get("display_name")
+                if display_name:
+                    self.node_display_names[node_class] = display_name
+            logger.info(f"Synced {len(self.node_display_names)} node display names from ComfyUI.")
+        except Exception as e:
+            logger.warning(f"Failed to sync node info: {e}")
+
+    @sync_node_info.before_loop
+    async def before_sync_node_info(self):
+        await self.wait_until_ready()

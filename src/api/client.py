@@ -59,3 +59,10 @@ class ComfyClient:
         }
         async with session.get(f"{self.base_url}/view", params=params) as resp:
             return await resp.read()
+
+    async def get_object_info(self) -> Dict[str, Any]:
+        """Fetches metadata for all available nodes in ComfyUI, including their display names."""
+        session = await self._get_session()
+        async with session.get(f"{self.base_url}/object_info") as resp:
+            return await resp.json()
+

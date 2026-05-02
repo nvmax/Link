@@ -1,7 +1,7 @@
 {
   "269": {
     "inputs": {
-      "image": "cute-cartoon-girl-casual-wear_1410957-100297.jpg"
+      "image": "generated_image_c972a446-484c-4748-9663-e29822205c62.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -10,7 +10,7 @@
   },
   "276": {
     "inputs": {
-      "text": "she is dancing like a ballet dancer, says: \" this is amazing \" "
+      "text": "Action & Speech: > The woman looks directly into the camera with a friendly, charismatic smile. she gestures naturally with his hands as he speaks. Dialogue: \"Honestly, if you aren't using Link on Discord yet, you’re missing out. It has been such a game-changer. We’re creating these insane, high-quality images and videos, and sharing them instantly in the server. It’s turned our group chat into a full-on creative studio. You’ve got to try it; it’s amazing how it brings everyone together.\" then does a hurray! with her arms"
     },
     "class_type": "ttN text",
     "_meta": {
@@ -55,7 +55,10 @@
       "num_beams": 3,
       "do_sample": true,
       "output_mask_select": "",
-      "seed": 542527946636394,
+      "seed": [
+        "331",
+        3
+      ],
       "image": [
         "269",
         0
@@ -72,7 +75,7 @@
   },
   "280": {
     "inputs": {
-      "max_megapixels": 2.1,
+      "max_megapixels": 1,
       "only_reduce": true,
       "interpolation": "bilinear",
       "images": [
@@ -87,20 +90,14 @@
   },
   "281": {
     "inputs": {
-      "noise_seed": 42
+      "noise_seed": [
+        "331",
+        3
+      ]
     },
     "class_type": "RandomNoise",
     "_meta": {
-      "title": "RandomNoise"
-    }
-  },
-  "282": {
-    "inputs": {
-      "noise_seed": 76112606086187
-    },
-    "class_type": "RandomNoise",
-    "_meta": {
-      "title": "RandomNoise"
+      "title": "seed to noise"
     }
   },
   "283": {
@@ -170,7 +167,7 @@
   "288": {
     "inputs": {
       "noise": [
-        "282",
+        "281",
         0
       ],
       "guider": [
@@ -715,7 +712,7 @@
   },
   "325": {
     "inputs": {
-      "text_0": "The image shows a cute cartoon girl with long brown hair, green eyes, and a cheerful expression, standing in a bright, sunny living room. She is wearing a plaid orange and white checkered button-down shirt, paired with denim shorts. The room has white walls, a wooden cabinet with a lamp, and a potted plant. The girl has a slender build and is looking directly at the camera. The lighting is soft and natural, creating a warm and inviting atmosphere. The image is high quality and has a soft, animated style.she is dancing like a ballet dancer, says: \" this is amazing \" ",
+      "text_0": "The image shows a beautiful young woman with long, wavy brown hair and fair skin, wearing a revealing, dark-colored dress with a plunging neckline that reveals her cleavage. She is standing in a lush, green forest with tall trees and red roses in the background. The lighting is soft and natural, creating a peaceful and serene atmosphere. The woman has a subtle, contemplative expression, with her lips slightly parted. The dress has a deep V-neckline that accentuates her curves. She is wearing a silver necklace with a small pendant. The overall mood is one of tranquility and serenity.Action & Speech: > The woman looks directly into the camera with a friendly, charismatic smile. she gestures naturally with his hands as he speaks. Dialogue: \"Honestly, if you aren't using Link on Discord yet, you’re missing out. It has been such a game-changer. We’re creating these insane, high-quality images and videos, and sharing them instantly in the server. It’s turned our group chat into a full-on creative studio. You’ve got to try it; it’s amazing how it brings everyone together.\" then does a hurray! with her arms",
       "text": [
         "277",
         0
@@ -774,6 +771,15 @@
     "class_type": "VHS_VideoCombine",
     "_meta": {
       "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "331": {
+    "inputs": {
+      "seed": 503733467870544
+    },
+    "class_type": "Seed",
+    "_meta": {
+      "title": "Seed"
     }
   }
 }

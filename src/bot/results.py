@@ -11,7 +11,7 @@ logger = setup_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Node-type → human-friendly label map
-# Add entries here whenever you use a new custom node.
+# Known node labels for common nodes in the comfymap (caching will be 5 mins for unknown nodes), no need to add more.
 # ---------------------------------------------------------------------------
 NODE_LABELS: dict[str, str] = {
     # ── Sampling ──────────────────────────────────────────────────────────
@@ -94,22 +94,31 @@ NODE_LABELS: dict[str, str] = {
     "EmptyLatentRatioSelectSD3":   "⬜ Creating latent (ratio)",
 }
 
-def _friendly_node_label(node_type: str | None) -> str:
-    """Return a friendly label for the given ComfyUI node class name."""
-    if not node_type:
-        return "⚙️  Processing"
-    
-    # If the node_type is just a number (Node ID), try to return a generic label
-    # instead of the confusing number.
-    if isinstance(node_type, str) and node_type.isdigit():
-        return "⚙️  Processing"
-
-    return NODE_LABELS.get(node_type, f"⚙️  {node_type}")
-
-
 class ResultHandler:
     def __init__(self, bot):
         self.bot = bot
+
+    def _friendly_node_label(self, node_type: str | None) -> str:
+        """Return a friendly label for the given ComfyUI node class name."""
+        if not node_type:
+            return "⚙️  Processing"
+        
+        # Check if it's a raw node ID (e.g., "198" or "198:6")
+        if isinstance(node_type, str) and node_type.replace(":", "").isdigit():
+            return "⚙️  Processing"
+
+        # 1. Check our hardcoded custom emojis
+        if node_type in NODE_LABELS:
+            return NODE_LABELS[node_type]
+            
+        # 2. Check the dynamic ComfyUI registry
+        if hasattr(self.bot, 'node_display_names'):
+            dynamic_name = self.bot.node_display_names.get(node_type)
+            if dynamic_name:
+                return f"⚙️  {dynamic_name}"
+                
+        # 3. Fallback
+        return f"⚙️  {node_type}"
 
     async def handle_execution_done(self, prompt_id: str):
         logger.info(f"Processing finished execution for prompt {prompt_id}")
@@ -455,7 +464,7 @@ class ResultHandler:
             if channel and job.discord_message_id:
                 try:
                     msg = await channel.fetch_message(int(job.discord_message_id))
-                    friendly = _friendly_node_label(node_type)
+                    friendly = self._friendly_node_label(node_type)
                     short_msg = message[:200] if message else "An unknown error occurred"
                     await msg.edit(
                         content=f"❌ **Generation failed** while {friendly}\n> `{short_msg}`",
@@ -473,10 +482,15 @@ class ResultHandler:
         if not node_info:
             return None
         
-        # If it's a number (ID), look it up in the job's node_map
         node_str = str(node_info)
-        if node_str.isdigit() and hasattr(job, 'node_map') and job.node_map:
-            return job.node_map.get(node_str, node_info)
+        if hasattr(job, 'node_map') and job.node_map:
+            if node_str in job.node_map:
+                return job.node_map[node_str]
+            
+            # Handle grouped/nested nodes like "198:6" -> "198"
+            base_node = node_str.split(":")[0]
+            if base_node in job.node_map:
+                return job.node_map[base_node]
             
         return node_info
 
@@ -503,7 +517,7 @@ class ResultHandler:
             if channel:
                 try:
                     msg = await channel.fetch_message(int(job.discord_message_id))
-                    label = _friendly_node_label(node_type)
+                    label = self._friendly_node_label(node_type)
                     # Show an initial 0% bar when a node starts so it feels like a reset
                     empty_bar = "░" * 10
                     content = f"{label}…\n`[{empty_bar}]` **0%**"
@@ -538,7 +552,7 @@ class ResultHandler:
                 
                 # Resolve ID to Type
                 node_type = self._resolve_node_name(job, node_type)
-                label = _friendly_node_label(node_type)
+                label = self._friendly_node_label(node_type)
 
                 try:
                     channel = self.bot.get_channel(int(job.channel_id))
