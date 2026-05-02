@@ -727,11 +727,19 @@ class GenerationCog(commands.Cog):
             message_id=message_id
         )
 
-        msg = f"🎨 **Select a LoRA** for your `{workflow_name}` generation:"
-        if interaction.response.is_done():
+        # Always try to be ephemeral for the selection tool to keep the channel clean
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
+            
             await interaction.followup.send(msg, view=view, ephemeral=True)
-        else:
-            await interaction.response.send_message(msg, view=view, ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error showing LoRA selection: {e}")
+            # Fallback to sending in channel if ephemeral fails for some reason (rare)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, view=view, ephemeral=True)
+            else:
+                await interaction.followup.send(msg, view=view, ephemeral=True)
 
     def _apply_lora_injection(self, template: dict, values: dict):
         selected_lora = values.get('__selected_lora__')
