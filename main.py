@@ -71,9 +71,10 @@ async def main():
                 await result_handler.handle_execution_done(prompt_id)
         else:
             # A new node just started — update the Discord status line
-            current_node_type = node_type
-            logger.debug(f"Executing node {node} ({node_type}) for prompt {prompt_id}")
-            await result_handler.update_node_status(prompt_id, node_type)
+            node_info = node_type or node # Fallback to numeric ID for resolution
+            current_node_type = node_info
+            logger.debug(f"Executing node {node} ({node_info}) for prompt {prompt_id}")
+            await result_handler.update_node_status(prompt_id, node_info)
 
     async def execution_success_handler(packet):
         data = packet.get("data", {})

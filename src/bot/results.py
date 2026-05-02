@@ -468,20 +468,35 @@ class ResultHandler:
         finally:
             db.close()
 
-    async def update_node_status(self, prompt_id: str, node_type: str | None):
-        """Edit the Discord progress message to show which node just started."""
-        if not prompt_id or not node_type:
-            return
+    def _resolve_node_name(self, job, node_info: str | None) -> str | None:
+        """Resolve a numeric node ID to its class name using the job's node_map."""
+        if not node_info:
+            return None
+        
+        # If it's a number (ID), look it up in the job's node_map
+        node_str = str(node_info)
+        if node_str.isdigit() and hasattr(job, 'node_map') and job.node_map:
+            return job.node_map.get(node_str, node_info)
+            
+        return node_info
 
-        # Skip nodes that are noisy / near-instant (loaders flicker too fast)
-        SKIP_TYPES = {"PrimitiveNode", "Note", "ConditioningCombine", "ConditioningSetArea"}
-        if node_type in SKIP_TYPES:
+    async def update_node_status(self, prompt_id: str, node_info: str | None):
+        """Edit the Discord progress message to show which node just started."""
+        if not prompt_id or not node_info:
             return
 
         db = SessionLocal()
         try:
             job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
             if not job or not job.discord_message_id or not job.channel_id:
+                return
+
+            # Resolve ID to Type
+            node_type = self._resolve_node_name(job, node_info)
+
+            # Skip nodes that are noisy / near-instant (loaders flicker too fast)
+            SKIP_TYPES = {"PrimitiveNode", "Note", "ConditioningCombine", "ConditioningSetArea"}
+            if node_type in SKIP_TYPES:
                 return
 
             channel = self.bot.get_channel(int(job.channel_id))
@@ -520,6 +535,9 @@ class ResultHandler:
                 bar_length = 10
                 filled = int(bar_length * value // max_val)
                 bar = "█" * filled + "░" * (bar_length - filled)
+                
+                # Resolve ID to Type
+                node_type = self._resolve_node_name(job, node_type)
                 label = _friendly_node_label(node_type)
 
                 try:

@@ -554,6 +554,9 @@ class GenerationCog(commands.Cog):
 
             # Queue Prompt
             payload = PayloadBuilder.inject(template, manifest, final_values, shared_inputs=self.bot.workflow_registry.shared_inputs)
+            node_map = {str(node_id): node_data.get("class_type") for node_id, node_data in payload.items()}
+            job.node_map = node_map
+            
             prompt_id = await self.bot.api_client.queue_prompt(payload, self.bot.client_id)
             
             if prompt_id:

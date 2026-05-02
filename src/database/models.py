@@ -24,6 +24,7 @@ class GenerationJob(Base):
     input_params = Column(JSON)
     discord_message_id = Column(String)
     channel_id = Column(String)
+    node_map = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
