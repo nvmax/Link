@@ -401,19 +401,20 @@ class ResultHandler:
                                 embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
 
                         try:
-                            # Use attachments for discord.py 2.0+ but it can be picky with new files
-                            # Falling back to deleting and re-sending if edit fails is often safer for files
-                            await msg.edit(content=None, embed=embed, attachments=files_to_upload, view=view)
+                            # Use files= for new attachments during edit in discord.py 2.0
+                            await msg.edit(content=None, embed=embed, files=files_to_upload, view=view)
                         except Exception as e:
-                            logger.warning(f"Failed to edit message with attachments: {e}. Trying secondary method...")
+                            logger.warning(f"Failed to edit message with files: {e}. Falling back to fresh message...")
                             try:
-                                # Some versions prefer files= for new attachments during edit
-                                await msg.edit(content=None, embed=embed, view=view)
-                                # If we can't edit in the files, we'll have to send them as a follow-up or re-send
-                                await channel.send(files=files_to_upload)
+                                # If edit fails (common for large files or API restrictions), 
+                                # delete the progress message and send a clean new one.
+                                try: await msg.delete()
+                                except: pass
+                                await channel.send(content=None, embed=embed, files=files_to_upload, view=view)
                             except Exception as e2:
-                                logger.error(f"Failed secondary edit: {e2}. Falling back to new message.")
-                                await channel.send(content=f"✨ {title_text}", embed=embed, files=files_to_upload, view=view)
+                                logger.error(f"Critical failure delivering generation result: {e2}")
+                                # Last ditch effort: send just the files
+                                await channel.send(files=files_to_upload)
                     else:
                         await msg.edit(content="Generation complete, but no output files were found.", embed=None)
                 except Exception as e:
