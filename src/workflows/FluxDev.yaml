@@ -166,4 +166,5 @@ discord:
       '198:6':
         x: 2600
         'y': 700
-  loras: {}
+  loras:
+    '271': lora.json
