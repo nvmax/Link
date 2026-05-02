@@ -9,6 +9,104 @@ from src.core.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+# ---------------------------------------------------------------------------
+# Node-type → human-friendly label map
+# Add entries here whenever you use a new custom node.
+# ---------------------------------------------------------------------------
+NODE_LABELS: dict[str, str] = {
+    # ── Sampling ──────────────────────────────────────────────────────────
+    "KSampler":                    "🎨 Sampling",
+    "KSamplerAdvanced":            "🎨 Sampling (advanced)",
+    "SamplerCustom":               "🎨 Custom sampling",
+    "SamplerCustomAdvanced":       "🎨 Custom sampling (advanced)",
+    "FluxGuidance":                "🎨 Flux sampling",
+    "UNetSelfAttentionMultiply":   "🎨 Attention tuning",
+    # ── Model loading ─────────────────────────────────────────────────────
+    "CheckpointLoaderSimple":      "📦 Loading checkpoint",
+    "CheckpointLoader":            "📦 Loading checkpoint",
+    "UNETLoader":                  "📦 Loading UNet",
+    "DualCLIPLoader":              "📦 Loading CLIP",
+    "CLIPLoader":                  "📦 Loading CLIP",
+    "LoraLoader":                  "🧩 Loading LoRA",
+    "LoraLoaderModelOnly":         "🧩 Loading LoRA (model only)",
+    "VAELoader":                   "📦 Loading VAE",
+    "UpscaleModelLoader":          "📦 Loading upscale model",
+    "IPAdapterModelLoader":        "📦 Loading IP-Adapter",
+    "ControlNetLoader":            "📦 Loading ControlNet",
+    # ── Encoding ──────────────────────────────────────────────────────────
+    "CLIPTextEncode":              "✍️  Encoding prompt",
+    "CLIPTextEncodeFlux":          "✍️  Encoding prompt (Flux)",
+    "CLIPVisionEncode":            "✍️  Encoding image (CLIP)",
+    "VAEEncode":                   "🗜️  VAE encoding",
+    "VAEEncodeForInpaint":         "🗜️  VAE encoding (inpaint)",
+    # ── Decoding ──────────────────────────────────────────────────────────
+    "VAEDecode":                   "🖼️  Decoding image",
+    "VAEDecodeTiled":              "🖼️  Decoding image (tiled)",
+    # ── Image ops ─────────────────────────────────────────────────────────
+    "ImageScale":                  "📐 Scaling image",
+    "ImageScaleBy":                "📐 Scaling image",
+    "ImageUpscaleWithModel":       "🔍 Upscaling image",
+    "ImageSharpen":                "✨ Sharpening",
+    "ImageBlur":                   "💧 Blurring",
+    "ImageComposite":              "🖼️  Compositing",
+    "ImageCrop":                   "✂️  Cropping",
+    "ImagePadForOutpaint":         "🖼️  Padding for outpaint",
+    "JWImageResizeByFactor":       "📐 Resizing image",
+    "NVMaxAspectRatioResizer":     "📐 Resizing (aspect ratio)",
+    # ── Saving / output ───────────────────────────────────────────────────
+    "SaveImage":                   "💾 Saving image",
+    "PreviewImage":                "💾 Saving preview",
+    "SaveAnimatedWEBP":            "💾 Saving animated WEBP",
+    # ── Video ─────────────────────────────────────────────────────────────
+    "VHS_LoadVideo":               "🎬 Loading video",
+    "VHS_VideoCombine":            "🎬 Encoding video",
+    "VHS_VideoInfo":               "🎬 Reading video info",
+    "WanVideoSampler":             "🎬 Video sampling (Wan)",
+    "WanVideoEncode":              "🎬 Video encoding (Wan)",
+    "WanVideoDecode":              "🎬 Video decoding (Wan)",
+    "WanImageToVideo":             "🎬 Image-to-video (Wan)",
+    "CogVideoSampler":             "🎬 Video sampling (CogVideo)",
+    "LTXVSampler":                 "🎬 Video sampling (LTXV)",
+    "HunyuanVideoSampler":         "🎬 Video sampling (Hunyuan)",
+    "MochiSampler":                "🎬 Video sampling (Mochi)",
+    # ── Audio ─────────────────────────────────────────────────────────────
+    "SaveAudio":                   "🔊 Saving audio",
+    "LoadAudio":                   "🔊 Loading audio",
+    # ── IP-Adapter / ControlNet ───────────────────────────────────────────
+    "IPAdapter":                   "🎭 Applying IP-Adapter",
+    "IPAdapterAdvanced":           "🎭 Applying IP-Adapter",
+    "ControlNetApply":             "🎛️  Applying ControlNet",
+    "ControlNetApplyAdvanced":     "🎛️  Applying ControlNet",
+    # ── Conditioning ──────────────────────────────────────────────────────
+    "ConditioningCombine":         "⚗️  Combining conditions",
+    "ConditioningSetArea":         "⚗️  Setting condition area",
+    "InpaintModelConditioning":    "⚗️  Inpaint conditioning",
+    # ── Latent ops ────────────────────────────────────────────────────────
+    "EmptyLatentImage":            "⬜ Creating latent",
+    "EmptySD3LatentImage":         "⬜ Creating latent (SD3)",
+    "LatentUpscale":               "🔍 Upscaling latent",
+    "LatentUpscaleBy":             "🔍 Upscaling latent",
+    "LatentBlend":                 "⚗️  Blending latents",
+    # ── Misc / utility ────────────────────────────────────────────────────
+    "PrimitiveNode":               "⚙️  Setting values",
+    "Note":                        "📝 Note",
+    "EmptyLatentRatioSelectSDXL":  "⬜ Creating latent (ratio)",
+    "EmptyLatentRatioSelectSD3":   "⬜ Creating latent (ratio)",
+}
+
+def _friendly_node_label(node_type: str | None) -> str:
+    """Return a friendly label for the given ComfyUI node class name."""
+    if not node_type:
+        return "⚙️  Processing"
+    
+    # If the node_type is just a number (Node ID), try to return a generic label
+    # instead of the confusing number.
+    if isinstance(node_type, str) and node_type.isdigit():
+        return "⚙️  Processing"
+
+    return NODE_LABELS.get(node_type, f"⚙️  {node_type}")
+
+
 class ResultHandler:
     def __init__(self, bot):
         self.bot = bot
@@ -335,7 +433,73 @@ class ResultHandler:
         finally:
             db.close()
 
-    async def update_progress(self, prompt_id: str, value: int, max_val: int):
+    async def handle_execution_error(self, prompt_id: str, node_type: str, message: str):
+        """Called when ComfyUI reports execution_error or execution_interrupted."""
+        logger.error(f"Handling execution error for prompt {prompt_id}: [{node_type}] {message}")
+
+        db = SessionLocal()
+        try:
+            job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
+            if not job:
+                logger.warning(f"No job found for prompt_id {prompt_id} during error handling")
+                return
+
+            if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                return  # already handled
+
+            job.status = JobStatus.FAILED
+            db.commit()
+
+            channel = self.bot.get_channel(int(job.channel_id))
+            if channel and job.discord_message_id:
+                try:
+                    msg = await channel.fetch_message(int(job.discord_message_id))
+                    friendly = _friendly_node_label(node_type)
+                    short_msg = message[:200] if message else "An unknown error occurred"
+                    await msg.edit(
+                        content=f"❌ **Generation failed** while {friendly}\n> `{short_msg}`",
+                        embed=None,
+                        attachments=[],
+                        view=None,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to post error message to Discord: {e}")
+        finally:
+            db.close()
+
+    async def update_node_status(self, prompt_id: str, node_type: str | None):
+        """Edit the Discord progress message to show which node just started."""
+        if not prompt_id or not node_type:
+            return
+
+        # Skip nodes that are noisy / near-instant (loaders flicker too fast)
+        SKIP_TYPES = {"PrimitiveNode", "Note", "ConditioningCombine", "ConditioningSetArea"}
+        if node_type in SKIP_TYPES:
+            return
+
+        db = SessionLocal()
+        try:
+            job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
+            if not job or not job.discord_message_id or not job.channel_id:
+                return
+
+            channel = self.bot.get_channel(int(job.channel_id))
+            if channel:
+                try:
+                    msg = await channel.fetch_message(int(job.discord_message_id))
+                    label = _friendly_node_label(node_type)
+                    # Show an initial 0% bar when a node starts so it feels like a reset
+                    empty_bar = "░" * 10
+                    content = f"{label}…\n`[{empty_bar}]` **0%**"
+                    if msg.content != content:
+                        await msg.edit(content=content)
+                        logger.debug(f"Node status → '{label}' (0%) for job {job.id}")
+                except Exception:
+                    pass
+        finally:
+            db.close()
+
+    async def update_progress(self, prompt_id: str, value: int, max_val: int, node_type: str | None = None):
         if not prompt_id or max_val <= 0:
             return
             
@@ -344,23 +508,27 @@ class ResultHandler:
         if job and job.discord_message_id and job.channel_id:
             percent = int((value / max_val) * 100)
             
-            # THROTTLING: Only update Discord for major milestones (25%, 50%, 75%, 100%)
-            # This prevents rate limiting and keeps the bot snappy.
-            is_milestone = percent % 25 == 0 or percent >= 99
+            # THROTTLING: 
+            # 1. Always update for small step counts (<= 20) so they don't feel "stuck"
+            # 2. For large step counts, update at 25% milestones
+            # 3. Always update at 0% and 100%
+            is_low_steps = max_val <= 20
+            is_milestone = percent % 25 == 0 or percent >= 99 or percent == 0 or is_low_steps
             
             if is_milestone:
                 bar_length = 10
                 filled = int(bar_length * value // max_val)
-                bar = "=" * filled + "-" * (bar_length - filled)
-                
+                bar = "█" * filled + "░" * (bar_length - filled)
+                label = _friendly_node_label(node_type)
+
                 try:
                     channel = self.bot.get_channel(int(job.channel_id))
                     if channel:
                         msg = await channel.fetch_message(int(job.discord_message_id))
-                        content = f"Generating: **{percent}%**\n`[{bar}]`"
+                        content = f"{label}…\n`[{bar}]` **{percent}%**"
                         if msg.content != content:
                             await msg.edit(content=content)
-                            logger.info(f"Updated Discord progress to {percent}% for job {job.id}")
+                            logger.info(f"Updated Discord progress to {percent}% ({label}) for job {job.id}")
                 except Exception:
                     pass
         db.close()

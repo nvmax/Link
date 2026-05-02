@@ -36,38 +36,77 @@ async def main():
     
     current_prompt_id = None
 
+    # Tracks the node type currently being executed so progress can show friendly labels
+    current_node_type = None
+
     async def progress_handler(packet):
-        nonlocal current_prompt_id
+        nonlocal current_prompt_id, current_node_type
         data = packet.get("data", {})
         prompt_id = packet.get("prompt_id") or current_prompt_id
         value = data.get("value")
         max_val = data.get("max")
-        
+
         if value is not None and max_val is not None:
-            logger.info(f"Progress for {prompt_id}: {value}/{max_val}")
-            await result_handler.update_progress(prompt_id, value, max_val)
- 
+            logger.info(f"Progress for {prompt_id}: {value}/{max_val} (node={current_node_type})")
+            await result_handler.update_progress(prompt_id, value, max_val, node_type=current_node_type)
+
     async def execution_start_handler(packet):
-        nonlocal current_prompt_id
+        nonlocal current_prompt_id, current_node_type
         current_prompt_id = packet.get("data", {}).get("prompt_id")
+        current_node_type = None
         logger.info(f"Execution started for prompt {current_prompt_id}")
 
-    async def prompt_completed_handler(packet):
+    async def executing_handler(packet):
+        """Fires once per node as ComfyUI begins executing it."""
+        nonlocal current_prompt_id, current_node_type
+        data = packet.get("data", {})
+        node = data.get("node")
+        node_type = data.get("node_type") or data.get("class_type")
+        prompt_id = data.get("prompt_id") or current_prompt_id
+
+        if node is None:
+            # node=None signals the entire prompt finished execution
+            if prompt_id:
+                logger.info(f"Execution fully finished for prompt {prompt_id}")
+                await result_handler.handle_execution_done(prompt_id)
+        else:
+            # A new node just started — update the Discord status line
+            current_node_type = node_type
+            logger.debug(f"Executing node {node} ({node_type}) for prompt {prompt_id}")
+            await result_handler.update_node_status(prompt_id, node_type)
+
+    async def execution_success_handler(packet):
         data = packet.get("data", {})
         prompt_id = data.get("prompt_id")
-        
-        # If it's an 'executing' event, only trigger if node is None (meaning prompt finished)
-        if packet.get("type") == "executing" and data.get("node") is not None:
-            return
-            
         if prompt_id:
-            logger.info(f"Execution fully finished for prompt {prompt_id}")
+            logger.info(f"execution_success received for prompt {prompt_id}")
             await result_handler.handle_execution_done(prompt_id)
+
+    async def execution_error_handler(packet):
+        nonlocal current_node_type
+        data = packet.get("data", {})
+        prompt_id = data.get("prompt_id")
+        node_id = data.get("node_id", "?")
+        node_type = data.get("node_type", "Unknown node")
+        exc_message = data.get("exception_message", "An unknown error occurred")
+        logger.error(f"ComfyUI execution_error for prompt {prompt_id}: [{node_type}] {exc_message}")
+        if prompt_id:
+            await result_handler.handle_execution_error(prompt_id, node_type, exc_message)
+
+    async def execution_interrupted_handler(packet):
+        data = packet.get("data", {})
+        prompt_id = data.get("prompt_id")
+        node_type = data.get("node_type", "Unknown node")
+        logger.warning(f"ComfyUI execution_interrupted for prompt {prompt_id} at node {node_type}")
+        if prompt_id:
+            await result_handler.handle_execution_error(prompt_id, node_type, "Generation was interrupted.")
 
     ws.register_handler("execution_start", execution_start_handler)
     ws.register_handler("progress", progress_handler)
-    ws.register_handler("execution_success", prompt_completed_handler)
-    ws.register_handler("executing", prompt_completed_handler)
+    ws.register_handler("executing", executing_handler)
+    ws.register_handler("execution_success", execution_success_handler)
+    ws.register_handler("execution_error", execution_error_handler)
+    ws.register_handler("execution_interrupted", execution_interrupted_handler)
 
     try:
         # Start WebSocket listener in the background

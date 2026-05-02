@@ -234,7 +234,6 @@ class GenerationCog(commands.Cog):
                 file_bytes = await attachment.read()
                 
                 # Save the uploaded file to data/assets immediately so it can be reused for chaining
-                import aiofiles
                 local_filename = f"upload_{uuid.uuid4().hex[:8]}_{attachment.filename}"
                 local_path = os.path.join(Config.ASSETS_DIR, local_filename)
                 async with aiofiles.open(local_path, 'wb') as f:
@@ -422,8 +421,6 @@ class GenerationCog(commands.Cog):
                 elif isinstance(value, str) and (value.startswith("http://") or value.startswith("https://")):
                     # Download from URL (e.g. Discord CDN), save locally, upload to ComfyUI, register in DB
                     try:
-                        import aiohttp
-                        import aiofiles
                         async with aiohttp.ClientSession() as http_sess:
                             async with http_sess.get(value, timeout=aiohttp.ClientTimeout(total=60)) as resp:
                                 if resp.status == 200:
