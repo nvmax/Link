@@ -2,6 +2,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import asyncio
+import os
+import json
+import tempfile
+import aiohttp
+from src.core.config import Config
 from src.core.logger import setup_logger
 
 logger = setup_logger("api_server")
@@ -60,6 +65,65 @@ async def get_channel(channel_id: int):
         "guild_name": channel.guild.name if hasattr(channel, 'guild') else "Unknown",
         "guild_id": str(channel.guild.id) if hasattr(channel, 'guild') else None
     }
+
+@app.post("/api/comfy/restore")
+async def restore_nodes(workflow: dict):
+    """
+    Executes 'comfy node restore' for the provided workflow JSON.
+    This will attempt to install all missing custom nodes found in the workflow.
+    """
+    # Save workflow to a temp file
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode='w', encoding='utf-8') as tf:
+        json.dump(workflow, tf)
+        temp_path = tf.name
+
+    try:
+        logger.info(f"Running comfy node restore for {temp_path}")
+        # Run comfy-cli
+        # We use 'asyncio.create_subprocess_exec' to avoid blocking the API
+        process = await asyncio.create_subprocess_exec(
+            "comfy", "node", "restore", "--workflow", temp_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            error_msg = stderr.decode().strip()
+            logger.error(f"comfy-cli failed: {error_msg}")
+            # Try to return a meaningful error if possible
+            raise HTTPException(status_code=500, detail=f"Installation failed: {error_msg}")
+
+        logger.info("Nodes installed successfully. Attempting to reboot ComfyUI...")
+
+        # Attempt reboot via ComfyUI-Manager API
+        reboot_success = False
+        try:
+            # We use a 10s timeout for the reboot call
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{Config.COMFY_URL}/manager/reboot", timeout=10) as resp:
+                    reboot_success = resp.status == 200
+                    if reboot_success:
+                        logger.info("ComfyUI reboot triggered via Manager API")
+        except Exception as e:
+            logger.warning(f"Could not trigger auto-reboot (Manager API might be missing or unreachable): {e}")
+
+        return {
+            "status": "success",
+            "reboot_triggered": reboot_success,
+            "message": "Nodes installed successfully." + (" ComfyUI is restarting." if reboot_success else " Please restart ComfyUI manually.")
+        }
+    except Exception as e:
+        logger.error(f"Error during node restoration: {e}")
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
 
 async def start_api_server(bot, port=8001):
     global bot_instance
