@@ -8,9 +8,21 @@ import { MissionControl } from '@/components/MissionControl';
 import { ArchitectView } from '@/components/ArchitectView';
 import { ModalStudio } from '@/components/ModalStudio';
 import { LoraStudio } from '@/components/LoraStudio';
+import { MissingNodesModal } from '@/components/MissingNodesModal';
 
 function DashboardContent() {
-  const { activeTab, selectedWorkflow, saveWorkflow } = useDashboard();
+  const { 
+    activeTab, 
+    selectedWorkflow, 
+    saveWorkflow,
+    missingNodes,
+    setMissingNodes,
+    handleNodeInstall,
+    isInstalling,
+    pendingImport,
+    setPendingImport,
+    importWorkflow
+  } = useDashboard();
 
   return (
     <div className="flex h-screen bg-[#0a0a0c] text-slate-200 font-sans overflow-hidden selection:bg-indigo-500/30">
@@ -50,6 +62,26 @@ function DashboardContent() {
             {activeTab === 'lora-studio' && <LoraStudio />}
           </main>
         </div>
+
+        {missingNodes.length > 0 && (
+          <MissingNodesModal 
+            missingNodes={missingNodes}
+            onInstall={handleNodeInstall}
+            onImportAnyway={async () => {
+              if (pendingImport) {
+                const { name, workflow } = pendingImport;
+                setMissingNodes([]);
+                setPendingImport(null);
+                await importWorkflow(name, workflow, true);
+              }
+            }}
+            onCancel={() => {
+              setMissingNodes([]);
+              setPendingImport(null);
+            }}
+            isInstalling={isInstalling}
+          />
+        )}
       </div>
     </div>
   );

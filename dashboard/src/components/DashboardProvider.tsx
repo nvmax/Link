@@ -33,7 +33,7 @@ interface DashboardContextType {
   updateSelection: (idx: number, updates: any) => void;
   moveInput: (idx: number, dir: 'up' | 'down') => void;
   deleteWorkflow: (wf: any) => Promise<void>;
-  importWorkflow: (json: any, name: string) => Promise<void>;
+  importWorkflow: (filename: string, workflow: any, force?: boolean) => Promise<void>;
   loadLoraFile: (file: any) => Promise<void>;
   saveLoraFile: () => Promise<void>;
   updateLoraField: (idx: number, field: string, value: any) => void;
@@ -271,10 +271,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setSelectedWorkflow(wf);
   };
 
-  const importWorkflow = async (filename: string, workflow: any) => {
+  const importWorkflow = async (filename: string, workflow: any, force: boolean = false) => {
     try {
       // 1. Discovery Phase: Check for missing nodes before importing
-      if (objectInfo) {
+      if (objectInfo && !force) {
         const nodeTypes = new Set(Object.values(workflow).map((n: any) => n.class_type));
         const missing = Array.from(nodeTypes).filter(type => !objectInfo[type]) as string[];
         
