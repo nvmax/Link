@@ -49,6 +49,12 @@ interface DashboardContextType {
   updateWorkflowInput: (nodeId: string, field: string, value: any) => void;
   nodeCoords: Record<string, { x: number, y: number }>;
   setNodeCoords: (coords: Record<string, { x: number, y: number }> | ((prev: any) => any)) => void;
+  missingNodes: string[];
+  setMissingNodes: (nodes: string[]) => void;
+  isInstalling: boolean;
+  handleNodeInstall: () => Promise<void>;
+  pendingImport: { name: string, workflow: any } | null;
+  setPendingImport: (imp: { name: string, workflow: any } | null) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -149,6 +155,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const [loraSelections, setLoraSelections] = useState<Record<string, any>>({});
   const [nodeCoords, setNodeCoords] = useState<Record<string, { x: number, y: number }>>({});
+  
+  const [missingNodes, setMissingNodes] = useState<string[]>([]);
+  const [pendingImport, setPendingImport] = useState<{ name: string, workflow: any } | null>(null);
+  const [isInstalling, setIsInstalling] = useState(false);
   
   const updateLoraSelection = (nodeId: string, updates: any) => {
     setLoraSelections(prev => {
@@ -263,22 +273,80 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const importWorkflow = async (filename: string, workflow: any) => {
     try {
-      const res = await fetch('/api/workflows', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'import', filename, workflow })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      
-      // Refresh workflow list
-      const listRes = await fetch('/api/workflows');
-      const listData = await listRes.json();
-      setWorkflows(listData.workflows || []);
-      
-      alert('Workflow imported successfully!');
+      // 1. Discovery Phase: Check for missing nodes before importing
+      if (objectInfo) {
+        const nodeTypes = new Set(Object.values(workflow).map((n: any) => n.class_type));
+        const missing = Array.from(nodeTypes).filter(type => !objectInfo[type]) as string[];
+        
+        if (missing.length > 0) {
+          console.log('Missing nodes detected:', missing);
+          setMissingNodes(missing);
+          setPendingImport({ name: filename, workflow });
+          return; // Stop and wait for user approval via modal
+        }
+      }
+
+      await executeImport(filename, workflow);
     } catch (e: any) {
       alert(`Failed to import: ${e.message}`);
+    }
+  };
+
+  const executeImport = async (filename: string, workflow: any) => {
+    const res = await fetch('/api/workflows', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'import', filename, workflow })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    
+    // Refresh workflow list
+    const listRes = await fetch('/api/workflows');
+    const listData = await listRes.json();
+    setWorkflows(listData.workflows || []);
+    
+    alert('Workflow imported successfully!');
+  };
+
+  const handleNodeInstall = async () => {
+    if (!pendingImport) return;
+    setIsInstalling(true);
+    try {
+      // Use the Python backend (port 8001) for the heavy lifting
+      const res = await fetch('http://127.0.0.1:8001/api/comfy/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pendingImport.workflow)
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Installation failed');
+
+      alert(data.message);
+      
+      // Re-fetch object info from the Next.js API (which fetches from ComfyUI)
+      // This ensures the Architect sees the new nodes.
+      const refreshRes = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'load', jsonPath: '' }) // Generic load to trigger object_info refresh
+      });
+      const refreshData = await refreshRes.json();
+      if (refreshData.objectInfo) {
+        setObjectInfo(refreshData.objectInfo);
+      }
+
+      // Finalize the import now that nodes are (hopefully) present
+      await executeImport(pendingImport.name, pendingImport.workflow);
+      
+      setMissingNodes([]);
+      setPendingImport(null);
+    } catch (e: any) {
+      console.error('Node installation error:', e);
+      alert(`Installation failed: ${e.message}`);
+    } finally {
+      setIsInstalling(false);
     }
   };
 
@@ -572,7 +640,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     createNewLoraList, deleteLoraList,
     loraSelections, setLoraSelections, updateLoraSelection,
     objectInfo, updateWorkflowInput,
-    nodeCoords, setNodeCoords
+    nodeCoords, setNodeCoords,
+    missingNodes, setMissingNodes,
+    isInstalling, handleNodeInstall,
+    pendingImport, setPendingImport
   };
 
   return (
