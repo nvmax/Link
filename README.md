@@ -12,7 +12,15 @@
 
 ---
 
-## 🚀 Core Capabilities
+### 🚀 Core Capabilities
+- **Mission Control**: Configure your ComfyUI integration and manage system-wide settings.
+- **System Diagnostics**: Shows current workflows, lora lists, and if discords pipeline is healthy. 
+- **Node Health**: Monitors and checks for updates to installed nodes, and allows for selective updates.
+- **Time Machine**: Captures snapshots for comfyui workspace, when nodes are updated and or changed, allows for roll back to a previous stable node install. 
+
+
+
+
 
 ### 🎨 Visual Architect
 Turn complex ComfyUI graphs into simple Discord commands.

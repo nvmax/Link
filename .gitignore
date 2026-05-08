@@ -39,3 +39,5 @@ out/
 .worktrees/
 docs/
 .gitignore
+remote_nodes.txt
+installed_nodes.txt
