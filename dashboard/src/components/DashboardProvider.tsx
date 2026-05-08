@@ -1,4 +1,5 @@
 "use client";
+// UPDATED: Workflow Node Auto-Installation Logic Integrated
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
@@ -317,7 +318,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch('http://127.0.0.1:8001/api/comfy/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pendingImport.workflow)
+        body: JSON.stringify({
+          workflow: pendingImport.workflow,
+          missing_nodes: missingNodes
+        })
       });
       
       const data = await res.json();

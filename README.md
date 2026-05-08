@@ -17,6 +17,7 @@
 ### 🎨 Visual Architect
 Turn complex ComfyUI graphs into simple Discord commands.
 - **Node-to-Input Mapping**: Visually select which ComfyUI inputs (prompts, seeds, sliders) should be exposed to Discord users.
+- **Automatic Workflow Node Installation**: LINK automatically installs missing nodes for your workflows when you upload them to the dashboard.
 - **Automatic Type Inference**: LINK intelligently detects if an input is text, a number, or an image upload.
 - **Real-time Synchronization**: Changes made in the Architect are instantly reflected in the Discord bot's slash commands.
 
@@ -52,6 +53,7 @@ A professional-grade management system for your model library.
 > To see what we're building next, check out our **[Coming Soon / Roadmap](./ROADMAP.md)**.
 
 ### 1. Requirements
+- **Latest Stable Release of ComfyUI** - Download from [ComfyUI's GitHub](https://github.com/comfyanonymous/ComfyUI/releases).
 - **ComfyUI** running workflows working.
 - **Node.js 20+** and **Python 3.10+**.
 

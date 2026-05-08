@@ -7,3 +7,4 @@ websockets
 Pillow
 fastapi
 uvicorn
+comfy-cli

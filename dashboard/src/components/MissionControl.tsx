@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Network, Puzzle, Settings, Save, X } from 'lucide-react';
+import { Network, Puzzle, Settings, Save, X, FolderSearch } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
 export function MissionControl() {
@@ -40,6 +40,18 @@ export function MissionControl() {
     }
   };
 
+  const handleSelectFolder = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8001/api/utils/select-folder', { method: 'POST' });
+      const data = await res.json();
+      if (data.path) {
+        handleConfigChange('COMFY_PATH', data.path);
+      }
+    } catch (e) {
+      console.error('Failed to open folder picker:', e);
+    }
+  };
+
   return (
     <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="p-8 rounded-3xl bg-gradient-to-br from-indigo-500/10 to-fuchsia-500/10 border border-white/5 relative overflow-hidden group">
@@ -66,6 +78,26 @@ export function MissionControl() {
                 />
                 <button className="bg-white/5 hover:bg-white/10 text-slate-400 px-4 rounded-xl text-xs font-bold transition-all border border-white/5 shrink-0">Check Status</button>
               </div>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">ComfyUI File Path</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="C:\Users\Admin\ComfyUI_windows_portable\ComfyUI"
+                  value={config.COMFY_PATH || ''} 
+                  onChange={(e) => handleConfigChange('COMFY_PATH', e.target.value)}
+                  className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500/50 outline-none transition-all placeholder:text-white/10" 
+                />
+                <button 
+                  onClick={handleSelectFolder}
+                  className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 rounded-xl text-xs font-bold transition-all border border-indigo-500/30 flex items-center gap-2"
+                >
+                  <FolderSearch className="w-3.5 h-3.5" />
+                  Select
+                </button>
+              </div>
+              <p className="text-[9px] text-slate-600 mt-1 italic">Required for auto-installing nodes via comfy-cli.</p>
             </div>
             <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />

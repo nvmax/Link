@@ -33,6 +33,7 @@ class Config:
     FLUX_MODEL = os.getenv("FLUX_MODEL", "fluxFusionV24StepsGGUFNF4_V2GGUFQ3KM.gguf")
     FLUX_STEPS = int(os.getenv("FLUX_STEPS", "4"))
     COMFY_WS_URL = COMFY_URL.replace("http", "ws") + "/ws"
+    COMFY_PATH = os.getenv("COMFY_PATH", "").rstrip("/\\")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     
     # Lockdown Settings

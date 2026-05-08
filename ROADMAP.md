@@ -4,9 +4,14 @@ We are just getting started. **LINK** is designed to be an evolving ecosystem th
 
 ---
 
+## Completed Features:
+- **One-Click Node Setup**: Automatically detect and install missing ComfyUI custom nodes required by your imported workflows.
+- **Video-First Modals**: Specialized UI layouts specifically designed for LTXV and other video-generation workflows.
+
+
 ## 🛠️ Integrated ComfyUI Management
 *Goal: Remove the need to ever leave the LINK Dashboard.*
-- **Auto-Configurator**: Install custom nodes required by workflows, update comfyui, install sage attention based on gpu selection.
+- **Auto-Configurator**: Update comfyui, install sage attention based on gpu selection.
 - **One-Click Node Setup**: Automatically detect and install missing ComfyUI custom nodes required by your imported workflows.
 - **Node Health Check**: Diagnostic tool to identify broken or outdated nodes before you run a generation.
 
@@ -28,6 +33,6 @@ We are building this for you. If you have an idea that would make LINK better, l
 - Open an issue in our **[GitHub Repository](https://github.com/nvmax/Link/issues)**.
 - Share your thoughts in our community discussions.
 
----
+--- 
 
 *The gap between ComfyUI and Discord is closing every day.*
