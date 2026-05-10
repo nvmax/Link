@@ -52,7 +52,7 @@ export function MissingModelsModal({
     const payload = missingModels.map(m => ({
       ...m,
       repo_id: modelRepos[m.filename] || '',
-      hf_path: KNOWN_MODEL_REPOS[m.filename]?.hf_path || m.filename,
+      hf_path: KNOWN_MODEL_REPOS[m.filename]?.hf_path,
       manuallyResolved: manualChecks[m.filename] || false
     }));
     onDownload(payload);
@@ -63,7 +63,7 @@ export function MissingModelsModal({
       onRetrySingle({
         ...m,
         repo_id: modelRepos[m.filename] || '',
-        hf_path: KNOWN_MODEL_REPOS[m.filename]?.hf_path || m.filename,
+        hf_path: KNOWN_MODEL_REPOS[m.filename]?.hf_path,
         manuallyResolved: false
       });
     }
