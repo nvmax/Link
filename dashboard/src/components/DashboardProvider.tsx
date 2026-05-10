@@ -291,7 +291,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       });
       if (modelCheckRes.ok) {
          const modelData = await modelCheckRes.json();
-         const missingMods = modelData.models.filter((m: any) => !m.installed);
+         const missingMods = modelData.missing || [];
          if (missingMods.length > 0) {
            console.log('Missing models detected:', missingMods);
            setMissingModels(missingMods);
