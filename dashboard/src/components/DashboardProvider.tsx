@@ -287,7 +287,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const modelCheckRes = await fetch('http://127.0.0.1:8001/api/models/check', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ workflow })
+         body: JSON.stringify(workflow)
       });
       if (modelCheckRes.ok) {
          const modelData = await modelCheckRes.json();
