@@ -35,17 +35,60 @@ export function MissingModelsModal({
 }: MissingModelsModalProps) {
   const [modelRepos, setModelRepos] = useState<Record<string, string>>({});
   const [manualChecks, setManualChecks] = useState<Record<string, boolean>>({});
+  const [isSearching, setIsSearching] = useState(true);
+  const [foundStatus, setFoundStatus] = useState<Record<string, 'found' | 'not_found'>>({});
 
   useEffect(() => {
-    const initialRepos: Record<string, string> = {};
-    missingModels.forEach(m => {
-      if (KNOWN_MODEL_REPOS[m.filename]) {
-        initialRepos[m.filename] = KNOWN_MODEL_REPOS[m.filename].repo_id;
-      } else {
-        initialRepos[m.filename] = '';
+    const runSearch = async () => {
+      setIsSearching(true);
+      const initialRepos: Record<string, string> = {};
+      const status: Record<string, 'found' | 'not_found'> = {};
+      const toSearch: string[] = [];
+
+      missingModels.forEach(m => {
+        if (KNOWN_MODEL_REPOS[m.filename]) {
+          initialRepos[m.filename] = KNOWN_MODEL_REPOS[m.filename].repo_id;
+          status[m.filename] = 'found';
+        } else {
+          toSearch.push(m.filename);
+        }
+      });
+
+      if (toSearch.length > 0) {
+        try {
+          const res = await fetch('http://127.0.0.1:8001/api/models/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filenames: toSearch })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const results = data.results || {};
+            toSearch.forEach(filename => {
+              if (results[filename]) {
+                initialRepos[filename] = results[filename];
+                status[filename] = 'found';
+              } else {
+                initialRepos[filename] = '';
+                status[filename] = 'not_found';
+              }
+            });
+          }
+        } catch (e) {
+          console.error("Search failed:", e);
+          toSearch.forEach(filename => {
+            initialRepos[filename] = '';
+            status[filename] = 'not_found';
+          });
+        }
       }
-    });
-    setModelRepos(initialRepos);
+
+      setModelRepos(initialRepos);
+      setFoundStatus(status);
+      setIsSearching(false);
+    };
+
+    runSearch();
   }, [missingModels]);
 
   const handleDownloadClick = () => {
@@ -95,11 +138,17 @@ export function MissingModelsModal({
           </p>
         </div>
         
-        <div className="flex-1 overflow-y-auto min-h-0 pr-2 custom-scrollbar space-y-4 mb-6">
-          {missingModels.map(model => {
-            const status = downloadProgress[model.filename];
-            const isManualMode = !modelRepos[model.filename];
-            const isGated = status === 'gated' || KNOWN_MODEL_REPOS[model.filename]?.gated;
+        {isSearching ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-4 mb-6">
+            <RefreshCw className="w-8 h-8 text-amber-500 animate-spin" />
+            <p className="text-amber-400 font-bold tracking-wide">Scanning HuggingFace for missing models...</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto min-h-0 pr-2 custom-scrollbar space-y-4 mb-6">
+            {missingModels.map(model => {
+              const status = downloadProgress[model.filename];
+              const isManualMode = foundStatus[model.filename] === 'not_found' && !modelRepos[model.filename];
+              const isGated = status === 'gated' || KNOWN_MODEL_REPOS[model.filename]?.gated;
 
             return (
               <div key={model.filename} className={`bg-white/5 border rounded-2xl p-4 transition-all ${
@@ -147,7 +196,7 @@ export function MissingModelsModal({
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="HuggingFace Repo ID (e.g., black-forest-labs/FLUX.1-dev)"
+                        placeholder="HuggingFace Repo ID or Direct Download URL"
                         value={modelRepos[model.filename] || ''}
                         onChange={(e) => setModelRepos(prev => ({ ...prev, [model.filename]: e.target.value }))}
                         disabled={isDownloading || status === 'gated'}
@@ -162,7 +211,7 @@ export function MissingModelsModal({
                           <FolderSearch className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
                           <div className="space-y-2 flex-1">
                             <p className="text-xs text-amber-200/80 leading-relaxed">
-                              This model has no known HuggingFace source. Download it manually and place it in your ComfyUI folder:
+                              This model was not found automatically on HuggingFace. Paste a direct download URL above, or download it manually and place it in your ComfyUI folder:
                             </p>
                             <code className="block bg-black/50 text-[10px] text-amber-400 font-mono p-2 rounded-lg break-all select-all">
                               {'<ComfyUI_Path>/models/' + model.folder + '/'}
@@ -221,12 +270,13 @@ export function MissingModelsModal({
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
         
         <div className="flex flex-col gap-3 shrink-0 pt-2 border-t border-white/5">
           <button 
             onClick={handleDownloadClick}
-            disabled={isDownloading || !canDownload}
+            disabled={isDownloading || !canDownload || isSearching}
             className="group relative w-full py-4 bg-amber-600 hover:bg-amber-500 disabled:bg-white/5 disabled:text-slate-500 text-black font-black rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
           >
             {isDownloading ? (

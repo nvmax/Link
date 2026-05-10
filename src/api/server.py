@@ -471,6 +471,43 @@ async def check_models(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/models/search")
+async def search_models(request: Request):
+    """
+    Accepts a list of filenames and searches HuggingFace for the best matching repo.
+    Returns: {"results": {"filename": "repo_id", ...}}
+    """
+    try:
+        body = await request.json()
+        filenames = body.get("filenames", [])
+        
+        results = {}
+        async with aiohttp.ClientSession() as session:
+            for filename in filenames:
+                url = f"https://huggingface.co/api/search/full-text?q={filename}&type=model"
+                try:
+                    async with session.get(url, timeout=10) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            hits = data.get("hits", [])
+                            if hits:
+                                # Sort by likes descending to prioritize official/popular repos
+                                hits.sort(key=lambda x: x.get("likes", 0), reverse=True)
+                                results[filename] = hits[0].get("name")
+                            else:
+                                results[filename] = None
+                        else:
+                            results[filename] = None
+                except Exception as e:
+                    logger.warning(f"Error searching for {filename}: {e}")
+                    results[filename] = None
+
+        return {"results": results}
+    except Exception as e:
+        logger.error(f"Search models error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/models/download")
 async def download_model(request: Request):
     """
@@ -498,38 +535,46 @@ async def download_model(request: Request):
         hf_token = os.getenv("HF_TOKEN", "").strip()
         hf_path  = body.get("hf_path")
 
-        if not all([folder, filename, repo_id]):
+        if not folder or not filename:
             raise HTTPException(
                 status_code=400,
-                detail="Missing required fields: folder, filename, repo_id"
+                detail="Missing required fields: folder, filename"
             )
 
-        if not hf_path:
-            try:
-                def get_repo_files():
-                    from huggingface_hub import HfApi
-                    return HfApi(token=hf_token).list_repo_files(repo_id=repo_id)
-                
-                files = await asyncio.to_thread(get_repo_files)
-                matches = [f for f in files if f == filename or f.endswith(f"/{filename}")]
-                if matches:
-                    hf_path = matches[0]
-                    logger.info(f"Auto-discovered {filename} at {hf_path} in {repo_id}")
-                else:
+        url = ""
+        headers: dict = {"User-Agent": "atlas-model-downloader/1.0"}
+
+        if repo_id and repo_id.startswith("http"):
+            url = repo_id # Direct URL download
+        else:
+            if not repo_id:
+                raise HTTPException(status_code=400, detail="Missing repo_id or direct url")
+
+            if not hf_path:
+                try:
+                    def get_repo_files():
+                        from huggingface_hub import HfApi
+                        return HfApi(token=hf_token).list_repo_files(repo_id=repo_id)
+                    
+                    files = await asyncio.to_thread(get_repo_files)
+                    matches = [f for f in files if f == filename or f.endswith(f"/{filename}")]
+                    if matches:
+                        hf_path = matches[0]
+                        logger.info(f"Auto-discovered {filename} at {hf_path} in {repo_id}")
+                    else:
+                        hf_path = filename
+                except Exception as e:
+                    logger.warning(f"Failed to list repo files for {repo_id}: {e}")
                     hf_path = filename
-            except Exception as e:
-                logger.warning(f"Failed to list repo files for {repo_id}: {e}")
-                hf_path = filename
+
+            url = f"https://huggingface.co/{repo_id}/resolve/main/{hf_path}"
+            if hf_token:
+                headers["Authorization"] = f"Bearer {hf_token}"
 
         comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
         dest_dir  = os.path.join(comfy_workspace, "models", folder)
         os.makedirs(dest_dir, exist_ok=True)
         dest_path = os.path.join(dest_dir, filename)
-
-        url = f"https://huggingface.co/{repo_id}/resolve/main/{hf_path}"
-        headers: dict = {"User-Agent": "atlas-model-downloader/1.0"}
-        if hf_token:
-            headers["Authorization"] = f"Bearer {hf_token}"
 
         logger.info(f"Downloading model: {url} -> {dest_path}")
 
