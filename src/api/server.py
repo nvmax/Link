@@ -7,6 +7,7 @@ import json
 import tempfile
 import aiohttp
 from src.core.comfy_parser import parse_node_list, parse_snapshot_list
+from src.core.model_extractor import extract_required_models
 from src.core.config import Config
 from src.core.logger import setup_logger
 import tkinter as tk
@@ -409,6 +410,175 @@ def resolve_comfy_workspace(base_path: str):
     subfolder = os.path.join(base_path, "ComfyUI")
     if os.path.exists(os.path.join(subfolder, "main.py")): return subfolder
     return base_path
+
+@app.post("/api/models/check")
+async def check_models(request: Request):
+    """
+    Accepts a ComfyUI workflow JSON body.
+    Returns which required model files are missing from the ComfyUI instance.
+
+    Response:
+        {
+          "required": [{"folder": str, "filename": str, "installed": bool}, ...],
+          "missing":  [{"folder": str, "filename": str, "installed": false}, ...]
+        }
+
+    If ComfyUI is unreachable, returns empty missing list so import can proceed.
+    """
+    try:
+        workflow = await request.json()
+        required = extract_required_models(workflow)
+        if not required:
+            return {"required": [], "missing": []}
+
+        # Query ComfyUI /models/{folder} for each distinct folder needed
+        installed_by_folder: dict[str, set] = {}
+        folders_needed = {r["folder"] for r in required}
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                for folder in folders_needed:
+                    try:
+                        async with session.get(
+                            f"{Config.COMFY_URL}/models/{folder}",
+                            timeout=aiohttp.ClientTimeout(total=5)
+                        ) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                # ComfyUI returns a flat list of filename strings
+                                installed_by_folder[folder] = set(data)
+                            else:
+                                logger.warning(f"ComfyUI returned {resp.status} for /models/{folder}")
+                                installed_by_folder[folder] = set()
+                    except Exception as folder_err:
+                        logger.warning(f"Could not query ComfyUI /models/{folder}: {folder_err}")
+                        installed_by_folder[folder] = set()
+        except Exception as session_err:
+            logger.warning(f"ComfyUI unreachable during model check: {session_err}")
+            # Graceful degradation — treat all as installed so import proceeds
+            return {"required": required, "missing": []}
+
+        result = [
+            {**item, "installed": item["filename"] in installed_by_folder.get(item["folder"], set())}
+            for item in required
+        ]
+        missing = [r for r in result if not r["installed"]]
+        logger.info(f"Model check: {len(required)} required, {len(missing)} missing")
+        return {"required": result, "missing": missing}
+
+    except Exception as e:
+        logger.error(f"Model check error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/models/download")
+async def download_model(request: Request):
+    """
+    Downloads a single model file from HuggingFace into the correct ComfyUI models subfolder.
+
+    Request body:
+        {
+          "folder":   str,           # e.g. "unet", "vae", "clip"
+          "filename": str,           # e.g. "flux1-dev.safetensors"
+          "repo_id":  str,           # e.g. "black-forest-labs/FLUX.1-dev"
+          "hf_path":  str (optional) # path within the repo; defaults to filename
+        }
+
+    Returns:
+        200 { "status": "success", "path": str }
+        401 { "status": "auth",  "detail": str }  -- missing/invalid HF_TOKEN
+        403 { "status": "gated", "repo_url": str } -- user must accept license first
+        404 { "status": "not_found", "detail": str }
+    """
+    try:
+        body = await request.json()
+        folder   = body.get("folder")
+        filename = body.get("filename")
+        repo_id  = body.get("repo_id")
+        hf_path  = body.get("hf_path") or filename
+        hf_token = os.getenv("HF_TOKEN", "").strip()
+
+        if not all([folder, filename, repo_id]):
+            raise HTTPException(
+                status_code=400,
+                detail="Missing required fields: folder, filename, repo_id"
+            )
+
+        comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
+        dest_dir  = os.path.join(comfy_workspace, "models", folder)
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, filename)
+
+        url = f"https://huggingface.co/{repo_id}/resolve/main/{hf_path}"
+        headers: dict = {"User-Agent": "atlas-model-downloader/1.0"}
+        if hf_token:
+            headers["Authorization"] = f"Bearer {hf_token}"
+
+        logger.info(f"Downloading model: {url} -> {dest_path}")
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=3600),
+                allow_redirects=True
+            ) as resp:
+
+                if resp.status == 401:
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=401,
+                        content={
+                            "status": "auth",
+                            "detail": (
+                                "HuggingFace authentication failed. "
+                                "Set your HF_TOKEN in Mission Control → Settings."
+                            )
+                        }
+                    )
+
+                if resp.status == 403:
+                    # Gated model — user must accept the license on HuggingFace
+                    from fastapi.responses import JSONResponse
+                    repo_url = f"https://huggingface.co/{repo_id}"
+                    logger.warning(f"Gated model, license required: {repo_url}")
+                    return JSONResponse(
+                        status_code=403,
+                        content={"status": "gated", "repo_url": repo_url}
+                    )
+
+                if resp.status == 404:
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=404,
+                        content={
+                            "status": "not_found",
+                            "detail": f"File not found on HuggingFace: {url}"
+                        }
+                    )
+
+                if resp.status != 200:
+                    raise HTTPException(
+                        status_code=resp.status,
+                        detail=f"HuggingFace returned HTTP {resp.status} for {url}"
+                    )
+
+                # Stream to disk in 1 MB chunks
+                bytes_written = 0
+                with open(dest_path, "wb") as f:
+                    async for chunk in resp.content.iter_chunked(1024 * 1024):
+                        f.write(chunk)
+                        bytes_written += len(chunk)
+
+        logger.info(f"Downloaded {filename} ({bytes_written / 1024 / 1024:.1f} MB) -> {dest_path}")
+        return {"status": "success", "path": dest_path, "bytes": bytes_written}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Model download error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/utils/select-folder")
 async def select_folder():
