@@ -246,6 +246,20 @@ export function MissionControl() {
                 className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all" 
               />
             </div>
+            
+            <div className="space-y-2 md:col-span-2 mt-2">
+              <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">HuggingFace Token</label>
+              <input 
+                type="password" 
+                value={config.HF_TOKEN || ''} 
+                onChange={(e) => handleConfigChange('HF_TOKEN', e.target.value)}
+                placeholder="hf_xxxxxxxxxxxxxxxxxxxxxx"
+                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10" 
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Required for auto-downloading gated models (e.g. FLUX.1-dev) via the Architect. <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 transition-colors">Get token →</a>
+              </p>
+            </div>
           </div>
         </div>
       </div>
