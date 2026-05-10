@@ -495,14 +495,31 @@ async def download_model(request: Request):
         folder   = body.get("folder")
         filename = body.get("filename")
         repo_id  = body.get("repo_id")
-        hf_path  = body.get("hf_path") or filename
         hf_token = os.getenv("HF_TOKEN", "").strip()
+        hf_path  = body.get("hf_path")
 
         if not all([folder, filename, repo_id]):
             raise HTTPException(
                 status_code=400,
                 detail="Missing required fields: folder, filename, repo_id"
             )
+
+        if not hf_path:
+            try:
+                def get_repo_files():
+                    from huggingface_hub import HfApi
+                    return HfApi(token=hf_token).list_repo_files(repo_id=repo_id)
+                
+                files = await asyncio.to_thread(get_repo_files)
+                matches = [f for f in files if f == filename or f.endswith(f"/{filename}")]
+                if matches:
+                    hf_path = matches[0]
+                    logger.info(f"Auto-discovered {filename} at {hf_path} in {repo_id}")
+                else:
+                    hf_path = filename
+            except Exception as e:
+                logger.warning(f"Failed to list repo files for {repo_id}: {e}")
+                hf_path = filename
 
         comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
         dest_dir  = os.path.join(comfy_workspace, "models", folder)
