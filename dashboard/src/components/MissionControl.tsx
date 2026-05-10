@@ -5,7 +5,7 @@ import { Network, Puzzle, Settings, Save, X, FolderSearch, RefreshCw, ShieldChec
 import { useDashboard } from './DashboardProvider';
 
 export function MissionControl() {
-  const { config, setConfig, saveConfig, workflows, loraFiles } = useDashboard();
+  const { config, setConfig, saveConfig, workflows, loraFiles, handleReboot } = useDashboard();
 
   const handleConfigChange = (key: string, value: string) => {
     setConfig({ ...config, [key]: value });
@@ -53,7 +53,7 @@ export function MissionControl() {
   };
 
   return (
-    <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="p-8 rounded-3xl bg-gradient-to-br from-indigo-500/10 to-fuchsia-500/10 border border-white/5 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] -mr-32 -mt-32" />
         <h2 className="text-3xl font-black text-white mb-2 tracking-tight">Mission Control</h2>
@@ -76,7 +76,13 @@ export function MissionControl() {
                   onChange={(e) => handleConfigChange('COMFY_URL', e.target.value)}
                   className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500/50 outline-none transition-all" 
                 />
-                <button className="bg-white/5 hover:bg-white/10 text-slate-400 px-4 rounded-xl text-xs font-bold transition-all border border-white/5 shrink-0">Check Status</button>
+                <button 
+                  onClick={handleReboot}
+                  className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-4 rounded-xl text-xs font-bold transition-all border border-rose-500/30 shrink-0 flex items-center gap-2"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Restart
+                </button>
               </div>
             </div>
             <div className="grid gap-2">
@@ -147,7 +153,7 @@ export function MissionControl() {
 
         <div className="space-y-8 pt-4 border-t border-white/5">
           {/* Discord Access Management */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             {/* Guild Management */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -225,7 +231,7 @@ export function MissionControl() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 border-t border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-8 border-t border-white/5">
             <div className="space-y-2">
               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Discord Token</label>
               <input 
@@ -247,7 +253,7 @@ export function MissionControl() {
               />
             </div>
             
-            <div className="space-y-2 md:col-span-2 mt-2">
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">HuggingFace Token</label>
               <input 
                 type="password" 
@@ -328,6 +334,7 @@ function NodeItem({ node, isSelected, onToggle }: { node: any, isSelected: boole
 }
 
 function NodeManager() {
+  const { handleReboot } = useDashboard();
   const [nodes, setNodes] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [updating, setUpdating] = React.useState(false);
@@ -359,7 +366,8 @@ function NodeManager() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Update successful! ComfyUI will need a restart.');
+        alert('Update successful! Sending reboot signal to ComfyUI...');
+        await handleReboot();
         fetchNodes(true);
       }
     } catch (e) {
@@ -493,6 +501,7 @@ function NodeManager() {
 
 
 function SnapshotManager() {
+  const { handleReboot } = useDashboard();
   const [snapshots, setSnapshots] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -523,7 +532,8 @@ function SnapshotManager() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Restore initiated! ComfyUI will restart.');
+        alert('Restore initiated! Sending reboot signal...');
+        await handleReboot();
       }
     } catch (e) {
       console.error('Restore failed:', e);

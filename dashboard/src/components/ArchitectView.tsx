@@ -29,8 +29,8 @@ export function ArchitectView() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="space-y-4">
+    <div className="flex flex-col lg:flex-row gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="w-full lg:w-[250px] space-y-4 shrink-0">
         <div className="flex flex-col gap-4 mb-4">
           <h3 className="text-xs text-slate-500 uppercase tracking-widest font-bold">Workflows</h3>
           <div className="flex gap-2">
@@ -60,7 +60,7 @@ export function ArchitectView() {
             accept=".json"
           />
         </div>
-        <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-200px)] pr-2">
+        <div className="space-y-2 overflow-y-auto max-h-[200px] lg:max-h-[calc(100vh-280px)] pr-2">
           {workflows.map((wf) => (
             <button 
               key={wf.name}
@@ -77,38 +77,38 @@ export function ArchitectView() {
         </div>
       </div>
       
-      <div className="bg-[#0d0d0f] rounded-3xl border border-white/5 shadow-2xl overflow-hidden relative flex flex-col">
+      <div className="flex-1 bg-[#0d0d0f] rounded-3xl border border-white/5 shadow-2xl overflow-hidden relative flex flex-col min-h-[500px]">
         {selectedWorkflow ? (
           <>
-            <div className="p-6 border-b border-white/5 flex items-center justify-between bg-black/20">
-              <div className="flex items-center gap-6">
-                <div className="flex bg-[#141418] rounded-xl p-1 border border-white/5">
-                  <button onClick={() => setViewMode('list')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}>List View</button>
-                  <button onClick={() => setViewMode('visual')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'visual' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Visual Architect</button>
+            <div className="p-4 sm:p-6 border-b border-white/5 flex flex-col md:flex-row items-center justify-between bg-black/20 gap-4">
+              <div className="flex items-center gap-6 w-full md:w-auto">
+                <div className="flex bg-[#141418] rounded-xl p-1 border border-white/5 w-full md:w-auto">
+                  <button onClick={() => setViewMode('list')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}>List View</button>
+                  <button onClick={() => setViewMode('visual')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${viewMode === 'visual' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Visual Architect</button>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
+                <div className="flex flex-col gap-1 flex-1 sm:flex-none">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter ml-1">Discord Workflow list name</span>
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20 shadow-inner">
                     <Type className="w-3 h-3 text-indigo-400" />
                     <input 
-                      value={displayName} 
+                      value={displayName || ''} 
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Display Name"
                       className="bg-transparent border-none text-xs font-bold text-indigo-400 outline-none w-36 placeholder-indigo-400/30"
                     />
                   </div>
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 flex-1 sm:flex-none">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter ml-1">Discord Command</span>
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-500/10 rounded-lg border border-white/5 shadow-inner">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">/</span>
                     <input 
-                      value={customCommandName} 
+                      value={customCommandName || ''} 
                       onChange={(e) => setCustomCommandName(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
                       placeholder="Command"
-                      className="bg-transparent border-none text-xs font-bold text-slate-400 outline-none w-28 placeholder-slate-600"
+                      className="bg-transparent border-none text-xs font-bold text-slate-400 outline-none w-full sm:w-28 placeholder-slate-600"
                     />
                   </div>
                 </div>

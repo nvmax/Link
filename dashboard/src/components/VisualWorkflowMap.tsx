@@ -564,7 +564,7 @@ export function VisualWorkflowMap() {
 
                               {isDropdown ? (
                                 <select
-                                  value={val}
+                                  value={val || ''}
                                   onChange={(e) => updateWorkflowInput(id, key, e.target.value)}
                                   className="w-full bg-black/40 border border-white/10 rounded-lg text-xs p-2 text-slate-300 outline-none focus:border-indigo-500/50"
                                   onMouseDown={(e) => e.stopPropagation()} // Prevent map pan when clicking select
@@ -576,7 +576,7 @@ export function VisualWorkflowMap() {
                               ) : (
                                 <input
                                   type={typeof val === 'number' ? 'number' : 'text'}
-                                  value={val}
+                                  value={val || ''}
                                   onChange={(e) => updateWorkflowInput(id, key, typeof val === 'number' ? parseFloat(e.target.value) || 0 : e.target.value)}
                                   className="w-full bg-black/40 border border-white/10 rounded-lg text-xs p-2 text-slate-300 outline-none focus:border-indigo-500/50"
                                   onMouseDown={(e) => e.stopPropagation()} // Prevent map pan when clicking input

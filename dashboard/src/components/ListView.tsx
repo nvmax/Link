@@ -141,7 +141,7 @@ export function ListView() {
 
                     {isDropdown ? (
                       <select
-                        value={val}
+                        value={val || ''}
                         onChange={(e) => updateWorkflowInput(id, key, e.target.value)}
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
                       >
@@ -152,7 +152,7 @@ export function ListView() {
                     ) : (
                       <input
                         type={typeof val === 'number' ? 'number' : 'text'}
-                        value={val}
+                        value={val || ''}
                         onChange={(e) => updateWorkflowInput(id, key, typeof val === 'number' ? parseFloat(e.target.value) || 0 : e.target.value)}
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
                       />

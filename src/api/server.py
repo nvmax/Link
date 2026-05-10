@@ -98,6 +98,9 @@ async def restore_nodes(request: Request):
             return {"status": "skipped", "message": "No workflow or missing nodes provided"}
 
         comfy_path = Config.COMFY_PATH
+        if not comfy_path:
+            return {"status": "error", "message": "COMFY_PATH not set in .env"}
+
         resolved_path = resolve_comfy_workspace(comfy_path)
         logger.info(f"Auto-resolved ComfyUI workspace to: {resolved_path}")
         
@@ -143,20 +146,9 @@ async def restore_nodes(request: Request):
         if not installed_any:
             return {"status": "skipped", "message": "No missing nodes were found or installation could not be resolved."}
 
-        logger.info("Nodes installed successfully. Attempting to reboot ComfyUI...")
-        
-        # Attempt reboot via ComfyUI-Manager API
-        reboot_success = False
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f"{Config.COMFY_URL}/manager/reboot", timeout=10) as resp:
-                    reboot_success = resp.status == 200
-        except: pass
-
         return {
             "status": "success", 
-            "message": "Nodes installed successfully." + (" ComfyUI is restarting." if reboot_success else " Please restart ComfyUI manually."),
-            "reboot_triggered": reboot_success
+            "message": "Nodes installed successfully."
         }
     except Exception as e:
         logger.error(f"Error during node restoration: {e}")
@@ -418,6 +410,37 @@ def resolve_comfy_workspace(base_path: str):
     if os.path.exists(os.path.join(subfolder, "main.py")): return subfolder
     return base_path
 
+@app.post("/api/comfy/reboot")
+async def reboot_comfy():
+    """
+    Tells ComfyUI to reboot (requires ComfyUI-Manager).
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Prioritize the path confirmed by the user's manual script
+            paths = ["/manager/reboot", "/api/manager/reboot", "/reboot"]
+            methods = ["POST", "GET"]
+            
+            for path in paths:
+                url = f"{Config.COMFY_URL}{path}"
+                for method in methods:
+                    try:
+                        # We use a short timeout because a successful reboot often cuts the connection
+                        async with session.request(method, url, timeout=3) as resp:
+                            if resp.status == 200:
+                                return {"status": "success", "message": f"Reboot accepted ({method} {path})"}
+                    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                        # If the connection is reset or timed out immediately after the request, 
+                        # it almost certainly means the server is shutting down to reboot.
+                        logger.info(f"Reboot likely successful (connection reset/timeout): {e}")
+                        return {"status": "success", "message": "Reboot triggered successfully."}
+            
+            return {"status": "error", "message": "Could not verify reboot command was accepted."}
+    except Exception as e:
+        logger.error(f"Reboot handler error: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 @app.post("/api/models/check")
 async def check_models(request: Request):
     """
@@ -441,34 +464,55 @@ async def check_models(request: Request):
         # Query ComfyUI /models/{folder} for each distinct folder needed
         installed_by_folder: dict[str, set] = {}
         folders_needed = {r["folder"] for r in required}
+        
+        # Local filesystem check as a robust fallback/supplement
+        comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
+        if comfy_workspace:
+            logger.info(f"Model check: Supplementing with local scan of {comfy_workspace}")
 
-        try:
-            async with aiohttp.ClientSession() as session:
-                for folder in folders_needed:
-                    try:
-                        async with session.get(
-                            f"{Config.COMFY_URL}/models/{folder}",
-                            timeout=aiohttp.ClientTimeout(total=5)
-                        ) as resp:
-                            if resp.status == 200:
-                                data = await resp.json()
-                                # ComfyUI returns a flat list of filename strings
-                                installed_by_folder[folder] = set(data)
-                            else:
-                                logger.warning(f"ComfyUI returned {resp.status} for /models/{folder}")
-                                installed_by_folder[folder] = set()
-                    except Exception as folder_err:
-                        logger.warning(f"Could not query ComfyUI /models/{folder}: {folder_err}")
-                        installed_by_folder[folder] = set()
-        except Exception as session_err:
-            logger.warning(f"ComfyUI unreachable during model check: {session_err}")
-            # Graceful degradation — treat all as installed so import proceeds
-            return {"required": required, "missing": []}
+        async with aiohttp.ClientSession() as session:
+            for folder in folders_needed:
+                folder_set = set()
+                
+                # 1. Try ComfyUI API
+                try:
+                    async with session.get(
+                        f"{Config.COMFY_URL}/models/{folder}",
+                        timeout=aiohttp.ClientTimeout(total=3)
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if isinstance(data, list):
+                                folder_set.update(data)
+                except Exception: pass
 
-        result = [
-            {**item, "installed": item["filename"] in installed_by_folder.get(item["folder"], set())}
-            for item in required
-        ]
+                # 2. Try Direct Filesystem Check (the most reliable source)
+                if comfy_workspace:
+                    model_dir = os.path.join(comfy_workspace, "models", folder)
+                    if os.path.exists(model_dir):
+                        for root, _, files in os.walk(model_dir):
+                            for f in files:
+                                # Add both full relative path and just filename for flexibility
+                                rel_path = os.path.relpath(os.path.join(root, f), model_dir).replace("\\", "/")
+                                folder_set.add(rel_path)
+                                folder_set.add(f)
+                
+                installed_by_folder[folder] = folder_set
+
+        # Case-insensitive matching
+        result = []
+        for item in required:
+            target = item["filename"].lower().replace("\\", "/")
+            # Get lowercase versions of all found files in this folder
+            found_lower = {f.lower() for f in installed_by_folder.get(item["folder"], set())}
+            
+            # Match if exact filename (lowercase), full path, or base filename matches
+            is_installed = (
+                target in found_lower or 
+                os.path.basename(target) in found_lower
+            )
+            result.append({**item, "installed": is_installed})
+
         missing = [r for r in result if not r["installed"]]
         logger.info(f"Model check: {len(required)} required, {len(missing)} missing")
         return {"required": result, "missing": missing}

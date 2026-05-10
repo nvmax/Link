@@ -7,13 +7,16 @@ We are just getting started. **LINK** is designed to be an evolving ecosystem th
 ## Completed Features:
 - **One-Click Node Setup**: Automatically detect and install missing ComfyUI custom nodes required by your imported workflows.
 - **Video-First Modals**: Specialized UI layouts specifically designed for LTXV and other video-generation workflows.
+- **Node Health Check**: Diagnostic tool to identify broken or outdated nodes before you run a generation.
 
 
 ## 🛠️ Integrated ComfyUI Management
 *Goal: Remove the need to ever leave the LINK Dashboard.*
 - **Auto-Configurator**: Update comfyui, install sage attention based on gpu selection.
-- **One-Click Node Setup**: Automatically detect and install missing ComfyUI custom nodes required by your imported workflows.
-- **Node Health Check**: Diagnostic tool to identify broken or outdated nodes before you run a generation.
+
+✔️ **One-Click Node Setup**: Automatically detect and install missing ComfyUI custom nodes required by your imported workflows.
+
+✔️ **Node Health Check**: Diagnostic tool to identify broken or outdated nodes before you run a generation.
 
 ## 🤖 Advanced Bot Capabilities
 *Goal: More control, more interaction.*
@@ -22,7 +25,9 @@ We are just getting started. **LINK** is designed to be an evolving ecosystem th
 ## 🎨 Professional Studio Enhancements
 *Goal: A truly "What You See Is What You Get" experience.*
 - **Asset Library**: A built-in gallery to view every image and video generated through LINK, with "Remix" and "Re-run" buttons.
-- **Video-First Modals**: Specialized UI layouts specifically designed for LTXV and other video-generation workflows.
+
+✔️ **Video-First Modals**: Specialized UI layouts specifically designed for LTXV and other video-generation workflows.
+
 - **Theme Engine**: Dark/Light mode switching and custom CSS support for the Dashboard.
 
 

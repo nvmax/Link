@@ -123,8 +123,8 @@ export function MissingModelsModal({
   });
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-[#0d0d0f] border border-white/10 rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-left scale-in-center animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col relative overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 p-4 sm:p-6">
+      <div className="bg-[#0d0d0f] border border-white/10 rounded-3xl p-4 sm:p-8 max-w-2xl w-full shadow-2xl text-left scale-in-center animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col relative overflow-hidden">
         {/* Glow effect matching MissionControl amber theme */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
 

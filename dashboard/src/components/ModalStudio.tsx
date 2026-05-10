@@ -8,8 +8,8 @@ export function ModalStudio() {
   const { selections, updateSelection, moveInput, uiConfig, setUiConfig, workflows } = useDashboard();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-[#0d0d0f] rounded-3xl border border-white/5 p-8 overflow-y-auto shadow-2xl">
+    <div className="flex flex-col xl:flex-row gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex-1 bg-[#0d0d0f] rounded-3xl border border-white/5 p-4 sm:p-8 overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h3 className="text-2xl font-black text-white tracking-tight">Modal Studio</h3>
@@ -22,7 +22,7 @@ export function ModalStudio() {
               <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
                 <Layout className="w-3 h-3" /> Embed Layout
               </h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] text-slate-500 uppercase font-bold">Title Template</label>
                   <input 
@@ -62,7 +62,7 @@ export function ModalStudio() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] text-slate-500 uppercase font-bold">Image Position</label>
                   <select 
@@ -353,7 +353,7 @@ export function ModalStudio() {
         </div>
 
       {/* Preview Panel */}
-      <div className="flex flex-col gap-6">
+      <div className="w-full xl:w-[400px] flex flex-col gap-6">
           <div className="bg-[#0d0d0f] rounded-3xl border border-white/5 p-6 shadow-2xl overflow-hidden relative group">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
             <h4 className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-6 text-center">Discord Response Preview</h4>

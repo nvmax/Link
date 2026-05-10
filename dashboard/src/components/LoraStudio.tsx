@@ -84,7 +84,7 @@ export function LoraStudio() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="flex flex-col lg:flex-row gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -92,9 +92,9 @@ export function LoraStudio() {
         className="hidden" 
         accept=".safetensors,.ckpt,.pt"
       />
-      <div className="flex flex-col gap-4 h-full">
+      <div className="w-full lg:w-[300px] flex flex-col gap-4 h-full shrink-0">
         <h3 className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-2">LoRA Lists</h3>
-        <div className="flex-1 space-y-2 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 space-y-2 overflow-y-auto max-h-[200px] lg:max-h-none pr-2">
           {loraFiles.map((file) => (
             <div key={file.name} className="group/file flex items-center gap-2">
               <button 
@@ -131,10 +131,10 @@ export function LoraStudio() {
         </button>
       </div>
 
-      <div className="bg-[#0d0d0f] rounded-3xl border border-white/5 overflow-hidden flex flex-col relative shadow-2xl">
+      <div className="flex-1 bg-[#0d0d0f] rounded-3xl border border-white/5 overflow-hidden flex flex-col relative shadow-2xl min-h-[500px]">
           {editingLoraFile ? (
             <div className="flex-1 flex flex-col h-full overflow-hidden">
-              <div className="p-6 border-b border-white/5 flex items-center justify-between bg-black/20 backdrop-blur-xl shrink-0">
+              <div className="p-4 sm:p-6 border-b border-white/5 flex flex-col sm:flex-row items-center justify-between bg-black/20 backdrop-blur-xl shrink-0 gap-4">
                 <div className="flex items-center gap-4">
                   {selectedCategory && (
                     <button 
@@ -161,7 +161,7 @@ export function LoraStudio() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-8 scrollbar-hide">
                   {!selectedCategory ? (
                     // Category Grid View
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -225,7 +225,7 @@ export function LoraStudio() {
                             <div className="flex items-start justify-between mb-6">
                               <div className="flex-1 mr-4">
                                 <input 
-                                  value={lora.name} 
+                                  value={lora.name || ''} 
                                   onChange={(e) => updateLoraField(idx, 'name', e.target.value)} 
                                   placeholder="LoRA Name (Display)"
                                   className="w-full bg-transparent border-none text-lg font-black text-white focus:text-amber-400 outline-none p-0 placeholder:text-white/10" 
@@ -234,7 +234,7 @@ export function LoraStudio() {
                                   <span className="text-[10px] font-mono text-amber-500/50 uppercase tracking-tighter">File:</span>
                                   <div className="flex-1 flex items-center gap-2">
                                     <input 
-                                      value={lora.file} 
+                                      value={lora.file || ''} 
                                       onChange={(e) => updateLoraField(idx, 'file', e.target.value)} 
                                       placeholder="filename.safetensors"
                                       className="flex-1 bg-transparent border-none text-[10px] font-mono text-slate-500 focus:text-slate-300 outline-none p-0" 

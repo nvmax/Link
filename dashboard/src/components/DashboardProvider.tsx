@@ -63,6 +63,10 @@ interface DashboardContextType {
   modelDownloadStats: Record<string, any>;
   handleModelDownload: (modelsWithRepos: any[]) => Promise<void>;
   handleRetrySingleModel: (model: any) => Promise<void>;
+  handleReboot: () => Promise<void>;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -147,6 +151,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [selections, setSelections] = useState<any[]>([]);
   const [customCommandName, setCustomCommandName] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const [uiConfig, setUiConfig] = useState<any>({
     embed: {
       title_template: "{user}'s Generation",
@@ -372,6 +378,23 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     alert('Workflow imported successfully!');
   };
 
+  const handleReboot = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8001/api/comfy/reboot', {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        alert("ComfyUI reboot signal sent. Please wait a few moments for it to restart.");
+      } else {
+        alert(`Reboot failed: ${data.message}. You may need to manually restart ComfyUI.`);
+      }
+    } catch (e: any) {
+      console.error('Reboot error:', e);
+      alert(`Reboot failed: ${e.message}`);
+    }
+  };
+
   const handleNodeInstall = async () => {
     if (!pendingImport) return;
     setIsInstalling(true);
@@ -389,7 +412,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Installation failed');
 
-      alert(data.message);
+      alert("Nodes installed successfully. Sending reboot signal to ComfyUI...");
+      await handleReboot();
       
       // Re-fetch object info from the Next.js API (which fetches from ComfyUI)
       // This ensures the Architect sees the new nodes.
@@ -460,11 +484,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     
     setIsDownloadingModels(false);
     
-    if (allSuccess && pendingImport) {
-       await executeImport(pendingImport.name, pendingImport.workflow);
-       setMissingModels([]);
-       setPendingImport(null);
+    if (allSuccess) {
+      alert("Models downloaded successfully. Sending reboot signal to ComfyUI...");
+      await handleReboot();
+      
+      if (pendingImport) {
+         await executeImport(pendingImport.name, pendingImport.workflow);
+         setPendingImport(null);
+      }
     }
+    
+    setMissingModels([]);
   };
 
   const handleRetrySingleModel = async (model: any) => {
@@ -767,7 +797,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     pendingImport, setPendingImport,
     missingModels, setMissingModels,
     isDownloadingModels, modelDownloadProgress, modelDownloadStats,
-    handleModelDownload, handleRetrySingleModel
+    handleModelDownload, handleRetrySingleModel, handleReboot,
+    isSidebarOpen, setIsSidebarOpen, toggleSidebar
   };
 
   return (
