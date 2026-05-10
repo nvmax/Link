@@ -9,6 +9,7 @@ import { ArchitectView } from '@/components/ArchitectView';
 import { ModalStudio } from '@/components/ModalStudio';
 import { LoraStudio } from '@/components/LoraStudio';
 import { MissingNodesModal } from '@/components/MissingNodesModal';
+import { MissingModelsModal } from '@/components/MissingModelsModal';
 
 function DashboardContent() {
   const { 
@@ -21,7 +22,13 @@ function DashboardContent() {
     isInstalling,
     pendingImport,
     setPendingImport,
-    importWorkflow
+    importWorkflow,
+    missingModels,
+    setMissingModels,
+    isDownloadingModels,
+    modelDownloadProgress,
+    handleModelDownload,
+    handleRetrySingleModel
   } = useDashboard();
 
   return (
@@ -80,6 +87,28 @@ function DashboardContent() {
               setPendingImport(null);
             }}
             isInstalling={isInstalling}
+          />
+        )}
+
+        {missingModels.length > 0 && (
+          <MissingModelsModal 
+            missingModels={missingModels}
+            onDownload={handleModelDownload}
+            onImportAnyway={async () => {
+              if (pendingImport) {
+                const { name, workflow } = pendingImport;
+                setMissingModels([]);
+                setPendingImport(null);
+                await importWorkflow(name, workflow, true);
+              }
+            }}
+            onCancel={() => {
+              setMissingModels([]);
+              setPendingImport(null);
+            }}
+            isDownloading={isDownloadingModels}
+            downloadProgress={modelDownloadProgress}
+            onRetrySingle={handleRetrySingleModel}
           />
         )}
       </div>
