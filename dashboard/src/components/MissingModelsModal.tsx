@@ -21,6 +21,7 @@ interface MissingModelsModalProps {
   onCancel: () => void;
   isDownloading: boolean;
   downloadProgress: Record<string, string>;
+  downloadStats?: Record<string, any>;
   onRetrySingle?: (model: any) => void;
 }
 
@@ -31,6 +32,7 @@ export function MissingModelsModal({
   onCancel,
   isDownloading,
   downloadProgress,
+  downloadStats = {},
   onRetrySingle
 }: MissingModelsModalProps) {
   const [modelRepos, setModelRepos] = useState<Record<string, string>>({});
@@ -202,6 +204,29 @@ export function MissingModelsModal({
                         disabled={isDownloading || status === 'gated'}
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
                       />
+                      
+                      {status === 'downloading' && downloadStats[model.filename] && (
+                        <div className="mt-4 space-y-1.5 px-1">
+                          <div className="flex justify-between items-center text-xs font-medium text-amber-200">
+                            <span>Downloading...</span>
+                            <span>
+                              {downloadStats[model.filename].total > 0 
+                                ? `${(downloadStats[model.filename].downloaded / 1024 / 1024).toFixed(1)} MB / ${(downloadStats[model.filename].total / 1024 / 1024).toFixed(1)} MB`
+                                : `${(downloadStats[model.filename].downloaded / 1024 / 1024).toFixed(1)} MB`}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-black/50 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: downloadStats[model.filename].total > 0 
+                                  ? `${Math.max(5, Math.round((downloadStats[model.filename].downloaded / downloadStats[model.filename].total) * 100))}%` 
+                                  : '100%' 
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Mode B: Manual Instructions */}

@@ -60,6 +60,7 @@ interface DashboardContextType {
   setMissingModels: (models: any[]) => void;
   isDownloadingModels: boolean;
   modelDownloadProgress: Record<string, string>;
+  modelDownloadStats: Record<string, any>;
   handleModelDownload: (modelsWithRepos: any[]) => Promise<void>;
   handleRetrySingleModel: (model: any) => Promise<void>;
 }
@@ -170,7 +171,28 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [missingModels, setMissingModels] = useState<any[]>([]);
   const [isDownloadingModels, setIsDownloadingModels] = useState(false);
   const [modelDownloadProgress, setModelDownloadProgress] = useState<Record<string, string>>({});
+  const [modelDownloadStats, setModelDownloadStats] = useState<Record<string, any>>({});
   
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isDownloadingModels) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch('http://127.0.0.1:8001/api/models/progress');
+          if (res.ok) {
+            const data = await res.json();
+            setModelDownloadStats(data);
+          }
+        } catch (e) {
+          // Ignore network errors during polling
+        }
+      }, 500);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isDownloadingModels]);
+
   const updateLoraSelection = (nodeId: string, updates: any) => {
     setLoraSelections(prev => {
       const current = prev[nodeId];
@@ -744,7 +766,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     isInstalling, handleNodeInstall,
     pendingImport, setPendingImport,
     missingModels, setMissingModels,
-    isDownloadingModels, modelDownloadProgress,
+    isDownloadingModels, modelDownloadProgress, modelDownloadStats,
     handleModelDownload, handleRetrySingleModel
   };
 

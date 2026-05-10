@@ -27,6 +27,7 @@ function DashboardContent() {
     setMissingModels,
     isDownloadingModels,
     modelDownloadProgress,
+    modelDownloadStats,
     handleModelDownload,
     handleRetrySingleModel
   } = useDashboard();
@@ -108,6 +109,7 @@ function DashboardContent() {
             }}
             isDownloading={isDownloadingModels}
             downloadProgress={modelDownloadProgress}
+            downloadStats={modelDownloadStats}
             onRetrySingle={handleRetrySingleModel}
           />
         )}

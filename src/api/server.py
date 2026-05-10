@@ -28,6 +28,13 @@ app.add_middleware(
 # We'll store a reference to the bot instance here
 bot_instance = None
 
+# Store active downloads progress: { "filename": { "total": int, "downloaded": int, "status": str } }
+active_downloads = {}
+
+@app.get("/api/models/progress")
+async def get_download_progress():
+    return active_downloads
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "bot_connected": bot_instance is not None and bot_instance.is_ready()}
@@ -627,10 +634,24 @@ async def download_model(request: Request):
 
                 # Stream to disk in 1 MB chunks
                 bytes_written = 0
-                with open(dest_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(1024 * 1024):
-                        f.write(chunk)
-                        bytes_written += len(chunk)
+                total_bytes = int(resp.headers.get("Content-Length", 0))
+                
+                active_downloads[filename] = {
+                    "total": total_bytes,
+                    "downloaded": 0,
+                    "status": "downloading"
+                }
+
+                try:
+                    with open(dest_path, "wb") as f:
+                        async for chunk in resp.content.iter_chunked(1024 * 1024):
+                            f.write(chunk)
+                            bytes_written += len(chunk)
+                            active_downloads[filename]["downloaded"] = bytes_written
+                    active_downloads[filename]["status"] = "done"
+                except Exception as stream_err:
+                    active_downloads[filename]["status"] = "error"
+                    raise stream_err
 
         logger.info(f"Downloaded {filename} ({bytes_written / 1024 / 1024:.1f} MB) -> {dest_path}")
         return {"status": "success", "path": dest_path, "bytes": bytes_written}
