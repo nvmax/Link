@@ -309,15 +309,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const importWorkflow = async (filename: string, workflow: any, force: boolean = false) => {
     try {
       // 1. Discovery Phase: Check for missing nodes before importing
-      if (objectInfo && !force) {
-        const nodeTypes = new Set(Object.values(workflow).map((n: any) => n.class_type));
-        const missing = Array.from(nodeTypes).filter(type => !objectInfo[type]) as string[];
-        
-        if (missing.length > 0) {
-          console.log('Missing nodes detected:', missing);
-          setMissingNodes(missing);
-          setPendingImport({ name: filename, workflow });
-          return; // Stop and wait for user approval via modal
+      if (!force) {
+        if (objectInfo) {
+          const nodeTypes = new Set(Object.values(workflow).map((n: any) => n.class_type));
+          const missing = Array.from(nodeTypes).filter(type => !objectInfo[type]) as string[];
+          
+          if (missing.length > 0) {
+            console.log('Missing nodes detected:', missing);
+            setMissingNodes(missing);
+            setPendingImport({ name: filename, workflow });
+            return; // Stop and wait for user approval via modal
+          }
         }
         
         // 1.5. Discovery Phase: Check for missing models
