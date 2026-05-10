@@ -56,6 +56,12 @@ interface DashboardContextType {
   handleNodeInstall: () => Promise<void>;
   pendingImport: { name: string, workflow: any } | null;
   setPendingImport: (imp: { name: string, workflow: any } | null) => void;
+  missingModels: any[];
+  setMissingModels: (models: any[]) => void;
+  isDownloadingModels: boolean;
+  modelDownloadProgress: Record<string, string>;
+  handleModelDownload: (modelsWithRepos: any[]) => Promise<void>;
+  handleRetrySingleModel: (model: any) => Promise<void>;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -160,6 +166,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [missingNodes, setMissingNodes] = useState<string[]>([]);
   const [pendingImport, setPendingImport] = useState<{ name: string, workflow: any } | null>(null);
   const [isInstalling, setIsInstalling] = useState(false);
+  
+  const [missingModels, setMissingModels] = useState<any[]>([]);
+  const [isDownloadingModels, setIsDownloadingModels] = useState(false);
+  const [modelDownloadProgress, setModelDownloadProgress] = useState<Record<string, string>>({});
   
   const updateLoraSelection = (nodeId: string, updates: any) => {
     setLoraSelections(prev => {
@@ -272,6 +282,30 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setSelectedWorkflow(wf);
   };
 
+  const checkModelsBeforeImport = async (filename: string, workflow: any) => {
+    try {
+      const modelCheckRes = await fetch('http://127.0.0.1:8001/api/models/check', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ workflow })
+      });
+      if (modelCheckRes.ok) {
+         const modelData = await modelCheckRes.json();
+         const missingMods = modelData.models.filter((m: any) => !m.installed);
+         if (missingMods.length > 0) {
+           console.log('Missing models detected:', missingMods);
+           setMissingModels(missingMods);
+           setPendingImport({ name: filename, workflow });
+           return false;
+         }
+      }
+      return true;
+    } catch (e) {
+       console.error("Failed model check", e);
+       return true; // proceed anyway if backend is down
+    }
+  };
+
   const importWorkflow = async (filename: string, workflow: any, force: boolean = false) => {
     try {
       // 1. Discovery Phase: Check for missing nodes before importing
@@ -285,6 +319,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           setPendingImport({ name: filename, workflow });
           return; // Stop and wait for user approval via modal
         }
+        
+        // 1.5. Discovery Phase: Check for missing models
+        const modelsOk = await checkModelsBeforeImport(filename, workflow);
+        if (!modelsOk) return;
       }
 
       await executeImport(filename, workflow);
@@ -342,16 +380,71 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Finalize the import now that nodes are (hopefully) present
-      await executeImport(pendingImport.name, pendingImport.workflow);
+      const modelsOk = await checkModelsBeforeImport(pendingImport.name, pendingImport.workflow);
+      if (modelsOk) {
+         await executeImport(pendingImport.name, pendingImport.workflow);
+         setPendingImport(null);
+      }
       
       setMissingNodes([]);
-      setPendingImport(null);
     } catch (e: any) {
       console.error('Node installation error:', e);
       alert(`Installation failed: ${e.message}`);
     } finally {
       setIsInstalling(false);
     }
+  };
+
+  const downloadSingleModel = async (model: any) => {
+    setModelDownloadProgress(prev => ({ ...prev, [model.filename]: 'downloading' }));
+    try {
+      const res = await fetch('http://127.0.0.1:8001/api/models/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(model)
+      });
+      if (res.status === 403) {
+         setModelDownloadProgress(prev => ({ ...prev, [model.filename]: 'gated' }));
+         return false;
+      }
+      if (!res.ok) throw new Error("Failed");
+      
+      setModelDownloadProgress(prev => ({ ...prev, [model.filename]: 'done' }));
+      return true;
+    } catch (e) {
+      setModelDownloadProgress(prev => ({ ...prev, [model.filename]: 'error' }));
+      return false;
+    }
+  };
+
+  const handleModelDownload = async (modelsWithRepos: any[]) => {
+    setIsDownloadingModels(true);
+    let allSuccess = true;
+    for (const m of modelsWithRepos) {
+      if (m.manuallyResolved || modelDownloadProgress[m.filename] === 'done') {
+         setModelDownloadProgress(prev => ({ ...prev, [m.filename]: 'done' }));
+         continue;
+      }
+      if (!m.repo_id) {
+         setModelDownloadProgress(prev => ({ ...prev, [m.filename]: 'error' }));
+         allSuccess = false;
+         continue;
+      }
+      const success = await downloadSingleModel(m);
+      if (!success) allSuccess = false;
+    }
+    
+    setIsDownloadingModels(false);
+    
+    if (allSuccess && pendingImport) {
+       await executeImport(pendingImport.name, pendingImport.workflow);
+       setMissingModels([]);
+       setPendingImport(null);
+    }
+  };
+
+  const handleRetrySingleModel = async (model: any) => {
+    await downloadSingleModel(model);
   };
 
   const deleteWorkflow = async (filename: string) => {
@@ -647,7 +740,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     nodeCoords, setNodeCoords,
     missingNodes, setMissingNodes,
     isInstalling, handleNodeInstall,
-    pendingImport, setPendingImport
+    pendingImport, setPendingImport,
+    missingModels, setMissingModels,
+    isDownloadingModels, modelDownloadProgress,
+    handleModelDownload, handleRetrySingleModel
   };
 
   return (
