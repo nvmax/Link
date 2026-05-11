@@ -37,7 +37,15 @@ async def get_download_progress():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "bot_connected": bot_instance is not None and bot_instance.is_ready()}
+    comfy_connected = False
+    if bot_instance and bot_instance.api_client:
+        comfy_connected = await bot_instance.api_client.check_connection()
+        
+    return {
+        "status": "ok", 
+        "bot_connected": bot_instance is not None and bot_instance.is_ready(),
+        "comfy_connected": comfy_connected
+    }
 
 @app.get("/api/discord/guild/{guild_id}")
 async def get_guild(guild_id: int):

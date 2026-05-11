@@ -105,10 +105,7 @@ export function MissionControl() {
               </div>
               <p className="text-[9px] text-slate-600 mt-1 italic">Required for auto-installing nodes via comfy-cli.</p>
             </div>
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-medium text-emerald-400">ComfyUI Backend Connected</span>
-            </div>
+
           </div>
         </div>
 
@@ -129,6 +126,10 @@ export function MissionControl() {
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                 <span className="text-xs text-slate-400 font-medium">Discord Pipeline</span>
                 <BotStatus />
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-xs text-slate-400 font-medium">ComfyUI Status</span>
+                <ComfyStatusIndicator />
               </div>
           </div>
         </div>
@@ -699,6 +700,28 @@ function BotStatus() {
       fetch('http://127.0.0.1:8001/health')
         .then(res => res.json())
         .then(data => setConnected(data.bot_connected))
+        .catch(() => setConnected(false));
+    };
+    check();
+    const interval = setInterval(check, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${connected ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'}`}>
+      {connected ? 'Ready' : 'Offline'}
+    </span>
+  );
+}
+
+function ComfyStatusIndicator() {
+  const [connected, setConnected] = React.useState(false);
+
+  React.useEffect(() => {
+    const check = () => {
+      fetch('http://127.0.0.1:8001/health')
+        .then(res => res.json())
+        .then(data => setConnected(data.comfy_connected))
         .catch(() => setConnected(false));
     };
     check();

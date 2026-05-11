@@ -66,3 +66,12 @@ class ComfyClient:
         async with session.get(f"{self.base_url}/object_info") as resp:
             return await resp.json()
 
+    async def check_connection(self) -> bool:
+        """Verifies if the ComfyUI backend is reachable."""
+        try:
+            session = await self._get_session()
+            async with session.get(f"{self.base_url}/system_stats", timeout=2) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
+
