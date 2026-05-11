@@ -10,6 +10,7 @@ from src.core.comfy_parser import parse_node_list, parse_snapshot_list
 from src.core.model_extractor import extract_required_models
 from src.core.config import Config
 from src.core.logger import setup_logger
+from src.api.ai_service import AiService
 import tkinter as tk
 from tkinter import filedialog
 
@@ -27,6 +28,7 @@ app.add_middleware(
 
 # We'll store a reference to the bot instance here
 bot_instance = None
+ai_service = AiService()
 
 # Store active downloads progress: { "filename": { "total": int, "downloaded": int, "status": str } }
 active_downloads = {}
@@ -84,6 +86,48 @@ async def get_channel(channel_id: int):
         "guild_name": channel.guild.name if hasattr(channel, 'guild') else "Unknown",
         "guild_id": str(channel.guild.id) if hasattr(channel, 'guild') else None
     }
+
+@app.get("/api/ai/config")
+async def get_ai_config():
+    return ai_service.load_config().dict()
+
+@app.post("/api/ai/config")
+async def save_ai_config(request: Request):
+    try:
+        data = await request.json()
+        ai_service.save_config(data)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ai/prompts")
+async def get_ai_prompts():
+    return [p.dict() for p in ai_service.load_prompts()]
+
+@app.post("/api/ai/prompts")
+async def save_ai_prompts(request: Request):
+    try:
+        data = await request.json()
+        ai_service.save_prompts(data)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/enhance")
+async def enhance_prompt(request: Request):
+    data = await request.json()
+    user_prompt = data.get("prompt")
+    system_prompt_id = data.get("system_prompt_id")
+    
+    if not user_prompt or not system_prompt_id:
+        raise HTTPException(status_code=400, detail="Missing prompt or system_prompt_id")
+        
+    try:
+        enhanced = await ai_service.enhance_prompt(user_prompt, system_prompt_id)
+        return {"enhanced": enhanced}
+    except Exception as e:
+        logger.error(f"AI Enhancement failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/comfy/restore")
 async def restore_nodes(request: Request):
