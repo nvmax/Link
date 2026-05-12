@@ -129,6 +129,15 @@ async def enhance_prompt(request: Request):
         logger.error(f"AI Enhancement failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/ai/test")
+async def test_ai_connection():
+    try:
+        response = await ai_service.test_connection()
+        return {"status": "success", "response": response}
+    except Exception as e:
+        logger.error(f"AI Test failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/comfy/restore")
 async def restore_nodes(request: Request):
     """

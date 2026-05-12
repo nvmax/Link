@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Network, Layout, Puzzle, Layers, X } from 'lucide-react';
+import { Network, Layout, Puzzle, Layers, X, Sparkles } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
 export function Sidebar() {
@@ -52,6 +52,10 @@ export function Sidebar() {
         <button onClick={() => handleTabClick('lora-studio')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'lora-studio' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
           <Layers className="w-4 h-4" />
           <span className="text-sm font-medium">LoRA Studio</span>
+        </button>
+        <button onClick={() => handleTabClick('ai-studio')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'ai-studio' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+          <Sparkles className="w-4 h-4" />
+          <span className="text-sm font-medium">AI Studio</span>
         </button>
       </nav>
     </div>

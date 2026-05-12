@@ -8,6 +8,7 @@ import { MissionControl } from '@/components/MissionControl';
 import { ArchitectView } from '@/components/ArchitectView';
 import { ModalStudio } from '@/components/ModalStudio';
 import { LoraStudio } from '@/components/LoraStudio';
+import { AiStudio } from '@/components/AiStudio';
 import { MissingNodesModal } from '@/components/MissingNodesModal';
 import { MissingModelsModal } from '@/components/MissingModelsModal';
 
@@ -78,6 +79,7 @@ function DashboardContent() {
             {activeTab === 'architect' && <ArchitectView />}
             {activeTab === 'modal-studio' && <ModalStudio />}
             {activeTab === 'lora-studio' && <LoraStudio />}
+            {activeTab === 'ai-studio' && <AiStudio />}
           </main>
         </div>
 

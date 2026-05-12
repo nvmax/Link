@@ -11,6 +11,7 @@ export function MissionControl() {
     setConfig({ ...config, [key]: value });
   };
 
+  const [selectedAiKeyProvider, setSelectedAiKeyProvider] = React.useState('OPENAI_API_KEY');
   const [newGuildId, setNewGuildId] = React.useState('');
   const [newChannelId, setNewChannelId] = React.useState('');
 
@@ -254,18 +255,38 @@ export function MissionControl() {
               />
             </div>
             
-            <div className="space-y-2 md:col-span-2 lg:col-span-1">
+            <div className="space-y-2">
               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">HuggingFace Token</label>
               <input 
                 type="password" 
                 value={config.HF_TOKEN || ''} 
                 onChange={(e) => handleConfigChange('HF_TOKEN', e.target.value)}
-                placeholder="hf_xxxxxxxxxxxxxxxxxxxxxx"
+                placeholder="hf_xxxxxxxx"
                 className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10" 
               />
-              <p className="text-[10px] text-slate-500 mt-1">
-                Required for auto-downloading gated models (e.g. FLUX.1-dev) via the Architect. <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 transition-colors">Get token →</a>
-              </p>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">AI API Keys</label>
+                <select 
+                  value={selectedAiKeyProvider}
+                  onChange={(e) => setSelectedAiKeyProvider(e.target.value)}
+                  className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2 py-1 text-[10px] font-black text-indigo-400 uppercase tracking-tighter outline-none cursor-pointer hover:bg-indigo-500/20 transition-all"
+                >
+                  <option value="OPENAI_API_KEY">OpenAI</option>
+                  <option value="ANTHROPIC_API_KEY">Anthropic</option>
+                  <option value="GEMINI_API_KEY">Gemini</option>
+                  <option value="GROK_API_KEY">Grok</option>
+                </select>
+              </div>
+              <input 
+                type="password" 
+                value={config[selectedAiKeyProvider] || ''} 
+                onChange={(e) => handleConfigChange(selectedAiKeyProvider, e.target.value)}
+                placeholder={`Enter ${selectedAiKeyProvider.replace('_', ' ')}...`}
+                className="w-full bg-black/40 border border-indigo-500/10 rounded-xl px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500/50 outline-none transition-all placeholder:text-white/10 shadow-inner" 
+              />
             </div>
           </div>
         </div>

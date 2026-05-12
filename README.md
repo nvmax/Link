@@ -42,6 +42,13 @@ A professional-grade management system for your model library.
 - **File-First Workflow**: Click "Add LoRA", pick your `.safetensors` file, and LINK handles the rest—extracting names and extensions automatically.
 - **Dynamic Prompt Injection**: Automatically append trigger words and apply precise weights to your positive prompts based on your selected LoRA.
 
+### 🧠 AI Studio
+
+- **Global AI Configuration**: Configure and manage multiple LLM providers (Gemini, OpenAI, Ollama, etc.) and their API keys.
+- **System Prompt Library**: A centralized repository for your system prompts, categorized by Image and Video.
+- **Prompt Enhancement**: Use LLMs to enhance your ComfyUI prompts, making them more effective and detailed.
+- **Interactive Enhancement**: Users can review and edit enhanced prompts in the Discord bot before generation.
+
 ---
 
 ## 🖼️ Interface Showcase

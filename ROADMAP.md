@@ -8,6 +8,7 @@ We are just getting started. **LINK** is designed to be an evolving ecosystem th
 - **One-Click Node Setup**: Automatically detect and install missing ComfyUI custom nodes required by your imported workflows.
 - **Video-First Modals**: Specialized UI layouts specifically designed for LTXV and other video-generation workflows.
 - **Node Health Check**: Diagnostic tool to identify broken or outdated nodes before you run a generation.
+- **AI Studio**: A centralized hub for managing AI models and system prompts, complete with LLM-powered prompt enhancement and interactive refinement.
 
 
 ## 🛠️ Integrated ComfyUI Management

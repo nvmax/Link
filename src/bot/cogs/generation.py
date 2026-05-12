@@ -1,8 +1,10 @@
 import discord
-from discord import app_commands
+from discord import app_commands, ui
 from discord.ext import commands
 from src.bot.ui import DynamicModal, OptionsView
+from src.bot.modals import AIReviewModal
 from src.api.workflows import PayloadBuilder
+from src.api.ai_service import AiService
 from src.database.models import GenerationJob, JobStatus, Asset
 from src.database.session import SessionLocal
 from src.core.logger import setup_logger
@@ -128,6 +130,113 @@ class GenerationCog(commands.Cog):
                     await target_interaction.followup.send("⏳ Timeout waiting for upload. Please try again.", ephemeral=True)
                     return None
 
+            # --- AI ENHANCEMENT INTERCEPTOR ---
+            async def run_ai_enhancement(target_interaction: discord.Interaction, current_values: dict):
+                ai_cfg = manifest.get("ai_prompt", {})
+                if not ai_cfg.get("enabled"):
+                    return await continue_to_lora_or_gen(target_interaction, current_values)
+                
+                target_field_id = ai_cfg.get("target_input")
+                prompt_id = ai_cfg.get("prompt_id")
+                
+                if not target_field_id or not prompt_id:
+                    logger.warning(f"AI Enhancement enabled but target_input or prompt_id missing in manifest for {workflow_name}")
+                    return await continue_to_lora_or_gen(target_interaction, current_values)
+                
+                original_prompt = current_values.get(target_field_id, "")
+                if not original_prompt:
+                    return await continue_to_lora_or_gen(target_interaction, current_values)
+
+                # AI takes time, so we MUST defer to avoid timeout.
+                if not target_interaction.response.is_done():
+                    await target_interaction.response.defer(ephemeral=True)
+
+                # Call AI Service
+                try:
+                    ai_service = AiService()
+                    enhanced_prompt = await ai_service.enhance_prompt(original_prompt, prompt_id)
+                except Exception as e:
+                    logger.error(f"AI Enhancement failed: {e}")
+                    enhanced_prompt = original_prompt
+
+                # Create a view with a button to trigger the modal
+                class AIReviewView(ui.View):
+                    def __init__(self, original_interaction, current_values, target_field_id, enhanced_prompt, continue_callback):
+                        super().__init__(timeout=300)
+                        self.original_interaction = original_interaction
+                        self.current_values = current_values
+                        self.target_field_id = target_field_id
+                        self.enhanced_prompt = enhanced_prompt
+                        self.continue_callback = continue_callback
+
+                    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+                        if interaction.user.id != self.original_interaction.user.id:
+                            await interaction.response.send_message("❌ This is not your generation request.", ephemeral=True)
+                            return False
+                        return True
+
+                    @ui.button(label="✨ Review & Generate", style=discord.ButtonStyle.primary)
+                    async def review(self, button_interaction: discord.Interaction, button: ui.Button):
+                        async def modal_callback(modal_interaction: discord.Interaction, final_prompt: str):
+                            self.current_values[self.target_field_id] = final_prompt
+                            # Disable the original button message
+                            try:
+                                await button_interaction.edit_original_response(content="✅ Prompt approved. Proceeding...", view=None)
+                            except: pass
+                            await self.continue_callback(modal_interaction, self.current_values)
+
+                        prompt_cfg = next((p for p in inputs if p["id"] == self.target_field_id), {})
+                        label = prompt_cfg.get("label", "Prompt")
+                        
+                        modal = AIReviewModal(
+                            title="✨ AI Prompt Enhancement",
+                            prompt_label=label,
+                            initial_content=self.enhanced_prompt,
+                            callback=modal_callback
+                        )
+                        await button_interaction.response.send_modal(modal)
+
+                view = AIReviewView(target_interaction, current_values, target_field_id, enhanced_prompt, continue_to_lora_or_gen)
+                
+                await target_interaction.followup.send(
+                    content="✨ **AI has enhanced your prompt!**\nClick below to review the changes and start the generation.",
+                    view=view,
+                    ephemeral=True
+                )
+
+            async def continue_to_lora_or_gen(target_interaction: discord.Interaction, current_values: dict):
+                # --- LORA SELECTION STEP ---
+                # Support both legacy lora_list key AND the new dashboard discord.loras node assignments
+                discord_loras = manifest.get('discord', {}).get('loras', {})
+                # Pick the first non-empty lora list assignment as the list to present
+                lora_list_name = manifest.get("lora_list")
+                if not lora_list_name and discord_loras:
+                    lora_list_name = next((v for v in discord_loras.values() if v), None)
+                
+                if lora_list_name:
+                    # If lora_list_name is a dict (from manifest discord.loras), extract the filename
+                    if isinstance(lora_list_name, dict):
+                        lora_list_name = lora_list_name.get("list")
+                    
+                    if lora_list_name:
+                        # Store which node the lora should be injected into (from the dashboard assignment)
+                        if discord_loras:
+                            current_values['__lora_node_assignments__'] = discord_loras
+                        await self.show_lora_selection(target_interaction, workflow_name, workflow, manifest, current_values, lora_list=lora_list_name)
+                        return
+
+                # NO LORA - Proceed to generation
+                display_name = manifest.get("workflow_name") or manifest.get("discord_command") or workflow_name
+                display_msg = f"(Queue) Starting generation for '{display_name}'..."
+                
+                if not target_interaction.response.is_done():
+                    await target_interaction.response.send_message(display_msg)
+                    message = await target_interaction.original_response()
+                else:
+                    message = await target_interaction.followup.send(display_msg)
+                
+                await self._execute_generation(target_interaction, workflow_name, workflow, manifest, current_values, message_id=message.id)
+
             # If user_values is None and we have modal fields, show the modal first
             if user_values is None and modal_fields:
                 async def modal_callback(modal_interaction: discord.Interaction, values: dict):
@@ -138,16 +247,8 @@ class GenerationCog(commands.Cog):
                     final_values = await ensure_attachments(modal_interaction, final_values)
                     if final_values is None: return # Timeout
 
-                    if manifest.get("lora_list"):
-                        await self.show_lora_selection(modal_interaction, workflow_name, workflow, manifest, final_values)
-                    else:
-                        if not modal_interaction.response.is_done():
-                            await modal_interaction.response.send_message(f"(Queue) Starting generation for '{workflow_name}'...")
-                            message = await modal_interaction.original_response()
-                        else:
-                            message = await modal_interaction.followup.send(f"(Queue) Starting generation for '{workflow_name}'...")
-                        
-                        await self._execute_generation(modal_interaction, workflow_name, workflow, manifest, final_values, message_id=message.id)
+                    # Intercept for AI Enhancement
+                    await run_ai_enhancement(modal_interaction, final_values)
 
                 modal = DynamicModal(
                     title=manifest.get("workflow_name", workflow_name)[:45],
@@ -165,38 +266,10 @@ class GenerationCog(commands.Cog):
             
             final_values = await ensure_attachments(interaction, final_values)
             if final_values is None: return # Timeout
-            # --- LORA SELECTION STEP ---
-            # Support both legacy lora_list key AND the new dashboard discord.loras node assignments
-            discord_loras = manifest.get('discord', {}).get('loras', {})
-            # Pick the first non-empty lora list assignment as the list to present
-            lora_list_name = manifest.get("lora_list")
-            if not lora_list_name and discord_loras:
-                lora_list_name = next((v for v in discord_loras.values() if v), None)
-            
-            if lora_list_name:
-                # If lora_list_name is a dict (from manifest discord.loras), extract the filename
-                if isinstance(lora_list_name, dict):
-                    lora_list_name = lora_list_name.get("list")
-                
-                if lora_list_name:
-                    # Store which node the lora should be injected into (from the dashboard assignment)
-                    if discord_loras:
-                        final_values['__lora_node_assignments__'] = discord_loras
-                    await self.show_lora_selection(interaction, workflow_name, workflow, manifest, final_values, lora_list=lora_list_name)
-                    return
 
-            display_name = manifest.get("workflow_name") or manifest.get("discord_command") or workflow_name
-            
-            logger.info(f"Interaction state before response: is_done={interaction.response.is_done()}")
-            if not interaction.response.is_done():
-                logger.info("Attempting to send initial message via interaction.response.send_message")
-                await interaction.response.send_message(f"Initializing generation for **{display_name}**...")
-                message = await interaction.original_response()
-            else:
-                logger.info("Attempting to send initial message via interaction.followup.send")
-                message = await interaction.followup.send(f"Initializing generation for **{display_name}**...")
-            
-            await self._execute_generation(interaction, workflow_name, workflow, manifest, final_values, message_id=message.id)
+            # Intercept for AI Enhancement
+            await run_ai_enhancement(interaction, final_values)
+            return # run_ai_enhancement handles the rest of the flow
 
         except Exception as e:
             logger.error(f"Top-level error in handle_generation_request: {e}", exc_info=True)

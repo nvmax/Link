@@ -4,8 +4,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface DashboardContextType {
-  activeTab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio';
-  setActiveTab: (tab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio') => void;
+  activeTab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio';
+  setActiveTab: (tab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio') => void;
   viewMode: 'list' | 'visual';
   setViewMode: (mode: 'list' | 'visual') => void;
   config: any;
@@ -67,6 +67,14 @@ interface DashboardContextType {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  aiConfig: any;
+  setAiConfig: (config: any) => void;
+  saveAiConfig: (newConfig: any) => Promise<void>;
+  systemPrompts: any[];
+  setSystemPrompts: (prompts: any[]) => void;
+  saveSystemPrompts: (prompts: any[]) => Promise<void>;
+  aiPrompt: any;
+  setAiPrompt: (prompt: any) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -142,7 +150,7 @@ function getPrimaryField(classType: string): string | null {
 }
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
-  const [activeTab, setActiveTab] = useState<'setup' | 'architect' | 'modal-studio' | 'lora-studio'>('setup');
+  const [activeTab, setActiveTab] = useState<'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio'>('setup');
   const [viewMode, setViewMode] = useState<'list' | 'visual'>('list');
   const [config, setConfig] = useState<any>({});
   const [workflows, setWorkflows] = useState<any[]>([]);
@@ -212,12 +220,53 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [editingLoraFile, setEditingLoraFile] = useState<any>(null);
   const [loraPage, setLoraPage] = useState(0);
 
+  // AI Workflow Integration
+  const [aiPrompt, setAiPrompt] = useState<any>({ enabled: false, category: 'image', prompt_id: '', target_input: '' });
+
+  // AI Studio State
+  const [aiConfig, setAiConfig] = useState<any>({});
+  const [systemPrompts, setSystemPrompts] = useState<any[]>([]);
+
   // Initialize
   useEffect(() => {
     fetch('/api/config').then(res => res.json()).then(data => setConfig(data.config || data));
     fetch('/api/workflows').then(res => res.json()).then(data => setWorkflows(data.workflows || []));
     fetch('/api/loras').then(res => res.json()).then(data => setLoraFiles(data.loras || []));
+    
+    // AI API (Port 8001)
+    fetch('http://127.0.0.1:8001/api/ai/config').then(res => res.json()).then(data => setAiConfig(data));
+    fetch('http://127.0.0.1:8001/api/ai/prompts').then(res => res.json()).then(data => setSystemPrompts(data));
   }, []);
+
+  const saveAiConfig = async (newConfig: any) => {
+    try {
+      const res = await fetch('http://127.0.0.1:8001/api/ai/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newConfig)
+      });
+      if (!res.ok) throw new Error('Failed to save AI config');
+      setAiConfig(newConfig);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save AI configuration');
+    }
+  };
+
+  const saveSystemPrompts = async (newPrompts: any[]) => {
+    try {
+      const res = await fetch('http://127.0.0.1:8001/api/ai/prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPrompts)
+      });
+      if (!res.ok) throw new Error('Failed to save system prompts');
+      setSystemPrompts(newPrompts);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save system prompts');
+    }
+  };
 
   const saveConfig = async (newConfig: any) => {
     try {
@@ -296,6 +345,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       } else {
         setNodeCoords({});
       }
+      setAiPrompt(data.manifest?.ai_prompt || { enabled: false, category: 'image', prompt_id: '', target_input: '' });
     } catch (e) {
       console.error('Failed to load workflow:', e);
     }
@@ -561,6 +611,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         workflow_name: selectedWorkflow.name.replace(/\.json$/i, ''), // e.g. "FluxDev"
         display_name: displayName,
         discord_command: customCommandName || selectedWorkflow.name.replace(/\.json$/i, '').toLowerCase(),
+        ai_prompt: aiPrompt,
         description: (selectedWorkflow.manifest?.description) || `Run ${customCommandName || selectedWorkflow.name.replace(/\.json$/i, '')} workflow`,
         mapping: rootMapping,
         inputs: rootInputs,
@@ -798,7 +849,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     missingModels, setMissingModels,
     isDownloadingModels, modelDownloadProgress, modelDownloadStats,
     handleModelDownload, handleRetrySingleModel, handleReboot,
-    isSidebarOpen, setIsSidebarOpen, toggleSidebar
+    isSidebarOpen,
+    setIsSidebarOpen,
+    toggleSidebar,
+    aiConfig,
+    setAiConfig,
+    saveAiConfig,
+    systemPrompts,
+    setSystemPrompts,
+    saveSystemPrompts,
+    aiPrompt,
+    setAiPrompt
   };
 
   return (

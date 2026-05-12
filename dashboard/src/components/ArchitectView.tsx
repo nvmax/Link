@@ -1,13 +1,18 @@
 "use client";
 
 import React from 'react';
-import { Type, CheckCircle2, ChevronLeft, ChevronRight, Upload, Trash2 } from 'lucide-react';
+import { Type, CheckCircle2, ChevronLeft, ChevronRight, Upload, Trash2, Sparkles, Video, Image as ImageIcon } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 import { VisualWorkflowMap } from './VisualWorkflowMap';
 import { ListView } from './ListView';
 
 export function ArchitectView() {
-  const { workflows, selectedWorkflow, loadWorkflow, viewMode, setViewMode, customCommandName, setCustomCommandName, displayName, setDisplayName, selections, moveInput, importWorkflow, deleteWorkflow } = useDashboard();
+  const { 
+    workflows, selectedWorkflow, loadWorkflow, viewMode, setViewMode, 
+    customCommandName, setCustomCommandName, displayName, setDisplayName, 
+    selections, moveInput, importWorkflow, deleteWorkflow,
+    aiPrompt, setAiPrompt, systemPrompts
+  } = useDashboard();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,6 +118,81 @@ export function ArchitectView() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* AI Enhancement Settings */}
+            <div className="px-6 py-4 border-b border-indigo-500/10 bg-indigo-500/[0.02] flex items-center justify-between gap-6 overflow-x-auto scrollbar-hide">
+              <div className="flex items-center gap-6 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${aiPrompt.enabled ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800 text-slate-500 opacity-50'}`}>
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-white uppercase tracking-tight">AI Enhancement</span>
+                      <button 
+                        onClick={() => setAiPrompt({ ...aiPrompt, enabled: !aiPrompt.enabled })}
+                        className={`w-8 h-4 rounded-full relative transition-all ${aiPrompt.enabled ? 'bg-indigo-500' : 'bg-slate-700'}`}
+                      >
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${aiPrompt.enabled ? 'left-4.5' : 'left-0.5'}`} />
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-medium">Use LLM to rewrite user prompts before execution.</p>
+                  </div>
+                </div>
+              </div>
+
+              {aiPrompt.enabled && (
+                <div className="flex items-center gap-6 animate-in fade-in slide-in-from-left-2 duration-300">
+                  <div className="h-8 w-px bg-white/5" />
+                  
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter ml-1">Modality</span>
+                    <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/5">
+                      <button 
+                        onClick={() => setAiPrompt({ ...aiPrompt, category: 'image' })}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${aiPrompt.category === 'image' ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-500 hover:text-slate-400'}`}
+                      >
+                        <ImageIcon className="w-3 h-3 inline mr-1" /> Image
+                      </button>
+                      <button 
+                        onClick={() => setAiPrompt({ ...aiPrompt, category: 'video' })}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${aiPrompt.category === 'video' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-400'}`}
+                      >
+                        <Video className="w-3 h-3 inline mr-1" /> Video
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1 min-w-[150px]">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter ml-1">System Prompt</span>
+                    <select 
+                      value={aiPrompt.prompt_id}
+                      onChange={(e) => setAiPrompt({ ...aiPrompt, prompt_id: e.target.value })}
+                      className="bg-black/40 border border-white/5 rounded-lg px-3 py-1.5 text-[10px] font-bold text-indigo-300 outline-none focus:border-indigo-500/30 transition-all cursor-pointer appearance-none"
+                    >
+                      <option value="">Select Prompt...</option>
+                      {systemPrompts.filter(p => p.category === aiPrompt.category).map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1 min-w-[150px]">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter ml-1">Target Input</span>
+                    <select 
+                      value={aiPrompt.target_input}
+                      onChange={(e) => setAiPrompt({ ...aiPrompt, target_input: e.target.value })}
+                      className="bg-black/40 border border-white/5 rounded-lg px-3 py-1.5 text-[10px] font-bold text-emerald-400 outline-none focus:border-emerald-500/30 transition-all cursor-pointer appearance-none"
+                    >
+                      <option value="">Select Input...</option>
+                      {selections.filter((s: any) => s.type === 'text' || s.type === 'string').map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
             
             {selections.length > 0 && (

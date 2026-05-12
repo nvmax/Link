@@ -168,3 +168,8 @@ discord:
         'y': 700
   loras:
     '271': lora.json
+ai_prompt:
+  enabled: true
+  category: image
+  prompt_id: prompt-1778526002140
+  target_input: text

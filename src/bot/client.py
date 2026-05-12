@@ -86,11 +86,13 @@ class LinkBot(commands.Bot):
                         else:
                             has_dynamic_loras = True
                     needs_lora_picker = bool(manifest_data.get('lora_list')) and has_dynamic_loras
+                    needs_ai_review = manifest_data.get('ai_prompt', {}).get('enabled', False)
+                    is_ephemeral = needs_lora_picker or needs_ai_review
 
                     # Defer — ephemeral only if LoRA picker is needed (keeps picker private)
                     try:
-                        await interaction.response.defer(ephemeral=needs_lora_picker)
-                        logger.info(f"Interaction deferred for command {wf_name} (ephemeral={needs_lora_picker})")
+                        await interaction.response.defer(ephemeral=is_ephemeral)
+                        logger.info(f"Interaction deferred for command {wf_name} (ephemeral={is_ephemeral})")
                     except discord.errors.NotFound:
                         logger.warning(f"Interaction for {wf_name} expired or not found immediately. This often means multiple bot instances are running.")
                         return

@@ -8,8 +8,8 @@ from src.api.ai_models import AIConfig, SystemPrompt
 
 class AiService:
     def __init__(self):
-        self.config_path = os.path.join(Config.WORKFLOWS_DIR, "ai_config.yaml")
-        self.prompts_path = os.path.join(Config.WORKFLOWS_DIR, "prompts.json")
+        self.config_path = os.path.join(Config.AI_STUDIO_DIR, "ai_config.yaml")
+        self.prompts_path = os.path.join(Config.AI_STUDIO_DIR, "prompts.json")
 
     def load_config(self) -> AIConfig:
         if not os.path.exists(self.config_path):
@@ -59,19 +59,12 @@ class AiService:
         api_key = os.getenv(env_key, "")
         
         async with aiohttp.ClientSession() as session:
-            # We assume OpenAI-compatible API for most providers
-            # Cloud providers might need specific URL logic
             url = provider_cfg.base_url
             if not url:
-                if provider_id == "openai":
-                    url = "https://api.openai.com/v1"
-                elif provider_id == "gemini":
-                    # Gemini usually has its own SDK but can be used via OpenAI-compatible proxy or specific endpoint
-                    # For now, we'll assume a standard OpenAI-compatible format if base_url is provided
-                    # Or we can add specific handling if needed.
-                    url = "https://generativelanguage.googleapis.com/v1beta/openai"
-                else:
-                    raise ValueError(f"Base URL not provided for provider {provider_id}")
+                if provider_id == "openai": url = "https://api.openai.com/v1"
+                elif provider_id == "gemini": url = "https://generativelanguage.googleapis.com/v1beta/openai"
+                elif provider_id == "anthropic": url = "https://api.anthropic.com/v1"
+                else: url = "http://localhost:11434/v1"
 
             chat_url = f"{url.rstrip('/')}/chat/completions"
             
@@ -95,5 +88,41 @@ class AiService:
                     error_text = await resp.text()
                     raise Exception(f"AI Provider error ({resp.status}): {error_text}")
                 
+                data = await resp.json()
+                return data['choices'][0]['message']['content']
+
+    async def test_connection(self) -> str:
+        config = self.load_config()
+        provider_id = config.active_provider
+        provider_cfg = config.providers.get(provider_id)
+        
+        if not provider_cfg:
+            raise ValueError(f"Provider {provider_id} configuration not found")
+
+        env_key = f"{provider_id.upper()}_API_KEY"
+        api_key = os.getenv(env_key, "")
+        
+        async with aiohttp.ClientSession() as session:
+            url = provider_cfg.base_url
+            if not url:
+                if provider_id == "openai": url = "https://api.openai.com/v1"
+                elif provider_id == "gemini": url = "https://generativelanguage.googleapis.com/v1beta/openai"
+                elif provider_id == "anthropic": url = "https://api.anthropic.com/v1" # Note: Anthropic might need a special adapter if not using OpenAI-compatible proxy
+                else: url = "http://localhost:11434/v1" # Default fallback
+
+            chat_url = f"{url.rstrip('/')}/chat/completions"
+            headers = {"Content-Type": "application/json"}
+            if api_key: headers["Authorization"] = f"Bearer {api_key}"
+            
+            payload = {
+                "model": provider_cfg.model,
+                "messages": [{"role": "user", "content": "Respond with only 'Connected!'. No other text."}],
+                "max_tokens": 10
+            }
+            
+            async with session.post(chat_url, json=payload, headers=headers) as resp:
+                if resp.status != 200:
+                    error_text = await resp.text()
+                    raise Exception(f"AI Provider error ({resp.status}): {error_text}")
                 data = await resp.json()
                 return data['choices'][0]['message']['content']

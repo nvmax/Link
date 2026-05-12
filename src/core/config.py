@@ -11,6 +11,7 @@ class Config:
     ASSETS_DIR = os.path.join(DATA_DIR, "assets")
     WORKFLOWS_DIR = os.path.join(BASE_DIR, "src", "workflows")
     LORAS_DIR = os.path.join(WORKFLOWS_DIR, "loras")
+    AI_STUDIO_DIR = os.path.join(BASE_DIR, "src", "ai_studio")
 
     # Database
     DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(DATA_DIR, 'link.db')}")
@@ -47,5 +48,5 @@ class Config:
     ALLOWED_CHANNEL_ID = ALLOWED_CHANNEL_IDS[0] if ALLOWED_CHANNEL_IDS else None
 
     # Create directories if they don't exist
-    for path in [DATA_DIR, LOGS_DIR, ASSETS_DIR, WORKFLOWS_DIR, LORAS_DIR]:
+    for path in [DATA_DIR, LOGS_DIR, ASSETS_DIR, WORKFLOWS_DIR, LORAS_DIR, AI_STUDIO_DIR]:
         os.makedirs(path, exist_ok=True)

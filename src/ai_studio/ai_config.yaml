@@ -1,0 +1,30 @@
+active_provider: lmstudio
+providers:
+  anthropic:
+    active: false
+    base_url: null
+    model: claude-3-5-sonnet-latest
+  gemini:
+    active: false
+    base_url: null
+    model: gemini-3.1-flash-lite-preview
+  grok:
+    active: false
+    base_url: null
+    model: grok-beta
+  lmstudio:
+    active: true
+    base_url: http://192.168.1.164:1234/v1
+    model: qwen/qwen3.6-27b
+  ollama:
+    active: false
+    base_url: http://127.0.0.1:11434/v1
+    model: llama3:8b
+  openai:
+    active: false
+    base_url: null
+    model: gpt-4o
+  vllm:
+    active: false
+    base_url: http://127.0.0.1:8000/v1
+    model: model-identifier
