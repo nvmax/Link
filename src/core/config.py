@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 class Config:
     # Paths
@@ -50,3 +50,18 @@ class Config:
     # Create directories if they don't exist
     for path in [DATA_DIR, LOGS_DIR, ASSETS_DIR, WORKFLOWS_DIR, LORAS_DIR, AI_STUDIO_DIR]:
         os.makedirs(path, exist_ok=True)
+
+    @classmethod
+    def reload(cls):
+        """Re-read .env so changes saved via the dashboard take effect immediately."""
+        load_dotenv(override=True)
+        cls.COMFY_PATH    = os.getenv("COMFY_PATH", "").rstrip("/\\")
+        cls.COMFY_URL     = os.getenv("COMFY_URL",  "http://127.0.0.1:8188").rstrip("/")
+        cls.COMFY_WS_URL  = cls.COMFY_URL.replace("http", "ws") + "/ws"
+        cls.HF_TOKEN      = os.getenv("HF_TOKEN", "").strip()
+        _guild_ids        = os.getenv("ALLOWED_GUILD_ID", "")
+        cls.ALLOWED_GUILD_IDS  = [int(x.strip()) for x in _guild_ids.split(",") if x.strip().isdigit()]
+        cls.ALLOWED_GUILD_ID   = cls.ALLOWED_GUILD_IDS[0] if cls.ALLOWED_GUILD_IDS else None
+        _channel_ids      = os.getenv("ALLOWED_CHANNEL_ID", "")
+        cls.ALLOWED_CHANNEL_IDS  = [int(x.strip()) for x in _channel_ids.split(",") if x.strip().isdigit()]
+        cls.ALLOWED_CHANNEL_ID   = cls.ALLOWED_CHANNEL_IDS[0] if cls.ALLOWED_CHANNEL_IDS else None

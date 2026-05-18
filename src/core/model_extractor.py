@@ -16,9 +16,14 @@ LOADER_MAP = [
     (["vaeloader"],                                  ["vae_name"],                  "vae"),
     (["dualcliploader"],                             ["clip_name1", "clip_name2"],  "clip"),
     (["cliploader"],                                 ["clip_name"],                 "clip"),
-    (["loraloader", "power lora loader"],            ["lora_name"],                 "loras"),
     (["controlnetloader"],                           ["control_net_name"],          "controlnet"),
+    (["latentupscalemodelloader"],                   ["model_name"],                "latent_upscale_models"),
     (["upscalemodelloader"],                         ["model_name"],                "upscale_models"),
+    # New LTX / Advanced Custom Loaders
+    (["ltxavtextencoderloader"],                     ["text_encoder"],               "clip"),
+    (["ltxavtextencoderloader"],                     ["ckpt_name"],                  "checkpoints"),
+    (["ltxvaudiovaeloader"],                         ["ckpt_name"],                  "vae"),
+    (["diffusionmodelloaderkj"],                     ["model_name"],                 "diffusion_models"),
 ]
 
 
@@ -42,7 +47,12 @@ def extract_required_models(workflow: dict) -> list[dict]:
         class_type: str = (node.get("class_type") or "").lower()
         inputs: dict = node.get("inputs") or {}
 
+        # 1. Standard mapping check
         for keywords, fields, folder in LOADER_MAP:
+            # Special case: prevent "upscalemodelloader" from matching "latentupscalemodelloader"
+            if folder == "upscale_models" and "latent" in class_type:
+                continue
+
             if not any(kw in class_type for kw in keywords):
                 continue
 
@@ -58,3 +68,4 @@ def extract_required_models(workflow: dict) -> list[dict]:
                     required.append({"folder": folder, "filename": val})
 
     return required
+

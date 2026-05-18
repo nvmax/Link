@@ -8,11 +8,17 @@ export type ModelRepoInfo = {
 };
 
 export const KNOWN_MODEL_REPOS: Record<string, ModelRepoInfo> = {
-  'flux1-dev.safetensors':        { repo_id: 'black-forest-labs/FLUX.1-dev', gated: true },
-  'ae.safetensors':               { repo_id: 'black-forest-labs/FLUX.1-dev', gated: true },
-  't5xxl_fp16.safetensors':       { repo_id: 'comfyanonymous/flux_text_encoders', gated: false },
-  'clip_l.safetensors':           { repo_id: 'comfyanonymous/flux_text_encoders', gated: false },
+  'flux1-dev.safetensors':                      { repo_id: 'black-forest-labs/FLUX.1-dev', gated: true },
+  'ae.safetensors':                             { repo_id: 'black-forest-labs/FLUX.1-dev', gated: true },
+  't5xxl_fp16.safetensors':                     { repo_id: 'comfyanonymous/flux_text_encoders', gated: false },
+  'clip_l.safetensors':                         { repo_id: 'comfyanonymous/flux_text_encoders', gated: false },
+  'gemma_3_12B_it_fp4_mixed.safetensors':       { repo_id: 'Comfy-Org/ltx-2', gated: false },
+  'ltx-2.3-spatial-upscaler-x2-1.1.safetensors': { repo_id: 'Lightricks/LTX-2.3', gated: false },
+  'ltx-2.3-22b-distilled-lora-384.safetensors':  { repo_id: 'Lightricks/LTX-2.3', gated: false },
+  'ltx-2.3-22b-dev-fp8.safetensors':            { repo_id: 'Lightricks/LTX-2.3', gated: false },
+  'ltx-2.3-22b-dev_audio_vae.safetensors':       { repo_id: 'unsloth/LTX-2.3-GGUF', gated: false },
 };
+
 
 interface MissingModelsModalProps {
   missingModels: any[];

@@ -11,7 +11,7 @@ export function ArchitectView() {
     workflows, selectedWorkflow, loadWorkflow, viewMode, setViewMode, 
     customCommandName, setCustomCommandName, displayName, setDisplayName, 
     selections, moveInput, importWorkflow, deleteWorkflow,
-    aiPrompt, setAiPrompt, systemPrompts
+    aiPrompt, setAiPrompt, systemPrompts, showToast
   } = useDashboard();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -25,7 +25,7 @@ export function ArchitectView() {
         const json = JSON.parse(event.target?.result as string);
         importWorkflow(file.name, json);
       } catch (err) {
-        alert('Invalid JSON file');
+        showToast('Invalid JSON file', 'error');
       }
     };
     reader.readAsText(file);

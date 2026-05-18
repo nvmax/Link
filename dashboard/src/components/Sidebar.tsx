@@ -20,9 +20,11 @@ export function Sidebar() {
     `}>
       <div className="flex items-center justify-between mb-10 px-2">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 rotate-3 transition-transform">
-            <Network className="text-white w-6 h-6" />
-          </div>
+          <img 
+            src="/icon.png" 
+            alt="Link" 
+            className="w-10 h-10 rounded-xl shadow-lg shadow-indigo-500/20 rotate-3 transition-transform object-cover" 
+          />
           <div>
             <h1 className="text-xl font-black tracking-tighter text-white">LINK</h1>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Dashboard</p>

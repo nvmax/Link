@@ -1,9 +1,19 @@
 "use client";
 // UPDATED: Workflow Node Auto-Installation Logic Integrated
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+
+export type ToastType = 'success' | 'error' | 'info';
+
+export interface ToastMessage {
+  id: string;
+  message: string;
+  type: ToastType;
+}
 
 interface DashboardContextType {
+  showToast: (msg: string, type?: ToastType) => void;
   activeTab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio';
   setActiveTab: (tab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio') => void;
   viewMode: 'list' | 'visual';
@@ -56,6 +66,8 @@ interface DashboardContextType {
   handleNodeInstall: () => Promise<void>;
   pendingImport: { name: string, workflow: any } | null;
   setPendingImport: (imp: { name: string, workflow: any } | null) => void;
+  pendingLoad: boolean;
+  setPendingLoad: (v: boolean) => void;
   missingModels: any[];
   setMissingModels: (models: any[]) => void;
   isDownloadingModels: boolean;
@@ -161,6 +173,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [displayName, setDisplayName] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
+
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  }, []);
+
   const [uiConfig, setUiConfig] = useState<any>({
     embed: {
       title_template: "{user}'s Generation",
@@ -180,6 +203,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   
   const [missingNodes, setMissingNodes] = useState<string[]>([]);
   const [pendingImport, setPendingImport] = useState<{ name: string, workflow: any } | null>(null);
+  const [pendingLoad, setPendingLoad] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   
   const [missingModels, setMissingModels] = useState<any[]>([]);
@@ -249,7 +273,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setAiConfig(newConfig);
     } catch (e) {
       console.error(e);
-      alert('Failed to save AI configuration');
+      showToast('Failed to save AI configuration', 'error');
     }
   };
 
@@ -264,7 +288,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setSystemPrompts(newPrompts);
     } catch (e) {
       console.error(e);
-      alert('Failed to save system prompts');
+      showToast('Failed to save system prompts', 'error');
     }
   };
 
@@ -277,9 +301,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       });
       if (!res.ok) throw new Error('Failed to save');
       setConfig(newConfig);
-      alert('Settings saved successfully!');
+
+      // Tell the Python backend to hot-reload .env so Config values update immediately
+      try {
+        await fetch('http://127.0.0.1:8001/api/config/reload', { method: 'POST' });
+      } catch (_) {
+        // Non-fatal — bot may not be running yet
+      }
+
+      showToast('Settings saved successfully!', 'success');
     } catch (e) {
-      alert('Failed to save settings');
+      showToast('Failed to save settings', 'error');
     }
   };
 
@@ -291,6 +323,53 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ action: 'load', jsonPath: wf.path })
       });
       const data = await res.json();
+
+      // ── Health Check on Click ─────────────────────────────────────────────
+      // For pre-bundled workflows (those that already exist in src/workflows)
+      // we run the same node + model validation that happens during import,
+      // but only when the user explicitly clicks the workflow. Nothing happens
+      // at bot startup. If something is missing the modals pop up; once the
+      // user resolves them (install / download) we simply display the workflow
+      // that is already loaded — no re-import needed.
+      if (data.workflow && data.objectInfo) {
+        const nodeTypes = new Set(Object.values(data.workflow).map((n: any) => n.class_type));
+        const missing = Array.from(nodeTypes).filter(type => !data.objectInfo[type]) as string[];
+        if (missing.length > 0) {
+          console.log('[loadWorkflow] Missing nodes detected:', missing);
+          setMissingNodes(missing);
+          // Store the workflow in pendingImport so handleNodeInstall can use it,
+          // but mark pendingLoad=true so we skip executeImport afterwards.
+          setPendingImport({ name: wf.name, workflow: data.workflow });
+          setPendingLoad(true);
+          // Still apply the loaded state so the canvas shows up after resolution
+          setSelectedWorkflow({ ...wf, content: data.workflow, manifest: data.manifest });
+          setObjectInfo(data.objectInfo);
+          // Fall through to populate selections etc. so the view is ready
+        } else {
+          // No missing nodes — check models
+          try {
+            const modelCheckRes = await fetch('http://127.0.0.1:8001/api/models/check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data.workflow)
+            });
+            if (modelCheckRes.ok) {
+              const modelData = await modelCheckRes.json();
+              const missingMods = modelData.missing || [];
+              if (missingMods.length > 0) {
+                console.log('[loadWorkflow] Missing models detected:', missingMods);
+                setMissingModels(missingMods);
+                setPendingImport({ name: wf.name, workflow: data.workflow });
+                setPendingLoad(true);
+              }
+            }
+          } catch (e) {
+            console.warn('[loadWorkflow] Model check failed (backend may be offline):', e);
+          }
+        }
+      }
+      // ──────────────────────────────────────────────────────────────────────
+
       setSelectedWorkflow({ ...wf, content: data.workflow, manifest: data.manifest });
       setObjectInfo(data.objectInfo);
       let loadedSelections = data.manifest?.discord?.inputs;
@@ -407,7 +486,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       await executeImport(filename, workflow);
     } catch (e: any) {
-      alert(`Failed to import: ${e.message}`);
+      showToast(`Failed to import: ${e.message}`, 'error');
     }
   };
 
@@ -425,7 +504,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const listData = await listRes.json();
     setWorkflows(listData.workflows || []);
     
-    alert('Workflow imported successfully!');
+    showToast('Workflow imported successfully!', 'success');
   };
 
   const handleReboot = async () => {
@@ -435,13 +514,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json();
       if (data.status === 'success') {
-        alert("ComfyUI reboot signal sent. Please wait a few moments for it to restart.");
+        showToast("ComfyUI reboot signal sent. Please wait a few moments for it to restart.");
       } else {
-        alert(`Reboot failed: ${data.message}. You may need to manually restart ComfyUI.`);
+        showToast(`Reboot failed: ${data.message}. You may need to manually restart ComfyUI.`, 'error');
       }
     } catch (e: any) {
       console.error('Reboot error:', e);
-      alert(`Reboot failed: ${e.message}`);
+      showToast(`Reboot failed: ${e.message}`, 'error');
     }
   };
 
@@ -462,7 +541,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Installation failed');
 
-      alert("Nodes installed successfully. Sending reboot signal to ComfyUI...");
+      showToast("Nodes installed successfully. Sending reboot signal to ComfyUI...", 'success');
       await handleReboot();
       
       // Re-fetch object info from the Next.js API (which fetches from ComfyUI)
@@ -477,17 +556,27 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setObjectInfo(refreshData.objectInfo);
       }
 
-      // Finalize the import now that nodes are (hopefully) present
-      const modelsOk = await checkModelsBeforeImport(pendingImport.name, pendingImport.workflow);
-      if (modelsOk) {
-         await executeImport(pendingImport.name, pendingImport.workflow);
-         setPendingImport(null);
+      if (pendingLoad) {
+        // Triggered from loadWorkflow (pre-bundled workflow) — workflow is already
+        // displayed; just check models then close the modal without re-importing.
+        const modelsOk = await checkModelsBeforeImport(pendingImport.name, pendingImport.workflow);
+        if (modelsOk) {
+          setPendingImport(null);
+          setPendingLoad(false);
+        }
+      } else {
+        // Triggered from importWorkflow — finalize the import.
+        const modelsOk = await checkModelsBeforeImport(pendingImport.name, pendingImport.workflow);
+        if (modelsOk) {
+          await executeImport(pendingImport.name, pendingImport.workflow);
+          setPendingImport(null);
+        }
       }
       
       setMissingNodes([]);
     } catch (e: any) {
       console.error('Node installation error:', e);
-      alert(`Installation failed: ${e.message}`);
+      showToast(`Installation failed: ${e.message}`, 'error');
     } finally {
       setIsInstalling(false);
     }
@@ -535,12 +624,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setIsDownloadingModels(false);
     
     if (allSuccess) {
-      alert("Models downloaded successfully. Sending reboot signal to ComfyUI...");
+      showToast("Models downloaded successfully. Sending reboot signal to ComfyUI...", 'success');
       await handleReboot();
       
       if (pendingImport) {
-         await executeImport(pendingImport.name, pendingImport.workflow);
-         setPendingImport(null);
+        if (pendingLoad) {
+          // Triggered from loadWorkflow — workflow already displayed, just close.
+          setPendingImport(null);
+          setPendingLoad(false);
+        } else {
+          // Triggered from importWorkflow — finalize the import.
+          await executeImport(pendingImport.name, pendingImport.workflow);
+          setPendingImport(null);
+        }
       }
     }
     
@@ -571,7 +667,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setWorkflows(listData.workflows || []);
       
     } catch (e: any) {
-      alert(`Failed to delete: ${e.message}`);
+      showToast(`Failed to delete: ${e.message}`, 'error');
     }
   };
 
@@ -638,9 +734,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           workflow: selectedWorkflow.content
         })
       });
-      alert('Workflow saved successfully!');
+      showToast('Workflow saved successfully!', 'success');
     } catch (e) {
-      alert('Failed to save workflow');
+      showToast('Failed to save workflow', 'error');
     }
   };
 
@@ -724,9 +820,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           data: { available_loras: editingLoraFile.content }
         })
       });
-      alert('LoRA list saved successfully!');
+      showToast('LoRA list saved successfully!', 'success');
     } catch (e) {
-      alert('Failed to save LoRA list');
+      showToast('Failed to save LoRA list', 'error');
     }
   };
 
@@ -791,10 +887,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         loadLoraFile({ name: fname, path: fname });
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to create list');
+        showToast(err.error || 'Failed to create list', 'error');
       }
     } catch (e) {
-      alert('Error creating list');
+      showToast('Error creating list', 'error');
     }
   };
 
@@ -816,14 +912,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setLoraFiles(listData.loras || []);
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to delete list');
+        showToast(err.error || 'Failed to delete list', 'error');
       }
     } catch (e) {
-      alert('Error deleting list');
+      showToast('Error deleting list', 'error');
     }
   };
 
   const value = {
+    showToast,
     activeTab, setActiveTab,
     viewMode, setViewMode,
     config, setConfig, saveConfig,
@@ -846,6 +943,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     missingNodes, setMissingNodes,
     isInstalling, handleNodeInstall,
     pendingImport, setPendingImport,
+    pendingLoad, setPendingLoad,
     missingModels, setMissingModels,
     isDownloadingModels, modelDownloadProgress, modelDownloadStats,
     handleModelDownload, handleRetrySingleModel, handleReboot,
@@ -864,8 +962,28 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DashboardContext.Provider value={value}>
-      {children}
-    </DashboardContext.Provider>
+        {children}
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+          {toasts.map(t => (
+            <div key={t.id} className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-300 animate-in slide-in-from-right-4 fade-in-0 ${
+              t.type === 'success' ? 'bg-[#15191C]/90 backdrop-blur-md border-[#3B82F6]/30 text-white' :
+              t.type === 'error' ? 'bg-red-950/90 backdrop-blur-md border-red-500/30 text-white' :
+              'bg-[#15191C]/90 backdrop-blur-md border-[#23292F] text-white'
+            }`}>
+              {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-[#3B82F6]" />}
+              {t.type === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
+              {t.type === 'info' && <Info className="w-5 h-5 text-zinc-400" />}
+              <span className="text-sm font-medium">{t.message}</span>
+              <button 
+                onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
+                className="ml-4 opacity-50 hover:opacity-100 transition-opacity"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </DashboardContext.Provider>
   );
 }
 

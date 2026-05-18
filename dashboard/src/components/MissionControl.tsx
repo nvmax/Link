@@ -1,11 +1,11 @@
 "use client";
 
 import React from 'react';
-import { Network, Puzzle, Settings, Save, X, FolderSearch, RefreshCw, ShieldCheck, History, Zap, CheckCircle2, AlertCircle, Check, Activity } from 'lucide-react';
+import { Network, Puzzle, Settings, Save, X, FolderSearch, RefreshCw, ShieldCheck, History, Zap, CheckCircle2, AlertCircle, Check, Activity, PackagePlus, Loader2 } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
 export function MissionControl() {
-  const { config, setConfig, saveConfig, workflows, loraFiles, handleReboot } = useDashboard();
+  const { config, setConfig, saveConfig, workflows, loraFiles, handleReboot, showToast } = useDashboard();
 
   const handleConfigChange = (key: string, value: string) => {
     setConfig({ ...config, [key]: value });
@@ -14,6 +14,7 @@ export function MissionControl() {
   const [selectedAiKeyProvider, setSelectedAiKeyProvider] = React.useState('OPENAI_API_KEY');
   const [newGuildId, setNewGuildId] = React.useState('');
   const [newChannelId, setNewChannelId] = React.useState('');
+  const [managerType, setManagerType] = React.useState<'--enable-manager-legacy-ui' | '--enable-manager'>('--enable-manager');
 
   const handleAddGuild = () => {
     const val = newGuildId.trim();
@@ -135,6 +136,9 @@ export function MissionControl() {
           </div>
         </div>
       </div>
+
+      {/* ComfyUI Setup */}
+      <SetupComfyUI managerType={managerType} setManagerType={setManagerType} />
 
       <div className="bg-[#0d0d0f] rounded-3xl border border-white/5 p-6 space-y-6 shadow-2xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -356,7 +360,7 @@ function NodeItem({ node, isSelected, onToggle }: { node: any, isSelected: boole
 }
 
 function NodeManager() {
-  const { handleReboot } = useDashboard();
+  const { handleReboot, showToast } = useDashboard();
   const [nodes, setNodes] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [updating, setUpdating] = React.useState(false);
@@ -388,7 +392,7 @@ function NodeManager() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Update successful! Sending reboot signal to ComfyUI...');
+        showToast('Update successful! Sending reboot signal to ComfyUI...', 'success');
         await handleReboot();
         fetchNodes(true);
       }
@@ -523,7 +527,7 @@ function NodeManager() {
 
 
 function SnapshotManager() {
-  const { handleReboot } = useDashboard();
+  const { handleReboot, showToast } = useDashboard();
   const [snapshots, setSnapshots] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -554,7 +558,7 @@ function SnapshotManager() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Restore initiated! Sending reboot signal...');
+        showToast('Restore initiated! Sending reboot signal...', 'success');
         await handleReboot();
       }
     } catch (e) {
@@ -833,6 +837,150 @@ function ChannelCard({ id, onRemove }: { id: string, onRemove: (id: string) => v
       <button onClick={() => onRemove(id)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-500 transition-all">
         <X className="w-3.5 h-3.5" />
       </button>
+    </div>
+  );
+}
+
+function SetupComfyUI({ managerType, setManagerType }: {
+  managerType: '--enable-manager-legacy-ui' | '--enable-manager';
+  setManagerType: React.Dispatch<React.SetStateAction<'--enable-manager-legacy-ui' | '--enable-manager'>>;
+}) {
+  const [status, setStatus] = React.useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [steps, setSteps] = React.useState<{ step: string; success: boolean; output: string }[]>([]);
+
+  const stepLabels: Record<string, string> = {
+    clone_manager:   'Clone ComfyUI Manager',
+    comfyui_manager: 'ComfyUI Manager Requirements',
+    sage_attention:  'SageAttention 2.2.0',
+    triton:          'Triton',
+    extra_packages:  'Extra Packages (numba, gguf, cv2)',
+    patch_bat:       'Patch run_nvidia_gpu.bat',
+  };
+
+  const handleSetup = async () => {
+    setStatus('running');
+    setSteps([]);
+    try {
+      const res = await fetch('http://127.0.0.1:8001/api/comfy/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manager_type: managerType })
+      });
+      const data = await res.json();
+      setSteps(data.steps || []);
+      setStatus(data.success ? 'done' : 'error');
+    } catch (e) {
+      setSteps([{ step: 'network', success: false, output: String(e) }]);
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="bg-[#0d0d0f] rounded-3xl border border-white/5 p-6 shadow-2xl space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-violet-500/20 flex items-center justify-center text-violet-400">
+            <PackagePlus className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-white">ComfyUI Setup</h3>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Install Manager &amp; SageAttention</p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSetup}
+          disabled={status === 'running'}
+          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:grayscale text-white px-6 py-2.5 rounded-xl font-black text-sm transition-all shadow-xl shadow-violet-500/20 active:scale-95 shrink-0"
+        >
+          {status === 'running'
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <PackagePlus className="w-4 h-4" />
+          }
+          {status === 'running' ? 'Installing…' : 'Setup ComfyUI'}
+        </button>
+      </div>
+
+      {/* Manager Type Selector */}
+      {status === 'idle' && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-2xl animate-in fade-in duration-300">
+          <div className="flex-1">
+            <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest block mb-1">ComfyUI Manager Flag</span>
+            <p className="text-[11px] text-slate-400">Choose how ComfyUI loads the manager UI at startup.</p>
+          </div>
+          <div className="flex bg-[#141418] rounded-xl p-1 border border-white/5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setManagerType('--enable-manager-legacy-ui')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${managerType === '--enable-manager-legacy-ui' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Legacy UI
+            </button>
+            <button
+              type="button"
+              onClick={() => setManagerType('--enable-manager')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${managerType === '--enable-manager' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Node 2.0 UI (Recommended)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Info note */}
+      {status === 'idle' && (
+        <div className="p-4 rounded-2xl bg-violet-500/5 border border-violet-500/20 text-[11px] text-slate-400 leading-relaxed animate-in fade-in duration-300">
+          <span className="text-violet-400 font-black mr-1">This will:</span>
+          Git clone <span className="text-white font-semibold">ComfyUI Manager</span> into your <code className="bg-white/5 px-1 rounded text-violet-300">custom_nodes</code> folder if missing,
+          install its requirements via pip, install <span className="text-white font-semibold">SageAttention 2.2.0</span> &amp; <span className="text-white font-semibold">Triton</span>,
+          install extra dependencies (<span className="text-violet-300 font-semibold">numba, gguf, opencv-python</span>), and patch
+          <code className="bg-white/5 px-1 rounded text-violet-300 mx-1">run_nvidia_gpu.bat</code>
+          with <code className="bg-white/5 px-1 rounded text-violet-300">--use-sage-attention {managerType}</code>.
+        </div>
+      )}
+
+      {/* Step results */}
+      {steps.length > 0 && (
+        <div className="space-y-3">
+          {steps.map((s) => (
+            <div
+              key={s.step}
+              className={`flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                s.success
+                  ? 'bg-emerald-500/5 border-emerald-500/20'
+                  : 'bg-rose-500/5 border-rose-500/20'
+              }`}
+            >
+              <div className={`mt-0.5 shrink-0 ${s.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {s.success
+                  ? <CheckCircle2 className="w-4 h-4" />
+                  : <AlertCircle className="w-4 h-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-bold ${s.success ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {stepLabels[s.step] ?? s.step}
+                </p>
+                {s.output && (
+                  <pre className="mt-1 text-[9px] text-slate-500 font-mono whitespace-pre-wrap break-all leading-relaxed max-h-24 overflow-y-auto custom-scrollbar">
+                    {s.output.trim()}
+                  </pre>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {status === 'done' && (
+            <p className="text-center text-[11px] font-black text-emerald-400 uppercase tracking-widest animate-in fade-in duration-500">
+              ✓ Setup complete – restart ComfyUI to apply changes.
+            </p>
+          )}
+          {status === 'error' && (
+            <p className="text-center text-[11px] font-black text-rose-400 uppercase tracking-widest animate-in fade-in duration-500">
+              ✗ One or more steps failed. Check the output above.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

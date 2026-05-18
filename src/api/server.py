@@ -175,24 +175,26 @@ async def restore_nodes(request: Request):
                         pass
                 except: pass
 
-        # 1. Try installing by class names first if provided (this is more reliable for new nodes)
         installed_any = False
+        
+        # comfy-cli deps-in-workflow ONLY supports WebUI format JSON files.
+        # Since the API often provides a dictionary-based API workflow format,
+        # we construct a dummy WebUI format workflow from the missing nodes or the API dict.
+        dummy_webui = {"nodes": [], "links": []}
+        
         if missing_nodes_override:
-            logger.info(f"Attempting to resolve {len(missing_nodes_override)} missing nodes by class name...")
-            resolved_urls = find_urls_for_classes(resolved_path, missing_nodes_override)
-            if resolved_urls:
-                logger.info(f"Found {len(resolved_urls)} matching repositories: {resolved_urls}")
-                for url in resolved_urls:
-                    success = await run_comfy_install(resolved_path, url)
-                    if success:
-                        installed_any = True
-            else:
-                logger.warning("Could not find any matching repositories for the specified class names in the Manager cache.")
-
-        # 2. Fallback or parallel: Try the standard workflow-based install
-        if workflow_data:
+            logger.info(f"Using {len(missing_nodes_override)} explicit missing nodes to construct dependency dummy...")
+            for i, class_name in enumerate(missing_nodes_override):
+                dummy_webui["nodes"].append({"id": i, "type": class_name, "pos": [0,0]})
+        elif workflow_data:
+            logger.info("Scanning workflow API dict to construct dependency dummy...")
+            for node_id, node_info in workflow_data.items():
+                if isinstance(node_info, dict) and "class_type" in node_info:
+                    dummy_webui["nodes"].append({"id": node_id, "type": node_info["class_type"], "pos": [0,0]})
+        
+        if dummy_webui["nodes"]:
             with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode='w', encoding='utf-8') as tf:
-                json.dump(workflow_data, tf)
+                json.dump(dummy_webui, tf)
                 temp_path = tf.name
 
             try:
@@ -215,12 +217,6 @@ async def restore_nodes(request: Request):
         logger.error(f"Error during node restoration: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def run_comfy_install(workspace_path: str, target: str) -> bool:
-    """Runs 'comfy node install <target>'"""
-    cmd = f'comfy --workspace "{workspace_path}" --skip-prompt node install "{target}"'
-    success, _ = await execute_comfy_command(workspace_path, cmd)
-    return success
-
 async def run_comfy_install_deps(workspace_path: str, workflow_path: str) -> bool:
     """Runs 'comfy node deps-in-workflow' and 'comfy node install-deps'"""
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
@@ -233,7 +229,7 @@ async def run_comfy_install_deps(workspace_path: str, workflow_path: str) -> boo
         if not success1: return False
 
         # Step 2: Install deps
-        cmd2 = f'comfy --workspace "{workspace_path}" --skip-prompt node install-deps "{deps_path}"'
+        cmd2 = f'comfy --workspace "{workspace_path}" --skip-prompt node install-deps --deps "{deps_path}"'
         success2, _ = await execute_comfy_command(workspace_path, cmd2)
         return success2
     finally:
@@ -396,6 +392,45 @@ async def restore_snapshot_api(request: Request):
 
 async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, str]:
     """Executes a comfy-cli command and returns (success, full_output)"""
+    # Locate embedded python if possible to run commands in the correct env
+    python_exe = None
+    if workspace_path:
+        p_root = workspace_path
+        if os.path.basename(p_root.rstrip("/\\")).lower() == "comfyui":
+            p_root = os.path.dirname(p_root.rstrip("/\\"))
+        
+        embed_py = os.path.join(p_root, "python_embeded", "python.exe")
+        if os.path.exists(embed_py):
+            python_exe = embed_py
+
+    if python_exe and cmd.startswith("comfy"):
+        # Translate to cm_cli execution using the embedded python interpreter
+        import shlex
+        try:
+            parts = shlex.split(cmd)
+            cmd_parts = []
+            i = 1
+            while i < len(parts):
+                part = parts[i]
+                if part == "--workspace":
+                    i += 2
+                elif part == "--skip-prompt":
+                    i += 1
+                elif part == "node":
+                    i += 1
+                elif part == "--deps":
+                    i += 1
+                else:
+                    if ' ' in part or '\\' in part or '/' in part or '"' in part:
+                        escaped = part.replace('"', '\\"')
+                        cmd_parts.append(f'"{escaped}"')
+                    else:
+                        cmd_parts.append(part)
+                    i += 1
+            cmd = f'"{python_exe}" -m cm_cli {" ".join(cmd_parts)}'
+        except Exception as e:
+            logger.warning(f"Failed to translate comfy command: {e}")
+
     logger.info(f"[comfy-cli] Execute from: {workspace_path}")
     logger.info(f"[comfy-cli] Command: {cmd}")
     
@@ -441,29 +476,6 @@ async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, st
     await process.wait()
     return process.returncode == 0, "\n".join(full_output)
 
-def find_urls_for_classes(workspace_path: str, class_names: list) -> list:
-    """Searches ComfyUI-Manager's cache files for class names and returns repo URLs"""
-    cache_dir = os.path.join(workspace_path, "user", "__manager", "cache")
-    if not os.path.exists(cache_dir):
-        return []
-    
-    urls = set()
-    try:
-        # Search all extension-node-map files (usually named like <hash>_extension-node-map.json)
-        for filename in os.listdir(cache_dir):
-            if "extension-node-map" in filename and filename.endswith(".json"):
-                with open(os.path.join(cache_dir, filename), "r", encoding='utf-8') as f:
-                    data = json.load(f)
-                    for url, info in data.items():
-                        if isinstance(info, list) and len(info) > 0:
-                            node_classes = info[0]
-                            if any(cls in node_classes for cls in class_names):
-                                urls.add(url)
-    except Exception as e:
-        logger.error(f"Error searching Manager cache: {e}")
-        
-    return list(urls)
-
 def resolve_comfy_workspace(base_path: str):
     if not base_path: return ""
     if os.path.exists(os.path.join(base_path, "main.py")): return base_path
@@ -478,8 +490,8 @@ async def reboot_comfy():
     """
     try:
         async with aiohttp.ClientSession() as session:
-            # Prioritize the path confirmed by the user's manual script
-            paths = ["/manager/reboot", "/api/manager/reboot", "/reboot"]
+            # Prioritize the paths confirmed by the user's manual script
+            paths = ["/v2/manager/reboot", "/manager/reboot", "/api/manager/reboot", "/reboot"]
             methods = ["POST", "GET"]
             
             for path in paths:
@@ -522,55 +534,44 @@ async def check_models(request: Request):
         if not required:
             return {"required": [], "missing": []}
 
-        # Query ComfyUI /models/{folder} for each distinct folder needed
-        installed_by_folder: dict[str, set] = {}
-        folders_needed = {r["folder"] for r in required}
-        
-        # Local filesystem check as a robust fallback/supplement
         comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
-        if comfy_workspace:
-            logger.info(f"Model check: Supplementing with local scan of {comfy_workspace}")
+        if not comfy_workspace:
+            raise HTTPException(status_code=500, detail="Invalid COMFY_PATH")
 
-        async with aiohttp.ClientSession() as session:
-            for folder in folders_needed:
-                folder_set = set()
-                
-                # 1. Try ComfyUI API
-                try:
-                    async with session.get(
-                        f"{Config.COMFY_URL}/models/{folder}",
-                        timeout=aiohttp.ClientTimeout(total=3)
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            if isinstance(data, list):
-                                folder_set.update(data)
-                except Exception: pass
-
-                # 2. Try Direct Filesystem Check (the most reliable source)
-                if comfy_workspace:
-                    model_dir = os.path.join(comfy_workspace, "models", folder)
-                    if os.path.exists(model_dir):
-                        for root, _, files in os.walk(model_dir):
-                            for f in files:
-                                # Add both full relative path and just filename for flexibility
-                                rel_path = os.path.relpath(os.path.join(root, f), model_dir).replace("\\", "/")
-                                folder_set.add(rel_path)
-                                folder_set.add(f)
-                
-                installed_by_folder[folder] = folder_set
+        # 1. Check using comfy-cli model list
+        logger.info(f"Model check: using comfy-cli on {comfy_workspace}")
+        
+        env = os.environ.copy()
+        env["COLUMNS"] = "9999"  # Prevent line wrapping in rich tables
+        
+        cmd = ["comfy", "--workspace", comfy_workspace, "model", "list"]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env
+        )
+        stdout, stderr = await process.communicate()
+        output = stdout.decode('utf-8', errors='ignore')
+        
+        installed_models = set()
+        for line in output.split("\n"):
+            parts = line.split("|")
+            if len(parts) >= 4:
+                filename = parts[1].strip()
+                if filename and filename != "Model Name" and not filename.startswith("put_"):
+                    installed_models.add(filename.lower())
 
         # Case-insensitive matching
         result = []
         for item in required:
             target = item["filename"].lower().replace("\\", "/")
-            # Get lowercase versions of all found files in this folder
-            found_lower = {f.lower() for f in installed_by_folder.get(item["folder"], set())}
+            base_target = os.path.basename(target)
             
-            # Match if exact filename (lowercase), full path, or base filename matches
+            # Match if exact filename (lowercase) or base filename matches
             is_installed = (
-                target in found_lower or 
-                os.path.basename(target) in found_lower
+                target in installed_models or 
+                base_target in installed_models
             )
             result.append({**item, "installed": is_installed})
 
@@ -583,41 +584,244 @@ async def check_models(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+MODEL_SEARCH_CACHE = {}
+
 @app.post("/api/models/search")
 async def search_models(request: Request):
     """
     Accepts a list of filenames and searches HuggingFace for the best matching repo.
+    Uses pre-seeded known ComfyUI model repositories and an in-memory cache to stay robust against 429 rate limits.
     Returns: {"results": {"filename": "repo_id", ...}}
     """
+    import re
+    import urllib.parse
+    import asyncio
     try:
         body = await request.json()
         filenames = body.get("filenames", [])
         
         results = {}
-        async with aiohttp.ClientSession() as session:
+        # Preseeded popular ComfyUI model repositories by family
+        preseeded_by_family = {
+            "ltx": {
+                "Comfy-Org/ltx-2",
+                "Kijai/LTX2.3_comfy",
+                "Lightricks/LTX-2.3"
+            },
+            "flux": {
+                "black-forest-labs/FLUX.1-dev",
+                "black-forest-labs/FLUX.1-schnell",
+                "Kijai/flux-fp8",
+                "comfyanonymous/flux_flux8_repack"
+            },
+            "wan": {
+                "Kijai/Wan2.1_comfy",
+                "Comfy-Org/Wan2.1-ComfyUI",
+                "comfyanonymous/wan2.1_repack"
+            },
+            "sd": {
+                "stabilityai/stable-diffusion-3.5-large",
+                "Comfy-Org/stable-diffusion-3.5-fp8",
+                "stabilityai/stable-diffusion-xl-base-1.0",
+                "runwayml/stable-diffusion-v1-5"
+            }
+        }
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        }
+        async with aiohttp.ClientSession(headers=headers) as session:
             for filename in filenames:
-                url = f"https://huggingface.co/api/search/full-text?q={filename}&type=model"
+                if filename in MODEL_SEARCH_CACHE:
+                    logger.info(f"[cache] Resolved {filename} to {MODEL_SEARCH_CACHE[filename]} from memory cache.")
+                    results[filename] = MODEL_SEARCH_CACHE[filename]
+                    continue
+                
+                # 1. First try exact filename search (the original logic)
+                exact_url = f"https://huggingface.co/api/search/full-text?q={urllib.parse.quote(filename)}&type=model"
+                found_repo = None
                 try:
-                    async with session.get(url, timeout=10) as resp:
+                    async with session.get(exact_url, timeout=5) as resp:
                         if resp.status == 200:
                             data = await resp.json()
                             hits = data.get("hits", [])
                             if hits:
-                                # Sort by likes descending to prioritize official/popular repos
                                 hits.sort(key=lambda x: x.get("likes", 0), reverse=True)
-                                results[filename] = hits[0].get("name")
-                            else:
-                                results[filename] = None
-                        else:
-                            results[filename] = None
+                                for hit in hits[:5]:
+                                    repo_name = hit.get("name")
+                                    if not repo_name: continue
+                                    check_url = f"https://huggingface.co/{repo_name}/resolve/main/{filename}"
+                                    try:
+                                        async with session.head(check_url, timeout=3, allow_redirects=True) as check_resp:
+                                            if check_resp.status == 200:
+                                                found_repo = repo_name
+                                                break
+                                    except Exception:
+                                        pass
+                        elif resp.status == 429:
+                            logger.warning(f"Exact search hit HuggingFace 429 rate limit for {filename}")
                 except Exception as e:
-                    logger.warning(f"Error searching for {filename}: {e}")
-                    results[filename] = None
+                    logger.warning(f"Exact search HTTP error for {filename}: {e}")
+
+                if found_repo:
+                    results[filename] = found_repo
+                    MODEL_SEARCH_CACHE[filename] = found_repo
+                    continue
+
+                # 2. Relaxed/Dynamic Resolution fallback
+                logger.info(f"Exact search failed or rate-limited for {filename}. Running relaxed dynamic HuggingFace search...")
+                stem = filename.rsplit('.', 1)[0]
+                tokens = re.split(r'[-_]', stem)
+                tokens = [t.strip() for t in tokens if t.strip()]
+                
+                queries = []
+                if len(tokens) >= 1:
+                    queries.append(tokens[0])
+                if len(tokens) >= 2:
+                    queries.append(f"{tokens[0]} {tokens[1]}")
+                if len(tokens) >= 3:
+                    queries.append(f"{tokens[0]} {tokens[1]} {tokens[2]}")
+                queries.append(stem.replace('_', ' ').replace('-', ' '))
+                
+                filename_lower = filename.lower()
+                family = "other"
+                if "ltx" in filename_lower or "gemma" in filename_lower:
+                    family = "ltx"
+                elif "flux" in filename_lower:
+                    family = "flux"
+                elif "wan" in filename_lower:
+                    family = "wan"
+                elif "stable-diffusion" in filename_lower or "sd" in filename_lower or "sdxl" in filename_lower:
+                    family = "sd"
+                
+                family_repos = preseeded_by_family.get(family, set())
+                candidate_repos = set(family_repos)
+                keyword_repos = set()
+                
+                # Fetch query-based search candidates
+                for q in queries:
+                    q_quoted = urllib.parse.quote(q)
+                    # Standard API search
+                    url_std = f"https://huggingface.co/api/models?search={q_quoted}&limit=40"
+                    try:
+                        async with session.get(url_std, timeout=5) as resp:
+                            if resp.status == 200:
+                                repos = await resp.json()
+                                for r in repos:
+                                    if isinstance(r, dict) and r.get("id"):
+                                        candidate_repos.add(r.get("id"))
+                                        keyword_repos.add(r.get("id"))
+                            elif resp.status == 429:
+                                logger.warning(f"url_std hit HF 429 for query '{q}'")
+                    except Exception as e:
+                        logger.warning(f"url_std error: {e}")
+                        
+                    # Full text search
+                    url_ft = f"https://huggingface.co/api/search/full-text?q={q_quoted}&type=model&limit=40"
+                    try:
+                        async with session.get(url_ft, timeout=5) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                hits = data.get("hits", [])
+                                for h in hits:
+                                    if isinstance(h, dict) and h.get("name"):
+                                        candidate_repos.add(h.get("name"))
+                                        keyword_repos.add(h.get("name"))
+                            elif resp.status == 429:
+                                logger.warning(f"url_ft hit HF 429 for query '{q}'")
+                    except Exception as e:
+                        logger.warning(f"url_ft error: {e}")
+
+                 # Prioritize candidate repos
+                def get_repo_priority(repo_name):
+                    score = 0
+                    if repo_name in family_repos:
+                        score += 100  # Massive boost for our curated, gold-standard family repositories
+                        
+                    repo_lower = repo_name.lower()
+                    if "comfy-org" in repo_lower:
+                        score += 50  # Absolute top priority for official ComfyUI repackaged models
+                    elif "kijai" in repo_lower:
+                        score += 40  # Extreme priority for Kijai (most popular ComfyUI porter)
+                    elif "comfy" in repo_lower:
+                        score += 30
+                    elif "lightricks" in repo_lower:
+                        score += 20
+                    elif "black-forest-labs" in repo_lower:
+                        score += 20
+                    elif "stabilityai" in repo_lower:
+                        score += 20
+                    
+                    if repo_name in keyword_repos:
+                        score += 15  # Good bonus for keyword-matched repositories
+                        
+                    for t in tokens[:3]:
+                        if t.lower() in repo_lower:
+                            score += 3
+                    return score
+
+                sorted_candidates = sorted(list(candidate_repos), key=get_repo_priority, reverse=True)
+                
+                # Check candidates in parallel for existence of target file with concurrency limit of 5
+                sem = asyncio.Semaphore(5)
+                
+                async def check_candidate(repo_id):
+                    async with sem:
+                        # Method A: Check API metadata page (lists siblings)
+                        repo_api_url = f"https://huggingface.co/api/models/{repo_id}"
+                        try:
+                            async with session.get(repo_api_url, timeout=4) as resp:
+                                if resp.status == 200:
+                                    model_info = await resp.json()
+                                    siblings = model_info.get("siblings", [])
+                                    matches = [s.get("rfilename") for s in siblings if s.get("rfilename") == filename or s.get("rfilename", "").endswith(f"/{filename}")]
+                                    if matches:
+                                        logger.info(f"Concurrently resolved {filename} to {repo_id} via siblings metadata match!")
+                                        return repo_id
+                                elif resp.status == 429:
+                                    logger.warning(f"check_candidate siblings api hit HF 429 for {repo_id}")
+                        except Exception:
+                            pass
+                            
+                        # Method B: HEAD checks (Root & Standard ComfyUI Subfolders)
+                        subpaths = [
+                            f"{filename}",
+                            f"diffusion_models/{filename}",
+                            f"text_encoders/{filename}",
+                            f"unet/{filename}",
+                            f"vae/{filename}",
+                            f"loras/{filename}"
+                        ]
+                        for subpath in subpaths:
+                            check_url = f"https://huggingface.co/{repo_id}/resolve/main/{subpath}"
+                            try:
+                                async with session.head(check_url, timeout=3, allow_redirects=True) as resp:
+                                    if resp.status == 200:
+                                        logger.info(f"Concurrently resolved {filename} to {repo_id} via HEAD resolve match at '{subpath}'!")
+                                        return repo_id
+                                    elif resp.status == 429:
+                                        logger.warning(f"check_candidate HEAD resolve check hit HF 429 for {repo_id} at {subpath}")
+                            except Exception:
+                                pass
+                        return None
+
+                tasks = [check_candidate(rid) for rid in sorted_candidates[:5]]
+                completed_results = await asyncio.gather(*tasks)
+                
+                # The first non-None result in completed_results matches the highest priority repository
+                for res in completed_results:
+                    if res:
+                        found_repo = res
+                        break
+
+                results[filename] = found_repo
+                MODEL_SEARCH_CACHE[filename] = found_repo
 
         return {"results": results}
     except Exception as e:
         logger.error(f"Search models error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.post("/api/models/download")
@@ -768,6 +972,282 @@ async def download_model(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/comfy/setup")
+async def setup_comfyui(request: Request):
+    """
+    Full ComfyUI setup:
+      1. Install ComfyUI Manager requirements via embedded Python
+      2. Install SageAttention wheel from src/files
+      3. Patch run_nvidia_gpu.bat with --use-sage-attention --enable-manager
+    """
+    # Always re-read COMFY_PATH directly from .env at call time so we pick up
+    # any changes saved via the dashboard without needing a bot restart.
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    comfy_base = os.getenv("COMFY_PATH", "").rstrip("/\\")
+
+    if not comfy_base:
+        raise HTTPException(status_code=400, detail="COMFY_PATH not set in .env")
+
+    # Normalise to the *portable root* (one level above ComfyUI subfolder if needed)
+    comfy_base = comfy_base.replace("/", os.sep)
+    if os.path.basename(comfy_base).lower() == "comfyui":
+        portable_root = os.path.dirname(comfy_base)
+    else:
+        portable_root = comfy_base
+
+    python_exe  = os.path.join(portable_root, "python_embeded", "python.exe")
+    bat_file    = os.path.join(portable_root, "run_nvidia_gpu.bat")
+
+    # Resolve path to the Atlas src/files directory (holds bundled wheels)
+    atlas_root  = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    files_dir   = os.path.join(atlas_root, "src", "files")
+
+    steps = []
+
+    # ── Step 0: Clone ComfyUI-Manager if missing ─────────────────────────────
+    comfy_workspace = resolve_comfy_workspace(comfy_base)
+    custom_nodes_dir = os.path.join(comfy_workspace, "custom_nodes")
+    manager_dir = os.path.join(custom_nodes_dir, "ComfyUI-Manager")
+    kjnodes_dir = os.path.join(custom_nodes_dir, "ComfyUI-KJNodes")
+    
+    clone_success = True
+    clone_output = "ComfyUI-Manager is already installed."
+    
+    if not os.path.exists(manager_dir):
+        logger.info(f"[setup] Git cloning ComfyUI-Manager into: {custom_nodes_dir}")
+        try:
+            os.makedirs(custom_nodes_dir, exist_ok=True)
+            clone_cmd = 'git clone https://github.com/Comfy-Org/ComfyUI-Manager.git'
+            proc_clone = await asyncio.create_subprocess_shell(
+                clone_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                cwd=custom_nodes_dir
+            )
+            out_clone_bytes, _ = await proc_clone.communicate()
+            clone_output = out_clone_bytes.decode("utf-8", errors="replace")
+            clone_success = proc_clone.returncode == 0
+            logger.info(f"[setup] Git clone exit={proc_clone.returncode}")
+        except Exception as clone_err:
+            clone_success = False
+            clone_output = f"Git clone failed: {clone_err}"
+            logger.error(f"[setup] {clone_output}")
+
+    steps.append({"step": "clone_manager", "success": clone_success, "output": clone_output})
+
+    # ── Step 0.5: Clone ComfyUI-KJNodes if missing ───────────────────────────
+    clone_kj_success = True
+    clone_kj_output = "ComfyUI-KJNodes is already installed."
+    
+    if not os.path.exists(kjnodes_dir):
+        logger.info(f"[setup] Git cloning ComfyUI-KJNodes into: {custom_nodes_dir}")
+        try:
+            os.makedirs(custom_nodes_dir, exist_ok=True)
+            clone_kj_cmd = 'git clone https://github.com/kijai/ComfyUI-KJNodes.git'
+            proc_clone_kj = await asyncio.create_subprocess_shell(
+                clone_kj_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                cwd=custom_nodes_dir
+            )
+            out_clone_kj_bytes, _ = await proc_clone_kj.communicate()
+            clone_kj_output = out_clone_kj_bytes.decode("utf-8", errors="replace")
+            clone_kj_success = proc_clone_kj.returncode == 0
+            logger.info(f"[setup] KJNodes Git clone exit={proc_clone_kj.returncode}")
+        except Exception as clone_err:
+            clone_kj_success = False
+            clone_kj_output = f"Git clone failed: {clone_err}"
+            logger.error(f"[setup] {clone_kj_output}")
+
+    steps.append({"step": "clone_kjnodes", "success": clone_kj_success, "output": clone_kj_output})
+
+    # ── Step 1: ComfyUI Manager requirements ─────────────────────────────────
+    if not os.path.exists(python_exe):
+        raise HTTPException(status_code=400, detail=f"python_embeded not found at: {python_exe}")
+
+    # Gather any requirements files that exist
+    req_files = []
+    
+    # 1. Check for legacy/portable manager_requirements.txt
+    legacy_req = os.path.join(portable_root, "ComfyUI", "manager_requirements.txt")
+    if os.path.exists(legacy_req):
+        req_files.append(legacy_req)
+        
+    # 2. Check for ComfyUI-Manager custom node requirements.txt
+    cloned_req = os.path.join(manager_dir, "requirements.txt")
+    if os.path.exists(cloned_req):
+        req_files.append(cloned_req)
+        
+    # 3. Check for ComfyUI-KJNodes custom node requirements.txt
+    kjnodes_req = os.path.join(kjnodes_dir, "requirements.txt")
+    if os.path.exists(kjnodes_req):
+        req_files.append(kjnodes_req)
+        
+    if not req_files:
+        raise HTTPException(status_code=400, detail="No ComfyUI Manager or KJNodes requirements file was found.")
+
+    # Install all resolved requirements files
+    outputs = []
+    success1 = True
+    for req in req_files:
+        cmd1 = f'"{python_exe}" -m pip install -r "{req}"'
+        logger.info(f"[setup] Running: {cmd1}")
+        proc1 = await asyncio.create_subprocess_shell(
+            cmd1,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=portable_root
+        )
+        out1_bytes, _ = await proc1.communicate()
+        out1 = out1_bytes.decode("utf-8", errors="replace")
+        outputs.append(f"=== Installed {os.path.basename(os.path.dirname(req)) or 'ComfyUI'}/{os.path.basename(req)} ===\n" + out1[-1000:])
+        if proc1.returncode != 0:
+            success1 = False
+
+    steps.append({"step": "comfyui_manager", "success": success1, "output": "\n\n".join(outputs)})
+    logger.info(f"[setup] Manager install success={success1}")
+
+    # ── Step 2: SageAttention — detect Python version, pick matching wheel ────
+    # Run python --version to get the exact version (e.g. "Python 3.13.2")
+    ver_proc = await asyncio.create_subprocess_shell(
+        f'"{python_exe}" --version',
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=portable_root
+    )
+    ver_bytes, _ = await ver_proc.communicate()
+    py_version_str = ver_bytes.decode("utf-8", errors="replace").strip()  # e.g. "Python 3.13.2"
+    logger.info(f"[setup] Embedded Python: {py_version_str}")
+
+    # Build the cp-tag (e.g. 3.13 → "cp313", 3.12 → "cp312")
+    import re as _re
+    ver_match = _re.search(r"Python (\d+)\.(\d+)", py_version_str, _re.IGNORECASE)
+    py_tag = f"cp{ver_match.group(1)}{ver_match.group(2)}" if ver_match else None
+
+    # Scan src/files for a sageattention wheel that matches the detected tag
+    matched_whl = None
+    if py_tag and os.path.isdir(files_dir):
+        for fname in sorted(os.listdir(files_dir)):
+            if fname.lower().startswith("sageattention") and fname.endswith(".whl") and py_tag in fname:
+                matched_whl = os.path.join(files_dir, fname)
+                break
+
+    if matched_whl:
+        logger.info(f"[setup] Installing: {os.path.basename(matched_whl)}")
+        cmd2 = f'"{python_exe}" -m pip install "{matched_whl}"'
+        proc2 = await asyncio.create_subprocess_shell(
+            cmd2,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=portable_root
+        )
+        out2_bytes, _ = await proc2.communicate()
+        out2 = out2_bytes.decode("utf-8", errors="replace")
+        msg2 = f"[{py_version_str}] Wheel: {os.path.basename(matched_whl)}\n" + out2[-2000:]
+        steps.append({"step": "sage_attention", "success": proc2.returncode == 0, "output": msg2})
+        logger.info(f"[setup] SageAttention exit={proc2.returncode}")
+    else:
+        available = [
+            f for f in os.listdir(files_dir)
+            if f.lower().startswith("sageattention") and f.endswith(".whl")
+        ] if os.path.isdir(files_dir) else []
+        msg2 = (
+            f"[{py_version_str}] No bundled wheel found for tag '{py_tag}'.\n"
+            f"Available in src/files:\n" + "\n".join(f"  • {f}" for f in available) +
+            ("\n\nAdd the matching wheel to src/files/ and try again." if available else "\n\nNo sageattention wheels found in src/files/.")
+        )
+        steps.append({"step": "sage_attention", "success": False, "output": msg2})
+        logger.warning(f"[setup] No SageAttention wheel for {py_tag} in {files_dir}")
+
+
+    # ── Step 3: Triton ────────────────────────────────────────────────────────
+    # Check src/files for a bundled triton wheel first; fall back to pip install
+    triton_whl = None
+    if py_tag and os.path.isdir(files_dir):
+        for fname in sorted(os.listdir(files_dir)):
+            if fname.lower().startswith("triton") and fname.endswith(".whl") and py_tag in fname:
+                triton_whl = os.path.join(files_dir, fname)
+                break
+
+    if triton_whl:
+        logger.info(f"[setup] Installing triton from bundled wheel: {os.path.basename(triton_whl)}")
+        cmd3 = f'"{python_exe}" -m pip install "{triton_whl}"'
+    else:
+        logger.info("[setup] No bundled triton wheel found — installing triton-windows from PyPI")
+        cmd3 = f'"{python_exe}" -m pip install triton-windows'
+
+    proc3 = await asyncio.create_subprocess_shell(
+        cmd3,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=portable_root
+    )
+    out3_bytes, _ = await proc3.communicate()
+    out3 = out3_bytes.decode("utf-8", errors="replace")
+    source3 = os.path.basename(triton_whl) if triton_whl else "triton-windows (PyPI)"
+    msg3 = f"[{py_version_str}] Source: {source3}\n" + out3[-2000:]
+    steps.append({"step": "triton", "success": proc3.returncode == 0, "output": msg3})
+    logger.info(f"[setup] Triton install exit={proc3.returncode}")
+
+    # ── Step 3.5: Extra Packages (numba, gguf, cv2) ──────────────────────────
+    logger.info("[setup] Installing extra packages: numba, gguf, opencv-python...")
+    cmd_extra = f'"{python_exe}" -m pip install numba gguf opencv-python'
+    proc_extra = await asyncio.create_subprocess_shell(
+        cmd_extra,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=portable_root
+    )
+    out_extra_bytes, _ = await proc_extra.communicate()
+    out_extra = out_extra_bytes.decode("utf-8", errors="replace")
+    msg_extra = f"[{py_version_str}] Extra Packages:\n" + out_extra[-2000:]
+    steps.append({"step": "extra_packages", "success": proc_extra.returncode == 0, "output": msg_extra})
+    logger.info(f"[setup] Extra packages install exit={proc_extra.returncode}")
+
+    manager_arg = "--enable-manager-legacy-ui"
+    try:
+        body = await request.json()
+        if body and "manager_type" in body:
+            manager_arg = body["manager_type"]
+    except Exception:
+        pass
+
+    # ── Step 4: Patch run_nvidia_gpu.bat ─────────────────────────────────────
+    bat_patched = False
+    bat_message = ""
+    desired_line = f".\\python_embeded\\python.exe -s ComfyUI\\main.py --windows-standalone-build --use-sage-attention {manager_arg}"
+    new_bat_content = desired_line + "\necho \npause\n"
+
+    try:
+        if os.path.exists(bat_file):
+            with open(bat_file, "r", encoding="utf-8", errors="replace") as f:
+                existing = f.read()
+            # Only rewrite if we need to (idempotent)
+            if "--use-sage-attention" in existing and manager_arg in existing:
+                bat_patched = True
+                bat_message = f"Already patched with {manager_arg} – no changes made."
+            else:
+                with open(bat_file, "w", encoding="utf-8") as f:
+                    f.write(new_bat_content)
+                bat_patched = True
+                bat_message = f"Patched with {manager_arg} successfully."
+        else:
+            # Create the bat file
+            with open(bat_file, "w", encoding="utf-8") as f:
+                f.write(new_bat_content)
+            bat_patched = True
+            bat_message = f"Created new run_nvidia_gpu.bat with {manager_arg}."
+    except Exception as bat_err:
+        bat_message = f"Error patching bat: {bat_err}"
+
+    steps.append({"step": "patch_bat", "success": bat_patched, "output": bat_message})
+    logger.info(f"[setup] Bat patch: {bat_message}")
+
+    overall_success = all(s["success"] for s in steps)
+    return {"success": overall_success, "steps": steps}
+
+
 @app.post("/api/utils/select-folder")
 async def select_folder():
     """Opens a native folder selection dialog and returns the path."""
@@ -782,6 +1262,17 @@ async def select_folder():
     path = await asyncio.to_thread(get_path)
     return {"path": path}
 
+@app.post("/api/config/reload")
+async def reload_config():
+    """Hot-reloads .env values into the running Config class."""
+    try:
+        Config.reload()
+        logger.info("[config] Config reloaded from .env")
+        return {"status": "success", "comfy_path": Config.COMFY_PATH}
+    except Exception as e:
+        logger.error(f"[config] Reload failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def start_api_server(bot, port=8001):
     global bot_instance
     bot_instance = bot
@@ -789,3 +1280,96 @@ async def start_api_server(bot, port=8001):
     server = uvicorn.Server(config)
     logger.info(f"Starting API Server on port {port}...")
     await server.serve()
+
+@app.post("/api/nodes/check")
+async def check_nodes(request: Request):
+    """
+    Accepts an API-format workflow JSON.
+    Generates a dummy WebUI workflow, runs `comfy node deps-in-workflow`,
+    and returns a list of missing node class names or repositories.
+    """
+    try:
+        workflow = await request.json()
+        comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
+        if not comfy_workspace:
+            raise HTTPException(status_code=500, detail="Invalid COMFY_PATH")
+
+        # Extract all node classes
+        node_classes = set()
+        for node in workflow.values():
+            if isinstance(node, dict) and "class_type" in node:
+                node_classes.add(node["class_type"])
+
+        if not node_classes:
+            return {"missing": []}
+
+        # Create dummy webui format
+        dummy_workflow = {
+            "last_node_id": len(node_classes),
+            "last_link_id": 0,
+            "nodes": [],
+            "links": [],
+            "groups": [],
+            "config": {},
+            "extra": {},
+            "version": 0.4
+        }
+        for i, node_class in enumerate(node_classes, 1):
+            dummy_workflow["nodes"].append({
+                "id": i,
+                "type": node_class,
+                "pos": [0, 0],
+                "size": [100, 100],
+                "flags": {},
+                "order": 0,
+                "mode": 0,
+                "inputs": [],
+                "outputs": [],
+                "properties": {},
+                "widgets_values": []
+            })
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as wf, \
+             tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as outf:
+            json.dump(dummy_workflow, wf)
+            wf_path = wf.name
+            out_path = outf.name
+
+        try:
+            logger.info(f"Node check: running comfy node deps-in-workflow")
+            cmd = ["comfy", "--workspace", comfy_workspace, "node", "deps-in-workflow", "--workflow", wf_path, "--output", out_path]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+
+            if process.returncode != 0:
+                logger.error(f"comfy node deps-in-workflow failed: {stderr.decode()}")
+                return {"missing": []}
+
+            with open(out_path, 'r', encoding='utf-8') as f:
+                deps_data = json.load(f)
+
+            missing_repos = []
+            if "custom_nodes" in deps_data:
+                for repo, info in deps_data["custom_nodes"].items():
+                    if info.get("state") == "not-installed" or info.get("state") == "missing":
+                        missing_repos.append(repo)
+            
+            unknown_nodes = deps_data.get("unknown_nodes", [])
+            
+            # Combine missing repos and unknown nodes as strings
+            missing = missing_repos + unknown_nodes
+            return {"missing": missing}
+
+        finally:
+            if os.path.exists(wf_path):
+                os.remove(wf_path)
+            if os.path.exists(out_path):
+                os.remove(out_path)
+
+    except Exception as e:
+        logger.error(f"Node check error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

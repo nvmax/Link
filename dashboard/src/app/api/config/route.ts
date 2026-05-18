@@ -12,7 +12,8 @@ export async function GET() {
     const content = fs.readFileSync(envPath, 'utf8');
     const config: Record<string, string> = {};
     
-    content.split('\n').forEach(line => {
+    // Normalise line endings before parsing (handles CRLF on Windows)
+    content.split(/\r?\n/).forEach(line => {
       const trimmed = line.trim();
       if (trimmed && !trimmed.startsWith('#')) {
         const [key, ...value] = trimmed.split('=');
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
       content = fs.readFileSync(envPath, 'utf8');
     }
     
-    const lines = content.split('\n');
+    // Normalise CRLF → LF so key matching works regardless of file origin
+    const lines = content.split(/\r?\n/);
     const updatedLines = [];
     const keysHandled = new Set();
     
@@ -49,20 +51,21 @@ export async function POST(request: Request) {
           updatedLines.push(`${key}=${config[key]}`);
           keysHandled.add(key);
         } else {
-          updatedLines.push(line);
+          updatedLines.push(trimmed); // write normalised (no stray \r)
         }
       } else {
-        updatedLines.push(line);
+        updatedLines.push(trimmed); // preserve blank lines & comments cleanly
       }
     }
     
-    // add any new keys
+    // add any new keys that weren't already in the file
     for (const [key, value] of Object.entries(config)) {
       if (!keysHandled.has(key) && key !== 'config' && typeof value !== 'object') {
         updatedLines.push(`${key}=${value}`);
       }
     }
     
+    // Always write with LF line endings
     fs.writeFileSync(envPath, updatedLines.join('\n'), 'utf8');
     return NextResponse.json({ status: 'success' });
   } catch (error) {

@@ -23,6 +23,8 @@ function DashboardContent() {
     isInstalling,
     pendingImport,
     setPendingImport,
+    pendingLoad,
+    setPendingLoad,
     importWorkflow,
     missingModels,
     setMissingModels,
@@ -92,12 +94,19 @@ function DashboardContent() {
                 const { name, workflow } = pendingImport;
                 setMissingNodes([]);
                 setPendingImport(null);
-                await importWorkflow(name, workflow, true);
+                setPendingLoad(false);
+                if (!pendingLoad) {
+                  // Only re-import if this was triggered from importWorkflow
+                  await importWorkflow(name, workflow, true);
+                }
+              } else {
+                setMissingNodes([]);
               }
             }}
             onCancel={() => {
               setMissingNodes([]);
               setPendingImport(null);
+              setPendingLoad(false);
             }}
             isInstalling={isInstalling}
           />
@@ -108,16 +117,24 @@ function DashboardContent() {
             missingModels={missingModels}
             onDownload={handleModelDownload}
             onImportAnyway={async () => {
-              if (pendingImport) {
+              if (pendingImport && !pendingLoad) {
+                // Only re-import if this was triggered from importWorkflow
                 const { name, workflow } = pendingImport;
                 setMissingModels([]);
                 setPendingImport(null);
+                setPendingLoad(false);
                 await importWorkflow(name, workflow, true);
+              } else {
+                // Triggered from loadWorkflow — workflow already displayed, just dismiss
+                setMissingModels([]);
+                setPendingImport(null);
+                setPendingLoad(false);
               }
             }}
             onCancel={() => {
               setMissingModels([]);
               setPendingImport(null);
+              setPendingLoad(false);
             }}
             isDownloading={isDownloadingModels}
             downloadProgress={modelDownloadProgress}

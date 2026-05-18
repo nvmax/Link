@@ -16,10 +16,12 @@
 - **Mission Control**: Configure your ComfyUI integration and manage system-wide settings.
 - **System Diagnostics**: Shows current workflows, lora lists, and if discords pipeline is healthy. 
 - **Node Health**: Monitors and checks for updates to installed nodes, and allows for selective updates.
-- **Time Machine**: Captures snapshots for comfyui workspace, when nodes are updated and or changed, allows for roll back to a previous stable node install. 
-
-
-
+- **Time Machine**: Captures snapshots for comfyui workspace, when nodes are updated and or changed, allows for roll back to a previous stable node install.
+- **Auto Node Installation**:LINK automatically installs missing nodes for your workflows when you upload them to the dashboard.
+   - if the node name remains default by the node developer.
+- **Auto Download and install Models**: Automatically scans Hugging Face for models, downlods them and installs them to your comfyui workspace.
+   - If not found you can copy a link to download or if not found on Hugging Face for some reason you can post the repo short link example: `Lightricks/LTX-2.3`
+   - Advanced nodes like Florence2 must be manually added to the custom_nodes folder. 
 
 
 ### 🎨 Visual Architect
@@ -69,7 +71,9 @@ A professional-grade management system for your model library.
 
 ### 1. Requirements
 - **Latest Stable Release of ComfyUI** - Download from [ComfyUI's GitHub](https://github.com/comfyanonymous/ComfyUI/releases).
-- **ComfyUI** running workflows working.
+- **Update ComyfyUI** - Update all of comfyui to the latest version by running the few update .bat files in update folder. 
+- **ComfyUI** workflows must be working at this point.
+    - Export your workflow AP by enabling Dev mode in settings then clicking Comfy icon / file / Export API and save this, import this file into link.
 - **Node.js 20+** and **Python 3.10+**.
 
 ### 2. Installation

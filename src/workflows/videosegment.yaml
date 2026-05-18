@@ -1,99 +1,915 @@
 workflow_name: videosegment
+display_name: videosegment
 discord_command: videosegment
+ai_prompt:
+  enabled: false
+  category: image
+  prompt_id: ''
+  target_input: ''
 description: Run videosegment workflow
 mapping:
-  image:
-    - '48'
-    - inputs
-    - image
   text:
-    - '104'
+    - '4'
     - inputs
     - text
+  image:
+    - '1'
+    - inputs
+    - image
   audio:
-    - '121'
+    - '27'
     - inputs
     - audio
-  start_index:
-    - '122'
+  lora_name:
+    - '2'
     - inputs
-    - start_index
+    - lora_name
 inputs:
-  - id: image
-    type: image_upload
-    label: image
-    required: true
   - id: text
     type: text
     label: text
+    required: true
+  - id: image
+    type: image_upload
+    label: image
     required: true
   - id: audio
     type: audio_upload
     label: audio
     required: true
-  - id: start_index
-    type: text
-    label: start_index
+  - id: lora_name
+    type: select
+    label: lora_name
     required: true
+    choices:
+      - 20241120-ElleFanning-v1-step00002000.safetensors
+      - 4fa088cbab0d4e4198fe0ffd8fb32f2f_pytorch_lora_weights.safetensors
+      - 59yr4hcEqhdxkEgIu7iwY_adapter_model_comfy_converted.safetensors
+      - 5SX6j2wcLJKgudBqlmver_adapter_model_comfy_converted.safetensors
+      - 8nXWPoktw7sdu0Y0GSKFB_adapter_model_comfy_converted.safetensors
+      - AlexandraDaddarioF1D.safetensors
+      - AlexandraDaddario_flux_lora_v1_000001750.safetensors
+      - AlexisBledel_flux_lora_v1.safetensors
+      - AliLarter_flux_lora_v5.safetensors
+      - AliciaVikander_F1D.safetensors
+      - Alicia_Silverstone_Flux.safetensors
+      - Amanda_Seyfried_Flux.safetensors
+      - AmberHeard_flux_lora_v2.safetensors
+      - AmySmart_flux_lora_v2.safetensors
+      - Anna Tagan v1.safetensors
+      - Anna_Kendrick_Flux.safetensors
+      - Annie Edison.safetensors
+      - Anthropomorphic.safetensors
+      - AntiBlur.safetensors
+      - Ars_MidJourney_Style_-_Flux.safetensors
+      - Ars_MidJourney_Watercolor.safetensors
+      - Art Nouveau architecture.safetensors
+      - ArtfulNSFWV2Flux.safetensors
+      - Aura Flux 2.0.safetensors
+      - Aura_Flux.safetensors
+      - BFV_pS6p-ZozitXudVFJc_adapter_model_comfy_converted.safetensors
+      - BeautyInEvilFlux.safetensors
+      - Bougeureau_Flux.safetensors
+      - Bruce-Campbell_Flux_v02-e06.safetensors
+      - Cabanel_Flux.safetensors
+      - CameronDiazFluxV1.safetensors
+      - Caravaggio_Flux.safetensors
+      - CazMaFlux.safetensors
+      - Chaplin_Flux.safetensors
+      - CharacterDesign-FluxV2.safetensors
+      - Circuit_Board_FLUX.safetensors
+      - Conv_High_Noise_I2V_LazySusan.safetensors
+      - Cursed_LoRA_Flux.safetensors
+      - DanielleRR_SoloLoRA_F1V1.safetensors
+      - Danielle_Panabaker_Ca2005.safetensors
+      - Decadence_style.safetensors
+      - DemiM_SoloLoRA_F1V1.safetensors
+      - Donald-Trump_Flux_v01e08.safetensors
+      - DreamyKolors_v1.safetensors
+      - Drew_Barrymore_Flux.safetensors
+      - E_B_Leighton_Flux_resize.safetensors
+      - Egon_Art.safetensors
+      - Eldritch-Dark-Comics-1.0.safetensors
+      - Eldritch_PinholePhotography_1.0.0.safetensors
+      - Ella_Purnell_Flux.safetensors
+      - Emily_Blunt_Flux.safetensors
+      - EmmaW_SoloLoRA_F1V1.safetensors
+      - EmmaWatson_flux_lora_v1.safetensors
+      - Emma_Watson_boy40.safetensors
+      - Enjolras_Flux_2.safetensors
+      - EnvyFluxWingFix01.safetensors
+      - Epic-detail_v2.safetensors
+      - EvannaLynch_SoloLoRA_F1V1.safetensors
+      - F1D_Adriana-Lima_v01e12.safetensors
+      - F1D_Angela-Raynor_v01e07.safetensors
+      - F1D_Anthony-Faucci_v01e10.safetensors
+      - F1D_Audrey-Hepburn_v01e09.safetensors
+      - F1D_Ayatollah-Khamenei_v01e09.safetensors
+      - F1D_Benjamin-Netanyahu_v01e09.safetensors
+      - F1D_Bill-Gates_v01e07.safetensors
+      - F1D_Brigitte-Bardot_v02e11.safetensors
+      - F1D_Britt-Ekland_v01e11.safetensors
+      - F1D_Burt-Reynolds_v01e07.safetensors
+      - F1D_Christopher-Lee_v01e07.safetensors
+      - F1D_Clark-Gable_v01e10.safetensors
+      - F1D_Elon-Musk_v01e07.safetensors
+      - F1D_Gary-Coleman_v01e11.safetensors
+      - F1D_Gavin-Newsom_v01e10.safetensors
+      - F1D_Gene-Hackman_v01e07.safetensors
+      - F1D_George-Takei_v01e07.safetensors
+      - F1D_JD-Vance_v01e07.safetensors
+      - F1D_Jacques-Attali_v01e06.safetensors
+      - F1D_Jeremy-Corbyn_v01e10.safetensors
+      - F1D_John-McAfee_v01e07.safetensors
+      - F1D_Kate-Middleton_v01e14.safetensors
+      - F1D_Keir-Starmer_v02e10.safetensors
+      - F1D_Kenneth-Copeland_v01e07.safetensors
+      - F1D_Larry-Fink_v01e08.safetensors
+      - F1D_Luigi-Mangione_v01e07.safetensors
+      - F1D_Matt-Hancock_v01e07.safetensors
+      - F1D_Matthew-McConaughey_v01e13.safetensors
+      - F1D_Melania-Trump_v01e10.safetensors
+      - F1D_Peter-Cushing_v01e07.safetensors
+      - F1D_Prince-Andrew_v01e08.safetensors
+      - F1D_Priti-Patel_v01.safetensors
+      - F1D_Rachel-Reeves_v01e07.safetensors
+      - F1D_Steve-Buscemi_v02e08.safetensors
+      - F1D_Vincent-Price_v01e07.safetensors
+      - F1D_Vladimir-Putin_v01e12.safetensors
+      - F1D_Volodymyr-Zelenskyy_v01e07.safetensors
+      - F1D_Winston-Churchill_v01e07.safetensors
+      - F1D_Yuval-Noah-Harari_v01e07.safetensors
+      - FLUX-Selena Gomez.safetensors
+      - FLUX-dev-lora-AntiBlur.safetensors
+      - FLUXTASTIV_V1.safetensors
+      - FLUX_DazStyle.safetensors
+      - FantasticalRealism.safetensors
+      - Fff.safetensors
+      - Flux-Sch-SingleBlocks-F32.sft
+      - Flux.1_Turbo_Detailer.safetensors
+      - Flux.ChloeGrace-step00000350.safetensors
+      - Flux.Cuoco-step00000450.safetensors
+      - Flux.EmmaMyers-step00000400.safetensors
+      - Flux.Livvy-step00000400.safetensors
+      - Flux.Miley.safetensors
+      - Flux.TaylorSwift-step00000350.safetensors
+      - FluxDFaeTasticDetails.safetensors
+      - FluxWeaponSwordShield.safetensors
+      - Flux_1_Dev_LoRA_syntheticanime.safetensors
+      - Flux_2-Turbo-LoRA_comfyui (1).safetensors
+      - Flux_2-Turbo-LoRA_comfyui.safetensors
+      - Flux_Improved_Female_Nudity_v1.safetensors
+      - FoxyDi1_flux_lora_v4.safetensors
+      - >-
+        Gaia__Jaime_Murray_-_Spartacus_Gods_of_the_Arena_Tv_Series-000019.safetensors
+      - Gal_Gadot_Flux.safetensors
+      - Gillian_Anderson_1993_Flux.safetensors
+      - Godward_Flux.safetensors
+      - Graffiti01_CE_FLUX_AIT3k.safetensors
+      - Graffiti_Art_FLUX_Style-000004.safetensors
+      - HaydenPanettiere_flux_lora_v1.safetensors
+      - Henner_Flux.safetensors
+      - Hyper-FLUX.1-dev-8steps-lora.safetensors
+      - I_iqVzkUKMbyMntpkSU4J_adapter_model_comfy_converted.safetensors
+      - Impasto Oil Paint Style.safetensors
+      - InScene-v1.0.safetensors
+      - It2d_UD0qRgotAZjJHXx__adapter_model_comfy_converted.safetensors
+      - JennaOrtega_F1D.safetensors
+      - Jennifer_Carpenter_2012_Flux.safetensors
+      - Jennifer_Connelly_1990-000032.safetensors
+      - Jennifer_Garner_v2.safetensors
+      - Jennifer_Lawrence_V2_Flux.safetensors
+      - Jennifer_Lien_PMv1_Flux-000009.safetensors
+      - Jennifer_Morrison.safetensors
+      - Jessica_Alba_Flux.safetensors
+      - Joey_King_Flux.safetensors
+      - Kate_Beckinsale_Flux.safetensors
+      - Kate_Winslet_1996-000020.safetensors
+      - KatherineHeigl_flux_lora_v1.safetensors
+      - KatieH_SoloLoRA_F1V1.safetensors
+      - Katie_Fey.safetensors
+      - Katie_Holmes_90s.safetensors
+      - Katy_Perry_Flux.safetensors
+      - KayaS_flux_lora_v4.safetensors
+      - Keira_Knightley_Flux.safetensors
+      - Kelly Preston_SoloLoRA_F1V2.safetensors
+      - King-Charles_Flux_v01e08.safetensors
+      - Kirsten_Dunst_Flux_V1.safetensors
+      - Kirsten_Stewart_v1_000001750.safetensors
+      - Klaus-Schwab_Flux_v01e07.safetensors
+      - Kontext_P0stAp0calyptic.safetensors
+      - KristenStewartF1D.safetensors
+      - KristenStewart_Flux.safetensors
+      - Kristen_Stewart_Flux.safetensors
+      - KristinKreuk_flux_lora_v3.safetensors
+      - LTX-2.3-22b-AV-LoRA-talking-head-v1.safetensors
+      - LTX-2.3-danceV2.comfy.safetensors
+      - LTX2.3-IC-LORA-Dual-Character.safetensors
+      - LTX2.3_Crisp_Enhance.safetensors
+      - Lautrec_Flux.safetensors
+      - Lily James LoRA_SoloLoRA_F1V1.safetensors
+      - LilyC_SoloLoRA_F1V1.safetensors
+      - Little_Caprice_Flux.safetensors
+      - Live2d_Background_Ver1_high_noise.safetensors
+      - Logo_vector.safetensors
+      - Ltx2.3-Licon-VBVR-I2V-96000-R32.safetensors
+      - MMceKFMMmIkZAoyx6m2Cn_adapter_model_comfy_converted.safetensors
+      - MS_Nude_Style_Flux_V2.safetensors
+      - MaggieG_SoloLoRA_F1V1.safetensors
+      - Mary_Amber_Flux.safetensors
+      - Mathilda_V2-000031.safetensors
+      - Medieval02-00_CE_FLUX_AIT.safetensors
+      - Megan_Marx_Flux.safetensors
+      - MetalArt01a_CE_FLUX_AIT3k.safetensors
+      - Midjourney_Dreamlike_Fantasy_FLUX_LoRA.safetensors
+      - Midjourney_V7_DetailStyle_Flux_v1.0.safetensors
+      - Midjourney_imitation_FLUX.safetensors
+      - MillieBB_SoloLoRA_F1V1.safetensors
+      - Monet_Flux.safetensors
+      - MonicaB_SoloLoRA_F1V1.safetensors
+      - MothFX.safetensors
+      - Mucha_Flux.safetensors
+      - MysticSplash.safetensors
+      - Neve_Campbell_Flux.safetensors
+      - New_Fantasy_CoreV4_FLUX.safetensors
+      - Nude_Art_III.safetensors
+      - Oldify.safetensors
+      - OliviaWilde_flux_lora_v1.safetensors
+      - Olivia_Hussey.safetensors
+      - P-Diddy_Flux_v01e08.safetensors
+      - Painterly01b_CE_FLUX_AIT4k.safetensors
+      - PeytonSL.safetensors
+      - Phlux_Photo_Realism.safetensors
+      - Phlux_Texture&Lighting.safetensors
+      - Qwen-Edit-2509-Multiple-angles.safetensors
+      - Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors
+      - Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
+      - Qwen-Image-Edit-2511-Lightning-8steps-V1.0-fp32.safetensors
+      - Qwen-Image-Lightning-4steps-V1.0.safetensors
+      - Qwen-Image-Lightning-8steps-V1.0.safetensors
+      - RPGv6-itr15.safetensors
+      - RachaelLeighCook_flux_lora_v1.safetensors
+      - Rain_Carradine_-_Cailee_Spaeny_-_Alien_Romulus_Flux.safetensors
+      - Rebecca Guay [Style] Flux.safetensors
+      - Rosie_Huntington_Whiteley.safetensors
+      - Rubens_Flux.safetensors
+      - SMGFluxModel.safetensors
+      - SammyNoodleSoupv3.safetensors
+      - SarahMcDaniel_rank16_bf16-step00750.safetensors
+      - Scarlett_Johansson-000032.safetensors
+      - Seignac_Flux.safetensors
+      - SelenaGomez_v2.safetensors
+      - Selene Underworld (s3l3n3) - Flux test-000060.safetensors
+      - Sketch_Flux.safetensors
+      - Snegh-000001.safetensors
+      - Sophie_Turner_Flux.safetensors
+      - StainedGlassAndMetal04_CE_FLUX_AIT.safetensors
+      - Steampunk_BioMechanical_Flux.safetensors
+      - Super Panavision 70 Technicolor.safetensors
+      - TaraReid_flux_lora_v1.safetensors
+      - Textimprover-FLUX-V0.4.safetensors
+      - The_beauty_of_realism_(FLUX).safetensors
+      - The_beauty_of_realism_2_(T).safetensors
+      - Thrall_Flux_Lora_rank16_bf16.safetensors
+      - Tifa Lockhart.safetensors
+      - Titanicus.safetensors
+      - Ultima_Flux_v1.safetensors
+      - UltraReal.safetensors
+      - UltraRealPhoto.safetensors
+      - Van_Gogh_Flux.safetensors
+      - VantaGold.safetensors
+      - Vivid vibrant color style _ F1 Sora_V1.safetensors
+      - Vm-BMF5YoW4OOsDhk1F9h_adapter_model_comfy_converted.safetensors
+      - WAN-2.2-I2V-BreastPlay-HIGH-v2.safetensors
+      - WOW_Character_Style.safetensors
+      - Wan2.1_T2V_14B_FusionX_LoRA.safetensors
+      - Wan2.2-I2V-A14B-High-4steps-lora-rank64-Seko-V1.safetensors
+      - Wan2.2-I2V-A14B-Low-4steps-lora-rank64-Seko-V1.safetensors
+      - Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16.safetensors
+      - Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors
+      - Wan2.2-Lightning_T2V-A14B-4steps-lora_HIGH_fp16.safetensors
+      - Wan2.2-Lightning_T2V-A14B-4steps-lora_LOW_fp16.safetensors
+      - Wan2.2-T2V-A14B-4steps-lora-rank64.safetensors
+      - Wan21_AccVid_T2V_14B_lora_rank32_fp16.safetensors
+      - Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors
+      - Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank32.safetensors
+      - >-
+        Wan22_A14B_T2V_HIGH_Lightning_4steps_lora_250928_rank128_fp16.safetensors
+      - Wan22_A14B_T2V_LOW_Lightning_4steps_lora_250928_rank64_fp16.safetensors
+      - Wan22_TI2V_5B_Turbo_lora_rank_64_fp16.safetensors
+      - Wan22_TI2V_5B_Turbo_lora_rank_adaptive_quantile_0.15_fp16.safetensors
+      - Wan_2_2_I2V_A14B_HIGH_lightx2v_MoE_distill_lora_rank_64_bf16.safetensors
+      - Willow_Rosenberg_Flux.safetensors
+      - XLFantasyKnightsV4.safetensors
+      - Younger Emma Watson.safetensors
+      - Yvonne_Flux_CFH-000010.safetensors
+      - Yvonne_Strahovski_Flux.safetensors
+      - ZKcZdffUM6qyMYiEE8ed0_adapter_model_comfy_converted.safetensors
+      - Zombify.safetensors
+      - aesthetic10k.safetensors
+      - aidmaBokeh-FLUX-V0.1.safetensors
+      - aidmaDall-E3-FLUX-v0.1.safetensors
+      - aidmaDarkFantasy-FLUX-V0.1.safetensors
+      - aidmaExperimentalPhotography-FLUX-V0.1.safetensors
+      - aidmaFLUXPro1.1-FLUX-v0.3.safetensors
+      - aidmaFLUXpro1.1-FLUX-V0.2.safetensors
+      - aidmaHiDreamStyle-FLUX-v0.1.safetensors
+      - aidmaHyperRealism-FLUX-V0.2.safetensors
+      - aidmaHyperrealism-FLUX-V0.1.safetensors
+      - aidmaHyperrealism-FLUX-v0.3.safetensors
+      - aidmaImageUpgrader-detailmaximizer-FLUX-V0.1.safetensors
+      - aidmaImageUprader-FLUX-v0.3.safetensors
+      - aidmaImageUprader.safetensors
+      - aidmaMJ6.1-FLUX-V0.3.safetensors
+      - aidmaMJ6.1-FLUX-v0.4.safetensors
+      - aidmaMJ6.1-FLUX-v0.5.safetensors
+      - aidmaMJ61Flux.2v0.5.safetensors
+      - aidmaMJv7-FLUX-v0.1.safetensors
+      - aidmaMJv7-ILL-v0.1.safetensors
+      - aidmaNijiAnimeStyle.safetensors
+      - aidmaPonyStyle-FLUX-V0.1.safetensors
+      - aidmaPsychadelicChaosWorld-FLUX-v0.1.safetensors
+      - aidmaRealisticSkin-FLUX-v0.1.safetensors
+      - aidmaRealisticSkin-IL-v0.1.safetensors
+      - aidmaSecretLab-FLUX-V0.1.safetensors
+      - aidmaSoftGlow-FLUX-V0.1.safetensors
+      - aidmaTextImprover-FLUX-V0.1.safetensors
+      - aidmaTextImprover-FLUX-V0.3.safetensors
+      - alisa-v1.safetensors
+      - am1d0lenz.safetensors
+      - anime_v1.safetensors
+      - aura_captioned_flux.safetensors
+      - avrilflx_flux-lora-000002.safetensors
+      - b6TU_pSM8eoZWyiy-CyFF_adapter_model_comfy_converted.safetensors
+      - best_of_flux_v30_rank64_bf16-step01750.safetensors
+      - boFLUX Digital Abstract.safetensors
+      - boFLUX_AbstractMorph.safetensors
+      - boFLUX_Bioluminescent_Dreams_v1.safetensors
+      - brooke-shields.safetensors
+      - bv-dark-academia-v1.safetensors
+      - candicesflx1.safetensors
+      - celtycdesihelp.safetensors
+      - chanelfenn.safetensors
+      - clothes_remover_v0.safetensors
+      - cutertx.safetensors
+      - damasked.safetensors
+      - danielle_campbell.safetensors
+      - deepfocus.safetensors
+      - dit_lora.safetensors
+      - dmai-yellow.safetensors
+      - eliolsen_2017_local_164_merger_20v1_8v2_34v2_03_03_04.safetensors
+      - elisha-v1.safetensors
+      - err00ssvm3.safetensors
+      - eva_green_flux_lora_v1_000001200.safetensors
+      - fantasy-flux-nymical-v3.safetensors
+      - fantasy-flux-v1.safetensors
+      - flux-fluidart-lora-v1.safetensors
+      - flux-lora-alexis-knapp.safetensors
+      - flux-oilpainting1.3-00001.safetensors
+      - flux1-depth-dev-lora.safetensors
+      - flux_dev_NeoAndeanArchitecture.safetensors
+      - flux_emma_watson.safetensors
+      - flux_gopher_lycoris_loha.safetensors
+      - flux_vividizer.safetensors
+      - freddy.safetensors
+      - g_IGTyyzfC27UT9AVlt-v_adapter_model_comfy_converted.safetensors
+      - game-assets.safetensors
+      - gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors
+      - glowing_flux.safetensors
+      - icons.safetensors
+      - ink_style-4-500.safetensors
+      - inkij.safetensors
+      - isaveloso-v1.safetensors
+      - jennifer-lawrence FLUX.safetensors
+      - kate.safetensors
+      - katewflx_flux-lora-000003.safetensors
+      - katiethomas.safetensors
+      - kim-jon-un_flux-d_v01e08.safetensors
+      - kristen_bell_dev_f1_k.safetensors
+      - lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors
+      - logomaker1024-000008.safetensors
+      - lohan2006flux1-000001.safetensors
+      - lora-small-mckenna-grace-v1.safetensors
+      - lora.safetensors
+      - lorafy_detail_enhancer.safetensors
+      - ltx-2-19b-distilled-lora-384.safetensors
+      - ltx-2-19b-lora-camera-control-dolly-in.safetensors
+      - ltx-2-19b-lora-camera-control-dolly-left (1).safetensors
+      - ltx-2-19b-lora-camera-control-dolly-left.safetensors
+      - ltx-2-19b-lora-camera-control-dolly-out.safetensors
+      - ltx-2-19b-lora-camera-control-dolly-right (1).safetensors
+      - ltx-2-19b-lora-camera-control-dolly-right.safetensors
+      - ltx-2-19b-lora-camera-control-jib-down.safetensors
+      - ltx-2-19b-lora-camera-control-jib-up.safetensors
+      - ltx-2-19b-lora-camera-control-static.safetensors
+      - ltx-2.3-22b-distilled-lora-384.safetensors
+      - ltx-2.3-22b-distilled-lora-dynamic_fro09_avg_rank_105_bf16.safetensors
+      - ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors
+      - ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors
+      - ltx2.3-transition.safetensors
+      - makinaflux_hanni_v1.0.safetensors
+      - makraineflux.safetensors
+      - mech-anything-kontext.safetensors
+      - meg-ryan.safetensors
+      - megan_fox_r8_flux_lora_v1_000002400.safetensors
+      - mhfx_disintegrate-000001.safetensors
+      - microx.safetensors
+      - mjv6_lora_comfy_converted.safetensors
+      - ninadobrev.safetensors
+      - nnRFrdzYqUrvqvP0gXf_U_adapter_model.safetensors
+      - oil_painting.safetensors
+      - paradiffflux.safetensors
+      - pastel.safetensors
+      - pencil_drawing.safetensors
+      - pixel-art-flux-v2.safetensors
+      - place_it.safetensors
+      - pov-missionary-2.safetensors
+      - pwZ5xiRMC8fdAGYSPvtUp_adapter_model_comfy_converted.safetensors
+      - qwen-image-edit-2511-multiple-angles-lora.safetensors
+      - real-lora.safetensors
+      - realism_lora_comfy_converted.safetensors
+      - rebecca-breeds.safetensors
+      - scenery_lora_comfy_converted.safetensors
+      - schnell_v1.0.safetensors
+      - shionecooper.safetensors
+      - shirley-manson.safetensors
+      - spooning_leg_lifted_sex.safetensors
+      - superflat.safetensors
+      - sxz-Warcraft-Cinematic-Flux.safetensors
+      - tattoo-kontext-dev-lora-ilkerigz.safetensors
+      - topless-breasts-flux_v4.safetensors
+      - undeadmadness-warcraftstyle.safetensors
+      - uso-flux1-dit-lora-v1.safetensors
+      - vision_realistic_flux_lora_v1.safetensors
+      - vtuber logo style V2.safetensors
+      - wackadoodle-000004.safetensors
+      - wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors
+      - wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors
+      - wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors
+      - wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors
+      - watercolor.safetensors
+      - winonaflx.safetensors
+      - zitMj02.safetensors
+      - "å¹»è±¡ç»\x98å½±ä¸\x87ç\x89©æ\x8A\x98çº¸ç\x94»é£\x8E-OrigamiKontextLoRA.safetensors"
 discord:
   command: videosegment
   inputs:
-    - id: image
-      nodeId: '48'
-      field: image
-      type: image_upload
-      label: image
-      required: true
     - id: text
-      nodeId: '104'
+      nodeId: '4'
       field: text
       type: text
       label: text
       required: true
+    - id: image
+      nodeId: '1'
+      field: image
+      type: image_upload
+      label: image
+      required: true
     - id: audio
-      nodeId: '121'
+      nodeId: '27'
       field: audio
       type: audio_upload
       label: audio
       required: true
-    - id: start_index
-      nodeId: '122'
-      field: start_index
-      type: text
-      label: start_index
+    - id: lora_name
+      nodeId: '2'
+      field: lora_name
+      type: select
+      label: lora_name
       required: true
+      choices:
+        - 20241120-ElleFanning-v1-step00002000.safetensors
+        - 4fa088cbab0d4e4198fe0ffd8fb32f2f_pytorch_lora_weights.safetensors
+        - 59yr4hcEqhdxkEgIu7iwY_adapter_model_comfy_converted.safetensors
+        - 5SX6j2wcLJKgudBqlmver_adapter_model_comfy_converted.safetensors
+        - 8nXWPoktw7sdu0Y0GSKFB_adapter_model_comfy_converted.safetensors
+        - AlexandraDaddarioF1D.safetensors
+        - AlexandraDaddario_flux_lora_v1_000001750.safetensors
+        - AlexisBledel_flux_lora_v1.safetensors
+        - AliLarter_flux_lora_v5.safetensors
+        - AliciaVikander_F1D.safetensors
+        - Alicia_Silverstone_Flux.safetensors
+        - Amanda_Seyfried_Flux.safetensors
+        - AmberHeard_flux_lora_v2.safetensors
+        - AmySmart_flux_lora_v2.safetensors
+        - Anna Tagan v1.safetensors
+        - Anna_Kendrick_Flux.safetensors
+        - Annie Edison.safetensors
+        - Anthropomorphic.safetensors
+        - AntiBlur.safetensors
+        - Ars_MidJourney_Style_-_Flux.safetensors
+        - Ars_MidJourney_Watercolor.safetensors
+        - Art Nouveau architecture.safetensors
+        - ArtfulNSFWV2Flux.safetensors
+        - Aura Flux 2.0.safetensors
+        - Aura_Flux.safetensors
+        - BFV_pS6p-ZozitXudVFJc_adapter_model_comfy_converted.safetensors
+        - BeautyInEvilFlux.safetensors
+        - Bougeureau_Flux.safetensors
+        - Bruce-Campbell_Flux_v02-e06.safetensors
+        - Cabanel_Flux.safetensors
+        - CameronDiazFluxV1.safetensors
+        - Caravaggio_Flux.safetensors
+        - CazMaFlux.safetensors
+        - Chaplin_Flux.safetensors
+        - CharacterDesign-FluxV2.safetensors
+        - Circuit_Board_FLUX.safetensors
+        - Conv_High_Noise_I2V_LazySusan.safetensors
+        - Cursed_LoRA_Flux.safetensors
+        - DanielleRR_SoloLoRA_F1V1.safetensors
+        - Danielle_Panabaker_Ca2005.safetensors
+        - Decadence_style.safetensors
+        - DemiM_SoloLoRA_F1V1.safetensors
+        - Donald-Trump_Flux_v01e08.safetensors
+        - DreamyKolors_v1.safetensors
+        - Drew_Barrymore_Flux.safetensors
+        - E_B_Leighton_Flux_resize.safetensors
+        - Egon_Art.safetensors
+        - Eldritch-Dark-Comics-1.0.safetensors
+        - Eldritch_PinholePhotography_1.0.0.safetensors
+        - Ella_Purnell_Flux.safetensors
+        - Emily_Blunt_Flux.safetensors
+        - EmmaW_SoloLoRA_F1V1.safetensors
+        - EmmaWatson_flux_lora_v1.safetensors
+        - Emma_Watson_boy40.safetensors
+        - Enjolras_Flux_2.safetensors
+        - EnvyFluxWingFix01.safetensors
+        - Epic-detail_v2.safetensors
+        - EvannaLynch_SoloLoRA_F1V1.safetensors
+        - F1D_Adriana-Lima_v01e12.safetensors
+        - F1D_Angela-Raynor_v01e07.safetensors
+        - F1D_Anthony-Faucci_v01e10.safetensors
+        - F1D_Audrey-Hepburn_v01e09.safetensors
+        - F1D_Ayatollah-Khamenei_v01e09.safetensors
+        - F1D_Benjamin-Netanyahu_v01e09.safetensors
+        - F1D_Bill-Gates_v01e07.safetensors
+        - F1D_Brigitte-Bardot_v02e11.safetensors
+        - F1D_Britt-Ekland_v01e11.safetensors
+        - F1D_Burt-Reynolds_v01e07.safetensors
+        - F1D_Christopher-Lee_v01e07.safetensors
+        - F1D_Clark-Gable_v01e10.safetensors
+        - F1D_Elon-Musk_v01e07.safetensors
+        - F1D_Gary-Coleman_v01e11.safetensors
+        - F1D_Gavin-Newsom_v01e10.safetensors
+        - F1D_Gene-Hackman_v01e07.safetensors
+        - F1D_George-Takei_v01e07.safetensors
+        - F1D_JD-Vance_v01e07.safetensors
+        - F1D_Jacques-Attali_v01e06.safetensors
+        - F1D_Jeremy-Corbyn_v01e10.safetensors
+        - F1D_John-McAfee_v01e07.safetensors
+        - F1D_Kate-Middleton_v01e14.safetensors
+        - F1D_Keir-Starmer_v02e10.safetensors
+        - F1D_Kenneth-Copeland_v01e07.safetensors
+        - F1D_Larry-Fink_v01e08.safetensors
+        - F1D_Luigi-Mangione_v01e07.safetensors
+        - F1D_Matt-Hancock_v01e07.safetensors
+        - F1D_Matthew-McConaughey_v01e13.safetensors
+        - F1D_Melania-Trump_v01e10.safetensors
+        - F1D_Peter-Cushing_v01e07.safetensors
+        - F1D_Prince-Andrew_v01e08.safetensors
+        - F1D_Priti-Patel_v01.safetensors
+        - F1D_Rachel-Reeves_v01e07.safetensors
+        - F1D_Steve-Buscemi_v02e08.safetensors
+        - F1D_Vincent-Price_v01e07.safetensors
+        - F1D_Vladimir-Putin_v01e12.safetensors
+        - F1D_Volodymyr-Zelenskyy_v01e07.safetensors
+        - F1D_Winston-Churchill_v01e07.safetensors
+        - F1D_Yuval-Noah-Harari_v01e07.safetensors
+        - FLUX-Selena Gomez.safetensors
+        - FLUX-dev-lora-AntiBlur.safetensors
+        - FLUXTASTIV_V1.safetensors
+        - FLUX_DazStyle.safetensors
+        - FantasticalRealism.safetensors
+        - Fff.safetensors
+        - Flux-Sch-SingleBlocks-F32.sft
+        - Flux.1_Turbo_Detailer.safetensors
+        - Flux.ChloeGrace-step00000350.safetensors
+        - Flux.Cuoco-step00000450.safetensors
+        - Flux.EmmaMyers-step00000400.safetensors
+        - Flux.Livvy-step00000400.safetensors
+        - Flux.Miley.safetensors
+        - Flux.TaylorSwift-step00000350.safetensors
+        - FluxDFaeTasticDetails.safetensors
+        - FluxWeaponSwordShield.safetensors
+        - Flux_1_Dev_LoRA_syntheticanime.safetensors
+        - Flux_2-Turbo-LoRA_comfyui (1).safetensors
+        - Flux_2-Turbo-LoRA_comfyui.safetensors
+        - Flux_Improved_Female_Nudity_v1.safetensors
+        - FoxyDi1_flux_lora_v4.safetensors
+        - >-
+          Gaia__Jaime_Murray_-_Spartacus_Gods_of_the_Arena_Tv_Series-000019.safetensors
+        - Gal_Gadot_Flux.safetensors
+        - Gillian_Anderson_1993_Flux.safetensors
+        - Godward_Flux.safetensors
+        - Graffiti01_CE_FLUX_AIT3k.safetensors
+        - Graffiti_Art_FLUX_Style-000004.safetensors
+        - HaydenPanettiere_flux_lora_v1.safetensors
+        - Henner_Flux.safetensors
+        - Hyper-FLUX.1-dev-8steps-lora.safetensors
+        - I_iqVzkUKMbyMntpkSU4J_adapter_model_comfy_converted.safetensors
+        - Impasto Oil Paint Style.safetensors
+        - InScene-v1.0.safetensors
+        - It2d_UD0qRgotAZjJHXx__adapter_model_comfy_converted.safetensors
+        - JennaOrtega_F1D.safetensors
+        - Jennifer_Carpenter_2012_Flux.safetensors
+        - Jennifer_Connelly_1990-000032.safetensors
+        - Jennifer_Garner_v2.safetensors
+        - Jennifer_Lawrence_V2_Flux.safetensors
+        - Jennifer_Lien_PMv1_Flux-000009.safetensors
+        - Jennifer_Morrison.safetensors
+        - Jessica_Alba_Flux.safetensors
+        - Joey_King_Flux.safetensors
+        - Kate_Beckinsale_Flux.safetensors
+        - Kate_Winslet_1996-000020.safetensors
+        - KatherineHeigl_flux_lora_v1.safetensors
+        - KatieH_SoloLoRA_F1V1.safetensors
+        - Katie_Fey.safetensors
+        - Katie_Holmes_90s.safetensors
+        - Katy_Perry_Flux.safetensors
+        - KayaS_flux_lora_v4.safetensors
+        - Keira_Knightley_Flux.safetensors
+        - Kelly Preston_SoloLoRA_F1V2.safetensors
+        - King-Charles_Flux_v01e08.safetensors
+        - Kirsten_Dunst_Flux_V1.safetensors
+        - Kirsten_Stewart_v1_000001750.safetensors
+        - Klaus-Schwab_Flux_v01e07.safetensors
+        - Kontext_P0stAp0calyptic.safetensors
+        - KristenStewartF1D.safetensors
+        - KristenStewart_Flux.safetensors
+        - Kristen_Stewart_Flux.safetensors
+        - KristinKreuk_flux_lora_v3.safetensors
+        - LTX-2.3-22b-AV-LoRA-talking-head-v1.safetensors
+        - LTX-2.3-danceV2.comfy.safetensors
+        - LTX2.3-IC-LORA-Dual-Character.safetensors
+        - LTX2.3_Crisp_Enhance.safetensors
+        - Lautrec_Flux.safetensors
+        - Lily James LoRA_SoloLoRA_F1V1.safetensors
+        - LilyC_SoloLoRA_F1V1.safetensors
+        - Little_Caprice_Flux.safetensors
+        - Live2d_Background_Ver1_high_noise.safetensors
+        - Logo_vector.safetensors
+        - Ltx2.3-Licon-VBVR-I2V-96000-R32.safetensors
+        - MMceKFMMmIkZAoyx6m2Cn_adapter_model_comfy_converted.safetensors
+        - MS_Nude_Style_Flux_V2.safetensors
+        - MaggieG_SoloLoRA_F1V1.safetensors
+        - Mary_Amber_Flux.safetensors
+        - Mathilda_V2-000031.safetensors
+        - Medieval02-00_CE_FLUX_AIT.safetensors
+        - Megan_Marx_Flux.safetensors
+        - MetalArt01a_CE_FLUX_AIT3k.safetensors
+        - Midjourney_Dreamlike_Fantasy_FLUX_LoRA.safetensors
+        - Midjourney_V7_DetailStyle_Flux_v1.0.safetensors
+        - Midjourney_imitation_FLUX.safetensors
+        - MillieBB_SoloLoRA_F1V1.safetensors
+        - Monet_Flux.safetensors
+        - MonicaB_SoloLoRA_F1V1.safetensors
+        - MothFX.safetensors
+        - Mucha_Flux.safetensors
+        - MysticSplash.safetensors
+        - Neve_Campbell_Flux.safetensors
+        - New_Fantasy_CoreV4_FLUX.safetensors
+        - Nude_Art_III.safetensors
+        - Oldify.safetensors
+        - OliviaWilde_flux_lora_v1.safetensors
+        - Olivia_Hussey.safetensors
+        - P-Diddy_Flux_v01e08.safetensors
+        - Painterly01b_CE_FLUX_AIT4k.safetensors
+        - PeytonSL.safetensors
+        - Phlux_Photo_Realism.safetensors
+        - Phlux_Texture&Lighting.safetensors
+        - Qwen-Edit-2509-Multiple-angles.safetensors
+        - Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors
+        - Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
+        - Qwen-Image-Edit-2511-Lightning-8steps-V1.0-fp32.safetensors
+        - Qwen-Image-Lightning-4steps-V1.0.safetensors
+        - Qwen-Image-Lightning-8steps-V1.0.safetensors
+        - RPGv6-itr15.safetensors
+        - RachaelLeighCook_flux_lora_v1.safetensors
+        - Rain_Carradine_-_Cailee_Spaeny_-_Alien_Romulus_Flux.safetensors
+        - Rebecca Guay [Style] Flux.safetensors
+        - Rosie_Huntington_Whiteley.safetensors
+        - Rubens_Flux.safetensors
+        - SMGFluxModel.safetensors
+        - SammyNoodleSoupv3.safetensors
+        - SarahMcDaniel_rank16_bf16-step00750.safetensors
+        - Scarlett_Johansson-000032.safetensors
+        - Seignac_Flux.safetensors
+        - SelenaGomez_v2.safetensors
+        - Selene Underworld (s3l3n3) - Flux test-000060.safetensors
+        - Sketch_Flux.safetensors
+        - Snegh-000001.safetensors
+        - Sophie_Turner_Flux.safetensors
+        - StainedGlassAndMetal04_CE_FLUX_AIT.safetensors
+        - Steampunk_BioMechanical_Flux.safetensors
+        - Super Panavision 70 Technicolor.safetensors
+        - TaraReid_flux_lora_v1.safetensors
+        - Textimprover-FLUX-V0.4.safetensors
+        - The_beauty_of_realism_(FLUX).safetensors
+        - The_beauty_of_realism_2_(T).safetensors
+        - Thrall_Flux_Lora_rank16_bf16.safetensors
+        - Tifa Lockhart.safetensors
+        - Titanicus.safetensors
+        - Ultima_Flux_v1.safetensors
+        - UltraReal.safetensors
+        - UltraRealPhoto.safetensors
+        - Van_Gogh_Flux.safetensors
+        - VantaGold.safetensors
+        - Vivid vibrant color style _ F1 Sora_V1.safetensors
+        - Vm-BMF5YoW4OOsDhk1F9h_adapter_model_comfy_converted.safetensors
+        - WAN-2.2-I2V-BreastPlay-HIGH-v2.safetensors
+        - WOW_Character_Style.safetensors
+        - Wan2.1_T2V_14B_FusionX_LoRA.safetensors
+        - Wan2.2-I2V-A14B-High-4steps-lora-rank64-Seko-V1.safetensors
+        - Wan2.2-I2V-A14B-Low-4steps-lora-rank64-Seko-V1.safetensors
+        - Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16.safetensors
+        - Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors
+        - Wan2.2-Lightning_T2V-A14B-4steps-lora_HIGH_fp16.safetensors
+        - Wan2.2-Lightning_T2V-A14B-4steps-lora_LOW_fp16.safetensors
+        - Wan2.2-T2V-A14B-4steps-lora-rank64.safetensors
+        - Wan21_AccVid_T2V_14B_lora_rank32_fp16.safetensors
+        - Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors
+        - Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank32.safetensors
+        - >-
+          Wan22_A14B_T2V_HIGH_Lightning_4steps_lora_250928_rank128_fp16.safetensors
+        - >-
+          Wan22_A14B_T2V_LOW_Lightning_4steps_lora_250928_rank64_fp16.safetensors
+        - Wan22_TI2V_5B_Turbo_lora_rank_64_fp16.safetensors
+        - Wan22_TI2V_5B_Turbo_lora_rank_adaptive_quantile_0.15_fp16.safetensors
+        - >-
+          Wan_2_2_I2V_A14B_HIGH_lightx2v_MoE_distill_lora_rank_64_bf16.safetensors
+        - Willow_Rosenberg_Flux.safetensors
+        - XLFantasyKnightsV4.safetensors
+        - Younger Emma Watson.safetensors
+        - Yvonne_Flux_CFH-000010.safetensors
+        - Yvonne_Strahovski_Flux.safetensors
+        - ZKcZdffUM6qyMYiEE8ed0_adapter_model_comfy_converted.safetensors
+        - Zombify.safetensors
+        - aesthetic10k.safetensors
+        - aidmaBokeh-FLUX-V0.1.safetensors
+        - aidmaDall-E3-FLUX-v0.1.safetensors
+        - aidmaDarkFantasy-FLUX-V0.1.safetensors
+        - aidmaExperimentalPhotography-FLUX-V0.1.safetensors
+        - aidmaFLUXPro1.1-FLUX-v0.3.safetensors
+        - aidmaFLUXpro1.1-FLUX-V0.2.safetensors
+        - aidmaHiDreamStyle-FLUX-v0.1.safetensors
+        - aidmaHyperRealism-FLUX-V0.2.safetensors
+        - aidmaHyperrealism-FLUX-V0.1.safetensors
+        - aidmaHyperrealism-FLUX-v0.3.safetensors
+        - aidmaImageUpgrader-detailmaximizer-FLUX-V0.1.safetensors
+        - aidmaImageUprader-FLUX-v0.3.safetensors
+        - aidmaImageUprader.safetensors
+        - aidmaMJ6.1-FLUX-V0.3.safetensors
+        - aidmaMJ6.1-FLUX-v0.4.safetensors
+        - aidmaMJ6.1-FLUX-v0.5.safetensors
+        - aidmaMJ61Flux.2v0.5.safetensors
+        - aidmaMJv7-FLUX-v0.1.safetensors
+        - aidmaMJv7-ILL-v0.1.safetensors
+        - aidmaNijiAnimeStyle.safetensors
+        - aidmaPonyStyle-FLUX-V0.1.safetensors
+        - aidmaPsychadelicChaosWorld-FLUX-v0.1.safetensors
+        - aidmaRealisticSkin-FLUX-v0.1.safetensors
+        - aidmaRealisticSkin-IL-v0.1.safetensors
+        - aidmaSecretLab-FLUX-V0.1.safetensors
+        - aidmaSoftGlow-FLUX-V0.1.safetensors
+        - aidmaTextImprover-FLUX-V0.1.safetensors
+        - aidmaTextImprover-FLUX-V0.3.safetensors
+        - alisa-v1.safetensors
+        - am1d0lenz.safetensors
+        - anime_v1.safetensors
+        - aura_captioned_flux.safetensors
+        - avrilflx_flux-lora-000002.safetensors
+        - b6TU_pSM8eoZWyiy-CyFF_adapter_model_comfy_converted.safetensors
+        - best_of_flux_v30_rank64_bf16-step01750.safetensors
+        - boFLUX Digital Abstract.safetensors
+        - boFLUX_AbstractMorph.safetensors
+        - boFLUX_Bioluminescent_Dreams_v1.safetensors
+        - brooke-shields.safetensors
+        - bv-dark-academia-v1.safetensors
+        - candicesflx1.safetensors
+        - celtycdesihelp.safetensors
+        - chanelfenn.safetensors
+        - clothes_remover_v0.safetensors
+        - cutertx.safetensors
+        - damasked.safetensors
+        - danielle_campbell.safetensors
+        - deepfocus.safetensors
+        - dit_lora.safetensors
+        - dmai-yellow.safetensors
+        - eliolsen_2017_local_164_merger_20v1_8v2_34v2_03_03_04.safetensors
+        - elisha-v1.safetensors
+        - err00ssvm3.safetensors
+        - eva_green_flux_lora_v1_000001200.safetensors
+        - fantasy-flux-nymical-v3.safetensors
+        - fantasy-flux-v1.safetensors
+        - flux-fluidart-lora-v1.safetensors
+        - flux-lora-alexis-knapp.safetensors
+        - flux-oilpainting1.3-00001.safetensors
+        - flux1-depth-dev-lora.safetensors
+        - flux_dev_NeoAndeanArchitecture.safetensors
+        - flux_emma_watson.safetensors
+        - flux_gopher_lycoris_loha.safetensors
+        - flux_vividizer.safetensors
+        - freddy.safetensors
+        - g_IGTyyzfC27UT9AVlt-v_adapter_model_comfy_converted.safetensors
+        - game-assets.safetensors
+        - gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors
+        - glowing_flux.safetensors
+        - icons.safetensors
+        - ink_style-4-500.safetensors
+        - inkij.safetensors
+        - isaveloso-v1.safetensors
+        - jennifer-lawrence FLUX.safetensors
+        - kate.safetensors
+        - katewflx_flux-lora-000003.safetensors
+        - katiethomas.safetensors
+        - kim-jon-un_flux-d_v01e08.safetensors
+        - kristen_bell_dev_f1_k.safetensors
+        - lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors
+        - logomaker1024-000008.safetensors
+        - lohan2006flux1-000001.safetensors
+        - lora-small-mckenna-grace-v1.safetensors
+        - lora.safetensors
+        - lorafy_detail_enhancer.safetensors
+        - ltx-2-19b-distilled-lora-384.safetensors
+        - ltx-2-19b-lora-camera-control-dolly-in.safetensors
+        - ltx-2-19b-lora-camera-control-dolly-left (1).safetensors
+        - ltx-2-19b-lora-camera-control-dolly-left.safetensors
+        - ltx-2-19b-lora-camera-control-dolly-out.safetensors
+        - ltx-2-19b-lora-camera-control-dolly-right (1).safetensors
+        - ltx-2-19b-lora-camera-control-dolly-right.safetensors
+        - ltx-2-19b-lora-camera-control-jib-down.safetensors
+        - ltx-2-19b-lora-camera-control-jib-up.safetensors
+        - ltx-2-19b-lora-camera-control-static.safetensors
+        - ltx-2.3-22b-distilled-lora-384.safetensors
+        - ltx-2.3-22b-distilled-lora-dynamic_fro09_avg_rank_105_bf16.safetensors
+        - ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors
+        - ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors
+        - ltx2.3-transition.safetensors
+        - makinaflux_hanni_v1.0.safetensors
+        - makraineflux.safetensors
+        - mech-anything-kontext.safetensors
+        - meg-ryan.safetensors
+        - megan_fox_r8_flux_lora_v1_000002400.safetensors
+        - mhfx_disintegrate-000001.safetensors
+        - microx.safetensors
+        - mjv6_lora_comfy_converted.safetensors
+        - ninadobrev.safetensors
+        - nnRFrdzYqUrvqvP0gXf_U_adapter_model.safetensors
+        - oil_painting.safetensors
+        - paradiffflux.safetensors
+        - pastel.safetensors
+        - pencil_drawing.safetensors
+        - pixel-art-flux-v2.safetensors
+        - place_it.safetensors
+        - pov-missionary-2.safetensors
+        - pwZ5xiRMC8fdAGYSPvtUp_adapter_model_comfy_converted.safetensors
+        - qwen-image-edit-2511-multiple-angles-lora.safetensors
+        - real-lora.safetensors
+        - realism_lora_comfy_converted.safetensors
+        - rebecca-breeds.safetensors
+        - scenery_lora_comfy_converted.safetensors
+        - schnell_v1.0.safetensors
+        - shionecooper.safetensors
+        - shirley-manson.safetensors
+        - spooning_leg_lifted_sex.safetensors
+        - superflat.safetensors
+        - sxz-Warcraft-Cinematic-Flux.safetensors
+        - tattoo-kontext-dev-lora-ilkerigz.safetensors
+        - topless-breasts-flux_v4.safetensors
+        - undeadmadness-warcraftstyle.safetensors
+        - uso-flux1-dit-lora-v1.safetensors
+        - vision_realistic_flux_lora_v1.safetensors
+        - vtuber logo style V2.safetensors
+        - wackadoodle-000004.safetensors
+        - wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors
+        - wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors
+        - wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors
+        - wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors
+        - watercolor.safetensors
+        - winonaflx.safetensors
+        - zitMj02.safetensors
+        - "å¹»è±¡ç»\x98å½±ä¸\x87ç\x89©æ\x8A\x98çº¸ç\x94»é£\x8E-OrigamiKontextLoRA.safetensors"
   ui:
     embed:
       title_template: '{user}''s Generation'
       color: '#5865F2'
+      use_role_color: true
       show_metadata:
         - prompt
         - seed
         - model
         - ratio
-        - steps
-      show_footer: false
-      image_position: top
-      show_author: false
-      use_role_color: true
     buttons:
       - type: regenerate
         label: Regenerate
         style: primary
-        emoji: ♻️
       - type: options
         label: Options
         style: secondary
-        emoji: ⚙️
       - type: delete
         label: Delete
         style: danger
-        emoji: 🗑️
-      - type: chain
-        label: Video This
-        style: primary
-        target_workflow: LTXVIA2V
-        emoji: 📽️
     positions: {}
-  loras: {}
-display_name: Video based on uploaded audio length
+  loras:
+    '2': ltxvlora.json

@@ -74,3 +74,8 @@ discord:
     positions: {}
   loras: {}
 display_name: Create video, upload audio, describe actions
+ai_prompt:
+  enabled: false
+  category: video
+  prompt_id: prompt-1778595834012
+  target_input: text
