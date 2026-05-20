@@ -75,6 +75,7 @@ Follow this link to see the full manual for LINK: [Full Manual](./Manual.md)
 
 ### 1. Requirements
 - **Latest Stable Release of ComfyUI** - Download from [ComfyUI's GitHub](https://github.com/comfyanonymous/ComfyUI/releases).
+  - Download ComfyUI_windows_portable_nvidia.7z (older cu versions are not supported) must be cu130+
 - **Update ComyfyUI** - Update all of comfyui to the latest version by running the few update .bat files in update folder. 
 - **ComfyUI** workflows must be working at this point.
     - Export your workflow AP by enabling Dev mode in settings then clicking Comfy icon / file / Export API and save this, import this file into link.
