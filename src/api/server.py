@@ -16,6 +16,10 @@ from tkinter import filedialog
 
 logger = setup_logger("api_server")
 
+MANUAL_NODE_MAPPING = {
+    "AutoMegapixelReducer": "https://github.com/nvmax/aspect-ratio-resizer"
+}
+
 app = FastAPI()
 
 # Enable CORS for the dashboard
@@ -227,6 +231,30 @@ async def run_comfy_install_deps(workspace_path: str, workflow_path: str) -> boo
         cmd1 = f'comfy --workspace "{workspace_path}" node deps-in-workflow --workflow "{workflow_path}" --output "{deps_path}"'
         success1, _ = await execute_comfy_command(workspace_path, cmd1)
         if not success1: return False
+
+        # Patch dependencies file with any manual node mappings
+        if os.path.exists(deps_path):
+            try:
+                with open(deps_path, 'r', encoding='utf-8') as f:
+                    deps_data = json.load(f)
+                
+                unknowns = deps_data.get("unknown_nodes", [])
+                customs = deps_data.setdefault("custom_nodes", {})
+                
+                updated = False
+                for node in list(unknowns):
+                    if node in MANUAL_NODE_MAPPING:
+                        repo_url = MANUAL_NODE_MAPPING[node]
+                        customs[repo_url] = {"state": "not-installed"}
+                        unknowns.remove(node)
+                        updated = True
+                
+                if updated:
+                    logger.info(f"Patched deps.json, mapped nodes: {list(MANUAL_NODE_MAPPING.keys())}")
+                    with open(deps_path, 'w', encoding='utf-8') as f:
+                        json.dump(deps_data, f, indent=2)
+            except Exception as e:
+                logger.error(f"Failed to patch deps.json: {e}")
 
         # Step 2: Install deps
         cmd2 = f'comfy --workspace "{workspace_path}" --skip-prompt node install-deps --deps "{deps_path}"'
@@ -1382,6 +1410,16 @@ async def check_nodes(request: Request):
                         missing_repos.append(repo)
             
             unknown_nodes = deps_data.get("unknown_nodes", [])
+            
+            # Check if any unknown nodes are in our manual mapping list
+            for node in list(unknown_nodes):
+                if node in MANUAL_NODE_MAPPING:
+                    repo_url = MANUAL_NODE_MAPPING[node]
+                    repo_folder_name = repo_url.split('/')[-1]
+                    custom_nodes_path = os.path.join(comfy_workspace, "custom_nodes", repo_folder_name)
+                    if not os.path.exists(custom_nodes_path):
+                        missing_repos.append(repo_url)
+                    unknown_nodes.remove(node)
             
             # Combine missing repos and unknown nodes as strings
             missing = missing_repos + unknown_nodes
