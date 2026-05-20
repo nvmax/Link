@@ -11,8 +11,39 @@
 > **If you can dream it in Comfy, you can dominate it in Discord.**
 
 ---
+### Overview of LINK
+
+```mermaid
+flowchart TD
+    subgraph dashboard ["🎨 LINK Dashboard (Control Plane)"]
+        direction TB
+        A["1. Architect View"] -->|Import ComfyUI JSON and Map inputs| B["2. AI and LoRA Studio"]
+        B -->|Set Persona and Organise Models| C["3. Modal Studio"]
+        C -->|Brand Result Embed and Add Buttons| D["4. Role Studio"]
+        D -->|Granular Discord Role Permissions| E["Local Manifest & Config Files"]
+    end
+
+    subgraph runtime ["⚡ Discord & ComfyUI Runtime (Execution Engine)"]
+        direction TB
+        F["Discord User"] -->|Invoke /command| G["🔐 Access Check (Role Studio)"]
+        G -->|Authorized| H["🧠 Prompt Choice (Yes/No AI Enhance)"]
+        H -->|Yes| I["✨ AI Studio (LLM Enhancement)"]
+        H -->|No| J["📁 LoRA Selector / Picker"]
+        I --> J
+        J -->|Inject triggers and weights| K["⚙️ ComfyUI Backend Execution"]
+        K -->|Generate output media| L["🎭 Modal Studio Formatting"]
+        L -->|Render branded embed with action buttons| M["Discord Embed Output"]
+        M -->|Workflow Chaining button click| F
+    end
+
+    E -.->|Synchronized config| G
+```
+
+
+
 
 ### 🚀 Core Capabilities
+
 - **Mission Control**: Configure your ComfyUI integration and manage system-wide settings.
 - **System Diagnostics**: Shows current workflows, lora lists, and if discords pipeline is healthy. 
 - **Node Health**: Monitors and checks for updates to installed nodes, and allows for selective updates.
