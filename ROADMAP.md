@@ -9,11 +9,14 @@ We are just getting started. **LINK** is designed to be an evolving ecosystem th
 - **Video-First Modals**: Specialized UI layouts specifically designed for LTXV and other video-generation workflows.
 - **Node Health Check**: Diagnostic tool to identify broken or outdated nodes before you run a generation.
 - **AI Studio**: A centralized hub for managing AI models and system prompts, complete with LLM-powered prompt enhancement and interactive refinement.
+- **Auto-Configurator**: Update comfyui, install sage attention based on gpu selection.
+- **Theme Engine**: Dark/Light mode switching and custom CSS support for the Dashboard.
+- **Granular Permissions**: Define who can use which workflows based on Discord Roles.
 
 
 ## 🛠️ Integrated ComfyUI Management
 *Goal: Remove the need to ever leave the LINK Dashboard.*
-- **Auto-Configurator**: Update comfyui, install sage attention based on gpu selection.
+✔️ **Auto-Configurator**: Update comfyui, install sage attention based on gpu selection.
 
 ✔️ **One-Click Node Setup**: Automatically detect and install missing ComfyUI custom nodes required by your imported workflows.
 
@@ -21,15 +24,15 @@ We are just getting started. **LINK** is designed to be an evolving ecosystem th
 
 ## 🤖 Advanced Bot Capabilities
 *Goal: More control, more interaction.*
-- **Granular Permissions**: Define who can use which workflows based on Discord Roles.
+✔️ **Granular Permissions**: Define who can use which workflows based on Discord Roles.
 
 ## 🎨 Professional Studio Enhancements
 *Goal: A truly "What You See Is What You Get" experience.*
-- **Asset Library**: A built-in gallery to view every image and video generated through LINK, with "Remix" and "Re-run" buttons.
-
 ✔️ **Video-First Modals**: Specialized UI layouts specifically designed for LTXV and other video-generation workflows.
 
-- **Theme Engine**: Dark/Light mode switching and custom CSS support for the Dashboard.
+✔️ **Auto-Configurator**: Update comfyui, install sage attention based on gpu selection.
+
+✔️ **Theme Engine**: Dark/Light mode switching and custom CSS support for the Dashboard.
 
 
 ---

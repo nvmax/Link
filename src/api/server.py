@@ -1373,3 +1373,76 @@ async def check_nodes(request: Request):
     except Exception as e:
         logger.error(f"Node check error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/discord/guilds")
+async def get_discord_guilds():
+    """
+    Returns all connected guilds the bot is in, along with their sorted roles list and icons.
+    """
+    if not bot_instance:
+        return {"guilds": [], "status": "offline"}
+    
+    if not bot_instance.is_ready():
+        return {"guilds": [], "status": "loading"}
+        
+    try:
+        guilds_data = []
+        for guild in bot_instance.guilds:
+            roles_data = []
+            for role in guild.roles:
+                color_str = f"#{role.color.value:06x}" if role.color.value != 0 else None
+                roles_data.append({
+                    "id": str(role.id),
+                    "name": role.name,
+                    "color": color_str,
+                    "is_everyone": role.is_default(),
+                    "position": role.position
+                })
+            
+            roles_data.sort(key=lambda r: r["position"], reverse=True)
+            
+            guilds_data.append({
+                "id": str(guild.id),
+                "name": guild.name,
+                "icon": guild.icon.url if guild.icon else None,
+                "roles": roles_data
+            })
+            
+        return {"guilds": guilds_data, "status": "online"}
+    except Exception as e:
+        logger.error(f"Error fetching Discord guilds: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/discord/permissions")
+async def get_discord_permissions():
+    """
+    Reads and returns the persistent permissions mapping from permissions.json.
+    """
+    permissions_path = os.path.join(Config.DATA_DIR, "permissions.json")
+    if not os.path.exists(permissions_path):
+        return {"guild_permissions": {}}
+    try:
+        with open(permissions_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Error reading permissions.json: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to read permissions: {str(e)}")
+
+
+@app.post("/api/discord/permissions")
+async def save_discord_permissions(request: Request):
+    """
+    Persists updated permissions mapping to permissions.json.
+    """
+    try:
+        data = await request.json()
+        permissions_path = os.path.join(Config.DATA_DIR, "permissions.json")
+        os.makedirs(os.path.dirname(permissions_path), exist_ok=True)
+        with open(permissions_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error saving permissions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

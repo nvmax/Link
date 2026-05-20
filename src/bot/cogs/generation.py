@@ -131,7 +131,7 @@ class GenerationCog(commands.Cog):
                     return None
 
             # --- AI ENHANCEMENT INTERCEPTOR ---
-            async def run_ai_enhancement(target_interaction: discord.Interaction, current_values: dict):
+            async def run_ai_enhancement(target_interaction: discord.Interaction, current_values: dict, run_enhancement: bool = False):
                 ai_cfg = manifest.get("ai_prompt", {})
                 if not ai_cfg.get("enabled"):
                     return await continue_to_lora_or_gen(target_interaction, current_values)
@@ -147,27 +147,70 @@ class GenerationCog(commands.Cog):
                 if not original_prompt:
                     return await continue_to_lora_or_gen(target_interaction, current_values)
 
-                # AI takes time, so we MUST defer to avoid timeout.
-                if not target_interaction.response.is_done():
-                    await target_interaction.response.defer(ephemeral=True)
+                if run_enhancement:
+                    # Call AI Service
+                    try:
+                        ai_service = AiService()
+                        enhanced_prompt = await ai_service.enhance_prompt(original_prompt, prompt_id)
+                    except Exception as e:
+                        logger.error(f"AI Enhancement failed: {e}")
+                        enhanced_prompt = original_prompt
 
-                # Call AI Service
-                try:
-                    ai_service = AiService()
-                    enhanced_prompt = await ai_service.enhance_prompt(original_prompt, prompt_id)
-                except Exception as e:
-                    logger.error(f"AI Enhancement failed: {e}")
-                    enhanced_prompt = original_prompt
+                    # Create a view with a button to trigger the modal
+                    class AIReviewView(ui.View):
+                        def __init__(self, original_interaction, current_values, target_field_id, enhanced_prompt, continue_callback):
+                            super().__init__(timeout=300)
+                            self.original_interaction = original_interaction
+                            self.current_values = current_values
+                            self.target_field_id = target_field_id
+                            self.enhanced_prompt = enhanced_prompt
+                            self.continue_callback = continue_callback
 
-                # Create a view with a button to trigger the modal
-                class AIReviewView(ui.View):
-                    def __init__(self, original_interaction, current_values, target_field_id, enhanced_prompt, continue_callback):
+                        async def interaction_check(self, interaction: discord.Interaction) -> bool:
+                            if interaction.user.id != self.original_interaction.user.id:
+                                await interaction.response.send_message("❌ This is not your generation request.", ephemeral=True)
+                                return False
+                            return True
+
+                        @ui.button(label="✨ Review & Generate", style=discord.ButtonStyle.primary)
+                        async def review(self, button_interaction: discord.Interaction, button: ui.Button):
+                            async def modal_callback(modal_interaction: discord.Interaction, final_prompt: str):
+                                self.current_values[self.target_field_id] = final_prompt
+                                # Disable the original button message
+                                try:
+                                    await button_interaction.edit_original_response(content="✅ Prompt approved. Proceeding...", view=None)
+                                except: pass
+                                await self.continue_callback(modal_interaction, self.current_values)
+
+                            prompt_cfg = next((p for p in inputs if p["id"] == self.target_field_id), {})
+                            label = prompt_cfg.get("label", "Prompt")
+                            
+                            modal = AIReviewModal(
+                                title="✨ AI Prompt Enhancement",
+                                prompt_label=label,
+                                initial_content=self.enhanced_prompt,
+                                callback=modal_callback
+                            )
+                            await button_interaction.response.send_modal(modal)
+
+                    view = AIReviewView(target_interaction, current_values, target_field_id, enhanced_prompt, continue_to_lora_or_gen)
+                    
+                    await target_interaction.followup.send(
+                        content="✨ **AI has enhanced your prompt!**\nClick below to review the changes and start the generation.",
+                        view=view,
+                        ephemeral=True
+                    )
+                    return
+
+                # Otherwise, first ask the user if they want to use AI enhancement
+                class AIQueryView(ui.View):
+                    def __init__(self, original_interaction, current_values, target_field_id, continue_callback, run_ai_enhancement_callback):
                         super().__init__(timeout=300)
                         self.original_interaction = original_interaction
                         self.current_values = current_values
                         self.target_field_id = target_field_id
-                        self.enhanced_prompt = enhanced_prompt
                         self.continue_callback = continue_callback
+                        self.run_ai_enhancement_callback = run_ai_enhancement_callback
 
                     async def interaction_check(self, interaction: discord.Interaction) -> bool:
                         if interaction.user.id != self.original_interaction.user.id:
@@ -175,34 +218,32 @@ class GenerationCog(commands.Cog):
                             return False
                         return True
 
-                    @ui.button(label="✨ Review & Generate", style=discord.ButtonStyle.primary)
-                    async def review(self, button_interaction: discord.Interaction, button: ui.Button):
-                        async def modal_callback(modal_interaction: discord.Interaction, final_prompt: str):
-                            self.current_values[self.target_field_id] = final_prompt
-                            # Disable the original button message
-                            try:
-                                await button_interaction.edit_original_response(content="✅ Prompt approved. Proceeding...", view=None)
-                            except: pass
-                            await self.continue_callback(modal_interaction, self.current_values)
+                    @ui.button(label="✨ Yes, Enhance", style=discord.ButtonStyle.success)
+                    async def yes_enhance(self, button_interaction: discord.Interaction, button: ui.Button):
+                        await button_interaction.response.edit_message(content="✨ **AI is enhancing your prompt...** Please wait.", view=None)
+                        await self.run_ai_enhancement_callback(button_interaction, self.current_values, run_enhancement=True)
 
-                        prompt_cfg = next((p for p in inputs if p["id"] == self.target_field_id), {})
-                        label = prompt_cfg.get("label", "Prompt")
-                        
-                        modal = AIReviewModal(
-                            title="✨ AI Prompt Enhancement",
-                            prompt_label=label,
-                            initial_content=self.enhanced_prompt,
-                            callback=modal_callback
-                        )
-                        await button_interaction.response.send_modal(modal)
+                    @ui.button(label="❌ No, Skip", style=discord.ButtonStyle.secondary)
+                    async def no_skip(self, button_interaction: discord.Interaction, button: ui.Button):
+                        # Proceed with original prompt directly
+                        await button_interaction.response.edit_message(content="⏩ **Proceeding without AI enhancement...**", view=None)
+                        await self.continue_callback(button_interaction, self.current_values)
 
-                view = AIReviewView(target_interaction, current_values, target_field_id, enhanced_prompt, continue_to_lora_or_gen)
+                query_view = AIQueryView(target_interaction, current_values, target_field_id, continue_to_lora_or_gen, run_ai_enhancement)
                 
-                await target_interaction.followup.send(
-                    content="✨ **AI has enhanced your prompt!**\nClick below to review the changes and start the generation.",
-                    view=view,
-                    ephemeral=True
-                )
+                # Check if we should send response or followup
+                if not target_interaction.response.is_done():
+                    await target_interaction.response.send_message(
+                        content="🧠 **AI Enhancement is enabled for this workflow.**\nWould you like to use AI to enhance your prompt?",
+                        view=query_view,
+                        ephemeral=True
+                    )
+                else:
+                    await target_interaction.followup.send(
+                        content="🧠 **AI Enhancement is enabled for this workflow.**\nWould you like to use AI to enhance your prompt?",
+                        view=query_view,
+                        ephemeral=True
+                    )
 
             async def continue_to_lora_or_gen(target_interaction: discord.Interaction, current_values: dict):
                 # --- LORA SELECTION STEP ---

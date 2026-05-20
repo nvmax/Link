@@ -41,3 +41,5 @@ docs/
 .gitignore
 remote_nodes.txt
 installed_nodes.txt
+.playwright-mcp
+.pytest_cache

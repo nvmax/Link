@@ -74,6 +74,34 @@ class LinkBot(commands.Bot):
                         logger.info(f"Interaction for {wf_name} already handled by another listener.")
                         return
 
+                    # Runtime role permissions check
+                    if interaction.guild:
+                        guild_id = str(interaction.guild.id)
+                        permissions_path = os.path.join(Config.DATA_DIR, "permissions.json")
+                        permissions_data = {}
+                        if os.path.exists(permissions_path):
+                            try:
+                                with open(permissions_path, "r", encoding="utf-8") as f:
+                                    permissions_data = json.load(f)
+                            except Exception as e:
+                                logger.error(f"Error reading permissions.json: {e}")
+                        
+                        guild_rules = permissions_data.get("guild_permissions", {}).get(guild_id, {})
+                        allowed_role_ids = [role_id for role_id, allowed_wfs in guild_rules.items() if wf_name in allowed_wfs]
+                        
+                        if allowed_role_ids:
+                            user_role_ids = {str(role.id) for role in interaction.user.roles}
+                            if not user_role_ids.intersection(allowed_role_ids):
+                                logger.warning(f"User {interaction.user} (ID: {interaction.user.id}) tried to run restricted command {wf_name} but lacks allowed roles: {allowed_role_ids}")
+                                try:
+                                    await interaction.response.send_message(
+                                        f"❌ You do not have permission to run the `{wf_name}` command in this server.",
+                                        ephemeral=True
+                                    )
+                                except Exception as reply_err:
+                                    logger.error(f"Failed to send permissions block message: {reply_err}")
+                                return
+
                     # Pre-check: does this workflow need a LoRA picker?
                     # If so, defer as ephemeral so the picker is only visible to the user.
                     discord_loras = manifest_data.get('discord', {}).get('loras', {})

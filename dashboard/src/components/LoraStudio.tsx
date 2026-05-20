@@ -207,13 +207,22 @@ export function LoraStudio() {
                       </button>
                     </div>
                   ) : (
-                    // Detailed LoRA List for Category
                     <div className="grid grid-cols-1 gap-6 pb-24">
+                      <button 
+                        onClick={() => handleFilePick(null)}
+                        className="p-5 border-2 border-dashed border-white/5 rounded-3xl text-slate-400 hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5 transition-all flex items-center justify-center gap-3 group active:scale-[0.99]"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
+                          <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-widest">Add LoRA to {selectedCategory}</span>
+                      </button>
+
                       {filteredLora.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10 text-slate-600 mb-6">
+                        <div className="flex flex-col items-center justify-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10 text-slate-600">
                            <Layers className="w-12 h-12 mb-4 opacity-20" />
                            <p className="text-sm font-medium italic">This category is currently empty.</p>
-                           <p className="text-[10px] uppercase tracking-widest mt-1 opacity-50">Click below to add your first LoRA</p>
+                           <p className="text-[10px] uppercase tracking-widest mt-1 opacity-50 font-bold">Use the button above to add your first LoRA</p>
                         </div>
                       )}
                       
@@ -343,16 +352,6 @@ export function LoraStudio() {
                           </div>
                         );
                       })}
-                      
-                      <button 
-                        onClick={() => handleFilePick(null)}
-                        className="p-8 border-2 border-dashed border-white/5 rounded-3xl text-slate-500 hover:border-amber-500/30 hover:text-amber-400 transition-all flex flex-col items-center justify-center gap-3 group"
-                      >
-                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-amber-500/20">
-                          <Plus className="w-6 h-6" />
-                        </div>
-                        <span className="text-xs font-bold uppercase tracking-widest">Add LoRA to {selectedCategory}</span>
-                      </button>
                     </div>
                   )}
               </div>

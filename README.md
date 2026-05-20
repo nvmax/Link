@@ -51,23 +51,26 @@ A professional-grade management system for your model library.
 - **Prompt Enhancement**: Use LLMs to enhance your ComfyUI prompts, making them more effective and detailed.
 - **Interactive Enhancement**: Users can review and edit enhanced prompts in the Discord bot before generation.
 
----
+### 🔐 Role Studio
 
-## 🖼️ Interface Showcase
+- **Per Discord Servers**: Select which Discord Server to apply settings to.
+- **Role Hierarchy**: Select Role and then specify in permissions which workflows to use
+- **Permissions**: Select or deselect workflows allowed by selected role. 
+- workflows are not assigned to any roles automatically, it remains publicly available. 
 
-| Visual Architect | Modal Studio |
-| :---: | :---: |
-| ![Architect View](./assets/architect.png) | ![Modal Studio](./assets/studio.png) |
-| **LoRA Category Folders** | **LoRA Detail Management** |
-| ![LoRA Studio Folders](./assets/lora_folders.png) | ![LoRA Detail Management](./assets/lora_details.png) |
+### 🎨 Theme Studio
 
----
+Theme Stuido is where you can customize your colors of Link's Dashboard, and share if you choose. have fun gives you a bit of your own custom (doesnt provide any additional functionality apart from aesthetics)
+
+
+## 🗂️ Full Manual
+
+Follow this link to see the full manual for LINK: [Full Manual](./Manual.md)
 
 ## 🛠️ Quick Start
 
 > [!IMPORTANT]
 > New to LINK? Follow our **[Getting Started Guide](./GETTING_STARTED.md)** for a full step-by-step walkthrough.
-> To see what we're building next, check out our **[Coming Soon / Roadmap](./ROADMAP.md)**.
 
 ### 1. Requirements
 - **Latest Stable Release of ComfyUI** - Download from [ComfyUI's GitHub](https://github.com/comfyanonymous/ComfyUI/releases).

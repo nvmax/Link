@@ -1,36 +1,109 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Dynamic Theme Variable Defaults (Classic Dark) */
+  --bg-primary: #0a0a0c;
+  --bg-sidebar: #0d0d0f;
+  --bg-card: #111114;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent-primary: #6366f1;
+  --accent-hover: #4f46e5;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --accent-glow: rgba(99, 102, 241, 0.15);
+
+  /* Map standard tailwind system colors */
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-card: var(--bg-card);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-hover: var(--accent-hover);
+  --color-border-theme: var(--border-color);
+  --color-accent-glow: var(--accent-glow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
 }
 
 select option {
-  background-color: #0d0d0f;
-  color: white;
+  background-color: var(--bg-sidebar);
+  color: var(--text-primary);
   padding: 8px;
 }
 
 select {
+  border-color: var(--border-color);
   color-scheme: dark;
 }
+
+/* 
+  Dynamic Color Overrides:
+  These classes intercept the hardcoded tailwind classes used across
+  the dashboard components and map them directly to our theme custom variables.
+*/
+.bg-\[\#0a0a0c\] {
+  background-color: var(--bg-primary) !important;
+}
+.bg-\[\#0d0d0f\] {
+  background-color: var(--bg-sidebar) !important;
+}
+.bg-\[\#141418\] {
+  background-color: var(--bg-card) !important;
+}
+.border-white\/5 {
+  border-color: var(--border-color) !important;
+}
+.border-white\/10 {
+  border-color: var(--border-color) !important;
+}
+.text-slate-400 {
+  color: var(--text-secondary) !important;
+}
+.text-slate-500 {
+  color: var(--text-secondary) !important;
+}
+.bg-indigo-500 {
+  background-color: var(--accent-primary) !important;
+}
+.hover\:bg-indigo-500:hover {
+  background-color: var(--accent-hover) !important;
+}
+.text-indigo-400 {
+  color: var(--accent-primary) !important;
+}
+.shadow-indigo-500\/20 {
+  --tw-shadow-color: var(--accent-glow) !important;
+}
+
+

@@ -12,7 +12,7 @@ class AIReviewModal(ui.Modal):
             placeholder="AI-Enhanced Prompt...",
             default=initial_content,
             min_length=1,
-            max_length=4000,
+            max_length=2000,
         )
         self.add_item(self.prompt_input)
 

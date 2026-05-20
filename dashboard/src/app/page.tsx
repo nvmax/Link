@@ -9,8 +9,10 @@ import { ArchitectView } from '@/components/ArchitectView';
 import { ModalStudio } from '@/components/ModalStudio';
 import { LoraStudio } from '@/components/LoraStudio';
 import { AiStudio } from '@/components/AiStudio';
+import { RoleStudio } from '@/components/RoleStudio';
 import { MissingNodesModal } from '@/components/MissingNodesModal';
 import { MissingModelsModal } from '@/components/MissingModelsModal';
+import { ThemeStudioModal } from '@/components/ThemeStudioModal';
 
 function DashboardContent() {
   const { 
@@ -39,13 +41,13 @@ function DashboardContent() {
   } = useDashboard();
 
   return (
-    <div className="flex h-screen bg-[#0a0a0c] text-slate-200 font-sans overflow-hidden selection:bg-indigo-500/30">
+    <div className="flex h-screen bg-bg-primary text-text-primary font-sans overflow-hidden selection:bg-accent-glow">
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar />
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-20 border-b border-white/5 flex items-center justify-between px-4 lg:px-8 bg-[#0d0d0f]/50 backdrop-blur-xl z-10">
+          <header className="h-20 border-b border-border-theme flex items-center justify-between px-4 lg:px-8 bg-bg-sidebar/50 backdrop-blur-xl z-10">
             <div className="flex items-center gap-4">
               <button 
                 onClick={toggleSidebar}
@@ -82,6 +84,7 @@ function DashboardContent() {
             {activeTab === 'modal-studio' && <ModalStudio />}
             {activeTab === 'lora-studio' && <LoraStudio />}
             {activeTab === 'ai-studio' && <AiStudio />}
+            {activeTab === 'role-studio' && <RoleStudio />}
           </main>
         </div>
 
@@ -148,6 +151,7 @@ function DashboardContent() {
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
+        <ThemeStudioModal />
       </div>
     </div>
   );

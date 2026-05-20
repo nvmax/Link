@@ -14,8 +14,8 @@ export interface ToastMessage {
 
 interface DashboardContextType {
   showToast: (msg: string, type?: ToastType) => void;
-  activeTab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio';
-  setActiveTab: (tab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio') => void;
+  activeTab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio' | 'role-studio';
+  setActiveTab: (tab: 'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio' | 'role-studio') => void;
   viewMode: 'list' | 'visual';
   setViewMode: (mode: 'list' | 'visual') => void;
   config: any;
@@ -87,6 +87,14 @@ interface DashboardContextType {
   saveSystemPrompts: (prompts: any[]) => Promise<void>;
   aiPrompt: any;
   setAiPrompt: (prompt: any) => void;
+  activeTheme: string;
+  setActiveTheme: (theme: string) => void;
+  customThemeColors: Record<string, string>;
+  setCustomThemeColors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  customCss: string;
+  setCustomCss: (css: string) => void;
+  isThemeModalOpen: boolean;
+  setIsThemeModalOpen: (open: boolean) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -161,8 +169,179 @@ function getPrimaryField(classType: string): string | null {
   return null;
 }
 
+export const THEME_PRESETS: Record<string, {
+  name: string;
+  colors: Record<string, string>;
+}> = {
+  'classic-dark': {
+    name: 'Classic Dark',
+    colors: {
+      'bg-primary': '#0a0a0c',
+      'bg-sidebar': '#0d0d0f',
+      'bg-card': '#111114',
+      'text-primary': '#f1f5f9',
+      'text-secondary': '#94a3b8',
+      'accent-primary': '#6366f1',
+      'accent-hover': '#4f46e5',
+      'border-color': 'rgba(255, 255, 255, 0.05)',
+      'accent-glow': 'rgba(99, 102, 241, 0.15)'
+    }
+  },
+  'sunset-cyberpunk': {
+    name: 'Sunset Cyberpunk',
+    colors: {
+      'bg-primary': '#07020d',
+      'bg-sidebar': '#0c0418',
+      'bg-card': '#120724',
+      'text-primary': '#f8fafc',
+      'text-secondary': '#a78bfa',
+      'accent-primary': '#ec4899',
+      'accent-hover': '#db2777',
+      'border-color': 'rgba(236, 72, 153, 0.15)',
+      'accent-glow': 'rgba(236, 72, 153, 0.25)'
+    }
+  },
+  'emerald-matrix': {
+    name: 'Emerald Matrix',
+    colors: {
+      'bg-primary': '#020604',
+      'bg-sidebar': '#050e09',
+      'bg-card': '#08160e',
+      'text-primary': '#ecfdf5',
+      'text-secondary': '#34d399',
+      'accent-primary': '#10b981',
+      'accent-hover': '#059669',
+      'border-color': 'rgba(16, 185, 129, 0.15)',
+      'accent-glow': 'rgba(16, 185, 129, 0.25)'
+    }
+  },
+  'sunset-glow': {
+    name: 'Sunset Glow',
+    colors: {
+      'bg-primary': '#0f0907',
+      'bg-sidebar': '#180e0a',
+      'bg-card': '#20140f',
+      'text-primary': '#fff7ed',
+      'text-secondary': '#fdba74',
+      'accent-primary': '#f97316',
+      'accent-hover': '#ea580c',
+      'border-color': 'rgba(249, 115, 22, 0.15)',
+      'accent-glow': 'rgba(249, 115, 22, 0.25)'
+    }
+  },
+  'nordic-cold': {
+    name: 'Nordic Cold',
+    colors: {
+      'bg-primary': '#0f172a',
+      'bg-sidebar': '#1e293b',
+      'bg-card': '#334155',
+      'text-primary': '#f8fafc',
+      'text-secondary': '#cbd5e1',
+      'accent-primary': '#38bdf8',
+      'accent-hover': '#0ea5e9',
+      'border-color': 'rgba(56, 189, 248, 0.15)',
+      'accent-glow': 'rgba(56, 189, 248, 0.2)'
+    }
+  },
+  'clean-light': {
+    name: 'Clean Light (Snow)',
+    colors: {
+      'bg-primary': '#f8fafc',
+      'bg-sidebar': '#ffffff',
+      'bg-card': '#f1f5f9',
+      'text-primary': '#0f172a',
+      'text-secondary': '#475569',
+      'accent-primary': '#4f46e5',
+      'accent-hover': '#3730a3',
+      'border-color': 'rgba(0, 0, 0, 0.08)',
+      'accent-glow': 'rgba(79, 70, 229, 0.15)'
+    }
+  }
+};
+
+function ThemeEngineStyles({
+  theme,
+  customColors,
+  customCss
+}: {
+  theme: string;
+  customColors: Record<string, string>;
+  customCss: string;
+}) {
+  const colors = theme === 'custom' ? customColors : (THEME_PRESETS[theme]?.colors || THEME_PRESETS['classic-dark'].colors);
+
+  const styleText = `
+    :root {
+      --bg-primary: ${colors['bg-primary']};
+      --bg-sidebar: ${colors['bg-sidebar']};
+      --bg-card: ${colors['bg-card']};
+      --text-primary: ${colors['text-primary']};
+      --text-secondary: ${colors['text-secondary']};
+      --accent-primary: ${colors['accent-primary']};
+      --accent-hover: ${colors['accent-hover']};
+      --border-color: ${colors['border-color']};
+      --accent-glow: ${colors['accent-glow']};
+
+      --background: ${colors['bg-primary']};
+      --foreground: ${colors['text-primary']};
+    }
+    
+    ::selection {
+      background-color: ${colors['accent-glow']};
+    }
+    
+    ${customCss}
+  `;
+
+  return <style id="link-theme-custom-styles" dangerouslySetInnerHTML={{ __html: styleText }} />;
+}
+
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
-  const [activeTab, setActiveTab] = useState<'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio'>('setup');
+  const [activeTab, setActiveTab] = useState<'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio' | 'role-studio'>('setup');
+  
+  // Theme Engine States
+  const [activeTheme, setActiveTheme] = useState<string>('classic-dark');
+  const [customThemeColors, setCustomThemeColors] = useState<Record<string, string>>({
+    'bg-primary': '#0a0a0c',
+    'bg-sidebar': '#0d0d0f',
+    'bg-card': '#111114',
+    'text-primary': '#f1f5f9',
+    'text-secondary': '#94a3b8',
+    'accent-primary': '#6366f1',
+    'accent-hover': '#4f46e5',
+    'border-color': 'rgba(255, 255, 255, 0.05)',
+    'accent-glow': 'rgba(99, 102, 241, 0.15)'
+  });
+  const [customCss, setCustomCss] = useState<string>('');
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
+
+  // Load Theme State on Init
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('link-theme');
+      if (savedTheme) setActiveTheme(savedTheme);
+
+      const savedColors = localStorage.getItem('link-theme-custom-colors');
+      if (savedColors) {
+        try {
+          setCustomThemeColors(JSON.parse(savedColors));
+        } catch (_) {}
+      }
+
+      const savedCss = localStorage.getItem('link-theme-custom-css');
+      if (savedCss) setCustomCss(savedCss);
+    }
+  }, []);
+
+  // Save Theme State on Changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('link-theme', activeTheme);
+      localStorage.setItem('link-theme-custom-colors', JSON.stringify(customThemeColors));
+      localStorage.setItem('link-theme-custom-css', customCss);
+    }
+  }, [activeTheme, customThemeColors, customCss]);
+
   const [viewMode, setViewMode] = useState<'list' | 'visual'>('list');
   const [config, setConfig] = useState<any>({});
   const [workflows, setWorkflows] = useState<any[]>([]);
@@ -957,11 +1136,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setSystemPrompts,
     saveSystemPrompts,
     aiPrompt,
-    setAiPrompt
+    setAiPrompt,
+    activeTheme, setActiveTheme,
+    customThemeColors, setCustomThemeColors,
+    customCss, setCustomCss,
+    isThemeModalOpen, setIsThemeModalOpen
   };
 
   return (
     <DashboardContext.Provider value={value}>
+        <ThemeEngineStyles theme={activeTheme} customColors={customThemeColors} customCss={customCss} />
         {children}
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
           {toasts.map(t => (
