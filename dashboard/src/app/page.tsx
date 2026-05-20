@@ -55,27 +55,33 @@ function DashboardContent() {
               >
                 <Menu className="w-6 h-6" />
               </button>
-              <div className="hidden sm:block h-8 w-px bg-white/10 mx-2" />
-              <div className="flex flex-col">
-                <span className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Active Workspace</span>
-                <span className="text-xs sm:text-sm font-medium text-white flex items-center gap-2 truncate max-w-[120px] sm:max-w-none">
-                  {selectedWorkflow?.name || 'No Workflow Selected'}
-                  {selectedWorkflow && <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />}
-                </span>
-              </div>
+              {activeTab !== 'setup' && (
+                <>
+                  <div className="hidden sm:block h-8 w-px bg-white/10 mx-2" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Active Workspace</span>
+                    <span className="text-xs sm:text-sm font-medium text-white flex items-center gap-2 truncate max-w-[120px] sm:max-w-none">
+                      {selectedWorkflow?.name || 'No Workflow Selected'}
+                      {selectedWorkflow && <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={saveWorkflow} 
-                disabled={!selectedWorkflow}
-                className="flex items-center gap-2 bg-white text-black px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl font-bold text-[10px] sm:text-sm hover:bg-indigo-500 hover:text-white transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-              >
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span className="hidden xs:inline">Save Manifest</span>
-                <span className="xs:hidden">Save</span>
-              </button>
-            </div>
+            {activeTab !== 'setup' && (
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={saveWorkflow} 
+                  disabled={!selectedWorkflow}
+                  className="flex items-center gap-2 bg-white text-black px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl font-bold text-[10px] sm:text-sm hover:bg-indigo-500 hover:text-white transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span className="hidden xs:inline">Save Manifest</span>
+                  <span className="xs:hidden">Save</span>
+                </button>
+              </div>
+            )}
           </header>
 
           <main className="flex-1 overflow-y-auto p-4 sm:p-8">

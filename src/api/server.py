@@ -395,9 +395,13 @@ async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, st
     # Locate embedded python if possible to run commands in the correct env
     python_exe = None
     if workspace_path:
-        p_root = workspace_path
-        if os.path.basename(p_root.rstrip("/\\")).lower() == "comfyui":
-            p_root = os.path.dirname(p_root.rstrip("/\\"))
+        p_root = workspace_path.replace("/", os.sep).rstrip(os.sep)
+        if os.path.exists(os.path.join(p_root, "python_embeded")):
+            pass
+        elif os.path.exists(os.path.join(os.path.dirname(p_root), "python_embeded")):
+            p_root = os.path.dirname(p_root)
+        elif os.path.basename(p_root).lower() == "comfyui":
+            p_root = os.path.dirname(p_root)
         
         embed_py = os.path.join(p_root, "python_embeded", "python.exe")
         if os.path.exists(embed_py):
@@ -478,9 +482,21 @@ async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, st
 
 def resolve_comfy_workspace(base_path: str):
     if not base_path: return ""
+    base_path = base_path.replace("/", os.sep).rstrip(os.sep)
     if os.path.exists(os.path.join(base_path, "main.py")): return base_path
     subfolder = os.path.join(base_path, "ComfyUI")
     if os.path.exists(os.path.join(subfolder, "main.py")): return subfolder
+    
+    # Case-insensitive/renamed subfolder fallback search for main.py
+    try:
+        if os.path.isdir(base_path):
+            for name in os.listdir(base_path):
+                p = os.path.join(base_path, name)
+                if os.path.isdir(p) and os.path.exists(os.path.join(p, "main.py")):
+                    return p
+    except Exception:
+        pass
+        
     return base_path
 
 @app.post("/api/comfy/reboot")
@@ -989,9 +1005,15 @@ async def setup_comfyui(request: Request):
     if not comfy_base:
         raise HTTPException(status_code=400, detail="COMFY_PATH not set in .env")
 
-    # Normalise to the *portable root* (one level above ComfyUI subfolder if needed)
+    # Normalise to the *portable root* and *workspace* using robust filesystem resolution
     comfy_base = comfy_base.replace("/", os.sep)
-    if os.path.basename(comfy_base).lower() == "comfyui":
+    
+    # Resolve portable_root (must contain python_embeded)
+    if os.path.exists(os.path.join(comfy_base, "python_embeded")):
+        portable_root = comfy_base
+    elif os.path.exists(os.path.join(os.path.dirname(comfy_base), "python_embeded")):
+        portable_root = os.path.dirname(comfy_base)
+    elif os.path.basename(comfy_base).lower() == "comfyui":
         portable_root = os.path.dirname(comfy_base)
     else:
         portable_root = comfy_base
@@ -1070,7 +1092,7 @@ async def setup_comfyui(request: Request):
     req_files = []
     
     # 1. Check for legacy/portable manager_requirements.txt
-    legacy_req = os.path.join(portable_root, "ComfyUI", "manager_requirements.txt")
+    legacy_req = os.path.join(comfy_workspace, "manager_requirements.txt")
     if os.path.exists(legacy_req):
         req_files.append(legacy_req)
         
@@ -1216,7 +1238,8 @@ async def setup_comfyui(request: Request):
     # ── Step 4: Patch run_nvidia_gpu.bat ─────────────────────────────────────
     bat_patched = False
     bat_message = ""
-    desired_line = f".\\python_embeded\\python.exe -s ComfyUI\\main.py --windows-standalone-build --use-sage-attention {manager_arg}"
+    ws_rel = os.path.relpath(comfy_workspace, portable_root).replace("/", "\\").replace("\\\\", "\\")
+    desired_line = f".\\python_embeded\\python.exe -s {ws_rel}\\main.py --windows-standalone-build --use-sage-attention {manager_arg}"
     new_bat_content = desired_line + "\necho \npause\n"
 
     try:
