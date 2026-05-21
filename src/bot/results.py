@@ -124,19 +124,16 @@ class ResultHandler:
         logger.info(f"Processing finished execution for prompt {prompt_id}")
         
         db = SessionLocal()
-        job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
-        
-        if not job:
-            logger.warning(f"No job found for prompt_id {prompt_id}")
-            db.close()
-            return
-        
-        if job.status == JobStatus.COMPLETED or job.status == JobStatus.FAILED:
-            logger.info(f"Job {job.id} already processed ({job.status}), skipping redundant signal.")
-            db.close()
-            return
-
         try:
+            job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
+            
+            if not job:
+                logger.warning(f"No job found for prompt_id {prompt_id}")
+                return
+            
+            if job.status == JobStatus.COMPLETED or job.status == JobStatus.FAILED:
+                logger.info(f"Job {job.id} already processed ({job.status}), skipping redundant signal.")
+                return
             # 1. Get history from ComfyUI
             history = await self.bot.api_client.get_history(prompt_id)
             prompt_history = history.get(prompt_id, {})
@@ -534,34 +531,36 @@ class ResultHandler:
             return
             
         db = SessionLocal()
-        job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
-        if job and job.discord_message_id and job.channel_id:
-            percent = int((value / max_val) * 100)
-            
-            # THROTTLING: 
-            # 1. Always update for small step counts (<= 20) so they don't feel "stuck"
-            # 2. For large step counts, update at 25% milestones
-            # 3. Always update at 0% and 100%
-            is_low_steps = max_val <= 20
-            is_milestone = percent % 25 == 0 or percent >= 99 or percent == 0 or is_low_steps
-            
-            if is_milestone:
-                bar_length = 10
-                filled = int(bar_length * value // max_val)
-                bar = "█" * filled + "░" * (bar_length - filled)
+        try:
+            job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
+            if job and job.discord_message_id and job.channel_id:
+                percent = int((value / max_val) * 100)
                 
-                # Resolve ID to Type
-                node_type = self._resolve_node_name(job, node_type)
-                label = self._friendly_node_label(node_type)
+                # THROTTLING: 
+                # 1. Always update for small step counts (<= 20) so they don't feel "stuck"
+                # 2. For large step counts, update at 25% milestones
+                # 3. Always update at 0% and 100%
+                is_low_steps = max_val <= 20
+                is_milestone = percent % 25 == 0 or percent >= 99 or percent == 0 or is_low_steps
+                
+                if is_milestone:
+                    bar_length = 10
+                    filled = int(bar_length * value // max_val)
+                    bar = "█" * filled + "░" * (bar_length - filled)
+                    
+                    # Resolve ID to Type
+                    node_type = self._resolve_node_name(job, node_type)
+                    label = self._friendly_node_label(node_type)
 
-                try:
-                    channel = self.bot.get_channel(int(job.channel_id))
-                    if channel:
-                        msg = await channel.fetch_message(int(job.discord_message_id))
-                        content = f"{label}…\n`[{bar}]` **{percent}%**"
-                        if msg.content != content:
-                            await msg.edit(content=content)
-                            logger.info(f"Updated Discord progress to {percent}% ({label}) for job {job.id}")
-                except Exception:
-                    pass
-        db.close()
+                    try:
+                        channel = self.bot.get_channel(int(job.channel_id))
+                        if channel:
+                            msg = await channel.fetch_message(int(job.discord_message_id))
+                            content = f"{label}…\n`[{bar}]` **{percent}%**"
+                            if msg.content != content:
+                                await msg.edit(content=content)
+                                logger.info(f"Updated Discord progress to {percent}% ({label}) for job {job.id}")
+                    except Exception:
+                        pass
+        finally:
+            db.close()

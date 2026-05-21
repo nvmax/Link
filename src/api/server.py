@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import asyncio
@@ -11,8 +12,6 @@ from src.core.model_extractor import extract_required_models
 from src.core.config import Config
 from src.core.logger import setup_logger
 from src.api.ai_service import AiService
-import tkinter as tk
-from tkinter import filedialog
 
 logger = setup_logger("api_server")
 
@@ -22,13 +21,68 @@ MANUAL_NODE_MAPPING = {
 
 app = FastAPI()
 
-# Enable CORS for the dashboard
+# Enable CORS for the dashboard with standard localhost and environment-aware fallbacks
+cors_origins_env = os.getenv("ALLOWED_CORS_ORIGINS", "")
+if cors_origins_env:
+    origins = [x.strip() for x in cors_origins_env.split(",") if x.strip()]
+else:
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def api_key_middleware(request: Request, call_next):
+    # Retrieve the API key from config/env
+    api_key = Config.API_KEY
+    if not api_key:
+        return await call_next(request)
+        
+    path = request.url.path
+    if path.startswith("/api/") and request.method != "OPTIONS":
+        # Check X-API-Key header or api_key query parameter
+        req_key = request.headers.get("x-api-key") or request.query_params.get("api_key")
+        if req_key != api_key:
+            # Rotation Guard: If key changed in .env and this is /api/config/reload,
+            # allow authorizing with the newly saved key so we don't get locked out.
+            if path == "/api/config/reload":
+                from dotenv import load_dotenv
+                load_dotenv(override=True)
+                new_key = os.getenv("API_KEY")
+                if req_key == new_key:
+                    return await call_next(request)
+                    
+            # Build CORS response headers to ensure browser is not blocked by CORS on a 401 response
+            origin = request.headers.get("origin")
+            headers = {}
+            if origin and (origin in origins or "*" in origins):
+                headers["Access-Control-Allow-Origin"] = origin
+            elif origins:
+                headers["Access-Control-Allow-Origin"] = origins[0]
+            else:
+                headers["Access-Control-Allow-Origin"] = "*"
+                
+            headers["Access-Control-Allow-Credentials"] = "true"
+            headers["Access-Control-Allow-Methods"] = "*"
+            headers["Access-Control-Allow-Headers"] = "*"
+            
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized: Invalid or missing API Key"},
+                headers=headers
+            )
+            
+    return await call_next(request)
 
 # We'll store a reference to the bot instance here
 bot_instance = None
@@ -422,7 +476,7 @@ async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, st
     """Executes a comfy-cli command and returns (success, full_output)"""
     # Locate embedded python if possible to run commands in the correct env
     python_exe = None
-    if workspace_path:
+    if workspace_path and os.name == 'nt':
         p_root = workspace_path.replace("/", os.sep).rstrip(os.sep)
         if os.path.exists(os.path.join(p_root, "python_embeded")):
             pass
@@ -476,6 +530,30 @@ async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, st
     current_path = env.get("PATH", "")
     if system32 not in current_path:
         env["PATH"] = system32 + os.pathsep + wbem + os.pathsep + current_path
+
+    if os.name != 'nt':
+        # Create symlinks to cm_cli and comfyui_manager from the mounted volume if present
+        try:
+            links_dir = "/app/comfy_links"
+            os.makedirs(links_dir, exist_ok=True)
+            
+            src_cm_cli = "/comfyui/python_embeded/Lib/site-packages/cm_cli"
+            src_manager = "/comfyui/python_embeded/Lib/site-packages/comfyui_manager"
+            
+            dest_cm_cli = os.path.join(links_dir, "cm_cli")
+            dest_manager = os.path.join(links_dir, "comfyui_manager")
+            
+            if os.path.exists(src_cm_cli) and not os.path.exists(dest_cm_cli):
+                os.symlink(src_cm_cli, dest_cm_cli)
+                logger.info(f"Created symlink for cm_cli: {dest_cm_cli} -> {src_cm_cli}")
+            if os.path.exists(src_manager) and not os.path.exists(dest_manager):
+                os.symlink(src_manager, dest_manager)
+                logger.info(f"Created symlink for comfyui_manager: {dest_manager} -> {src_manager}")
+                
+            current_pythonpath = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = links_dir + (os.pathsep + current_pythonpath if current_pythonpath else "")
+        except Exception as e:
+            logger.warning(f"Failed to setup comfy_links symlinks: {e}")
 
     if workspace_path:
         # Inject paths so cm-cli can find dependencies
@@ -1301,14 +1379,40 @@ async def setup_comfyui(request: Request):
 
 @app.post("/api/utils/select-folder")
 async def select_folder():
-    """Opens a native folder selection dialog and returns the path."""
+    """Opens a native folder selection dialog and returns the path, safely falling back on headless environments."""
+    # Check if a graphical user interface (display) is available
+    has_display = True
+    if os.name != 'nt' and not os.environ.get('DISPLAY'):
+        has_display = False
+
+    if not has_display:
+        logger.warning("[select-folder] Headless environment detected (no DISPLAY). Skipping native folder dialog.")
+        return {
+            "path": "",
+            "error": "Headless environment detected. Please type or paste the ComfyUI workspace folder path manually."
+        }
+
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+    except ImportError:
+        logger.warning("[select-folder] tkinter components are not available on this platform.")
+        return {
+            "path": "",
+            "error": "Tkinter GUI components not available on this system. Please input the path manually."
+        }
+
     def get_path():
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        path = filedialog.askdirectory()
-        root.destroy()
-        return path
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            path = filedialog.askdirectory()
+            root.destroy()
+            return path
+        except Exception as e:
+            logger.error(f"[select-folder] Tkinter failed to open graphical dialog: {e}")
+            return ""
 
     path = await asyncio.to_thread(get_path)
     return {"path": path}
@@ -1327,7 +1431,8 @@ async def reload_config():
 async def start_api_server(bot, port=8001):
     global bot_instance
     bot_instance = bot
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="info")
+    host = "0.0.0.0" if Config.IS_DOCKER else "127.0.0.1"
+    config = uvicorn.Config(app, host=host, port=port, log_level="info")
     server = uvicorn.Server(config)
     logger.info(f"Starting API Server on port {port}...")
     await server.serve()

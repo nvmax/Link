@@ -694,23 +694,24 @@ class GenerationCog(commands.Cog):
 
     async def handle_regeneration(self, interaction: discord.Interaction, job_id: str):
         db = SessionLocal()
-        old_job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
-        if not old_job:
+        try:
+            old_job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+            if not old_job:
+                return await interaction.response.send_message("Job not found.", ephemeral=True)
+                
+            workflow_name = old_job.workflow_name
+            values = old_job.input_params.copy()
+            
+            # Re-inject profile for the redo
+            if "__profile__" in values:
+                values["profile"] = values["__profile__"]
+                
+            # IMPORTANT: Reset all seeds to -1 for the new run
+            for k in list(values.keys()):
+                if "seed" in k.lower():
+                    values[k] = -1
+        finally:
             db.close()
-            return await interaction.response.send_message("Job not found.", ephemeral=True)
-            
-        workflow_name = old_job.workflow_name
-        values = old_job.input_params.copy()
-        
-        # Re-inject profile for the redo
-        if "__profile__" in values:
-            values["profile"] = values["__profile__"]
-            
-        # IMPORTANT: Reset all seeds to -1 for the new run
-        for k in list(values.keys()):
-            if "seed" in k.lower():
-                values[k] = -1
-        db.close()
         
         wf = self.bot.workflow_registry.get_workflow(workflow_name)
         if not wf:
@@ -738,14 +739,15 @@ class GenerationCog(commands.Cog):
 
     async def handle_options_request(self, interaction: discord.Interaction, job_id: str):
         db = SessionLocal()
-        old_job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
-        if not old_job:
+        try:
+            old_job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+            if not old_job:
+                return await interaction.response.send_message("Job not found.", ephemeral=True)
+                
+            workflow_name = old_job.workflow_name
+            current_values = dict(old_job.input_params)
+        finally:
             db.close()
-            return await interaction.response.send_message("Job not found.", ephemeral=True)
-            
-        workflow_name = old_job.workflow_name
-        current_values = dict(old_job.input_params)
-        db.close()
         
         wf = self.bot.workflow_registry.get_workflow(workflow_name)
         if not wf:

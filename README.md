@@ -93,6 +93,12 @@ cd dashboard && npm install && cd ..
 pip install -r requirements.txt
 ```
 
+### Docker
+```bash
+# Build and start the application
+docker-compose up -d
+```
+
 ### 3. Configuration
 Create a `.env` file in the root directory:
 ```env

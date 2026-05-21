@@ -37,8 +37,32 @@ function DashboardContent() {
     handleRetrySingleModel,
     isSidebarOpen,
     setIsSidebarOpen,
-    toggleSidebar
+    toggleSidebar,
+    isConfigLoaded
   } = useDashboard();
+
+  if (!isConfigLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#0a0a0c] text-white">
+        <div className="relative flex items-center justify-center mb-8">
+          {/* Animated glow background */}
+          <div className="absolute w-24 h-24 bg-indigo-500/20 rounded-full blur-xl animate-pulse" />
+          <div className="absolute w-36 h-36 bg-fuchsia-500/10 rounded-full blur-2xl animate-pulse delay-75" />
+          
+          {/* Main loader */}
+          <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+        </div>
+        <div className="text-center space-y-2">
+          <h1 className="text-lg font-black tracking-wider uppercase bg-gradient-to-r from-indigo-400 to-fuchsia-400 bg-clip-text text-transparent animate-pulse">
+            nvmax / Link
+          </h1>
+          <p className="text-xs text-slate-500 font-mono tracking-widest uppercase">
+            Synchronizing Secure Core...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-bg-primary text-text-primary font-sans overflow-hidden selection:bg-accent-glow">

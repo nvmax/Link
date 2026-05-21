@@ -127,4 +127,6 @@ async def main():
             await ws.close()
 
 if __name__ == "__main__":
+    Config.validate_environment()
+    Config.ensure_directories()
     asyncio.run(main())

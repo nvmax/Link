@@ -8,3 +8,14 @@ Pillow
 fastapi
 uvicorn
 comfy-cli
+aiofiles
+
+# ComfyUI-Manager dependencies for containerized execution
+tqdm
+GitPython
+PyGithub
+matrix-nio
+transformers
+huggingface-hub>=0.20
+toml
+chardet

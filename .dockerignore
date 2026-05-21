@@ -1,0 +1,13 @@
+.git
+.agents
+.antigravity
+.pytest_cache
+node_modules
+dashboard/node_modules
+dashboard/.next
+dashboard/out
+data/*.db
+data/link.db
+logs
+*.pyc
+__pycache__

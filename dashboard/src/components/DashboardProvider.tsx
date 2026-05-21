@@ -4,6 +4,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
+let globalApiKey: string | null = null;
+
 export type ToastType = 'success' | 'error' | 'info';
 
 export interface ToastMessage {
@@ -19,6 +21,7 @@ interface DashboardContextType {
   viewMode: 'list' | 'visual';
   setViewMode: (mode: 'list' | 'visual') => void;
   config: any;
+  isConfigLoaded: boolean;
   setConfig: (config: any) => void;
   saveConfig: (newConfig: any) => Promise<void>;
   workflows: any[];
@@ -298,6 +301,7 @@ function ThemeEngineStyles({
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<'setup' | 'architect' | 'modal-studio' | 'lora-studio' | 'ai-studio' | 'role-studio'>('setup');
+  const [isConfigLoaded, setIsConfigLoaded] = useState<boolean>(false);
   
   // Theme Engine States
   const [activeTheme, setActiveTheme] = useState<string>('classic-dark');
@@ -432,13 +436,56 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize
   useEffect(() => {
-    fetch('/api/config').then(res => res.json()).then(data => setConfig(data.config || data));
+    // Override window.fetch globally to intercept and inject the X-API-Key header to the local API server
+    const originalFetch = window.fetch;
+    window.fetch = async (input, init) => {
+      let url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+      
+      if (url.includes('127.0.0.1:8001/api') || url.includes('localhost:8001/api')) {
+        if (globalApiKey) {
+          init = init || {};
+          const headers = new Headers(init.headers || {});
+          if (!headers.has('X-API-Key')) {
+            headers.set('X-API-Key', globalApiKey);
+          }
+          init.headers = headers;
+        }
+      }
+      return originalFetch(input, init);
+    };
+
+    // Load main application configuration from .env first, then initialize direct API requests
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => {
+        const parsedConfig = data.config || data;
+        setConfig(parsedConfig);
+        globalApiKey = parsedConfig.API_KEY || null;
+
+        // Perform requests that target the API Server (Port 8001)
+        fetch('http://127.0.0.1:8001/api/ai/config')
+          .then(res => res.json())
+          .then(data => setAiConfig(data))
+          .catch(err => console.warn('Failed to fetch AI config:', err));
+          
+        fetch('http://127.0.0.1:8001/api/ai/prompts')
+          .then(res => res.json())
+          .then(data => setSystemPrompts(data))
+          .catch(err => console.warn('Failed to fetch system prompts:', err));
+
+        setIsConfigLoaded(true);
+      })
+      .catch(err => {
+        console.warn('Failed to load application config:', err);
+        setIsConfigLoaded(true);
+      });
+
     fetch('/api/workflows').then(res => res.json()).then(data => setWorkflows(data.workflows || []));
     fetch('/api/loras').then(res => res.json()).then(data => setLoraFiles(data.loras || []));
-    
-    // AI API (Port 8001)
-    fetch('http://127.0.0.1:8001/api/ai/config').then(res => res.json()).then(data => setAiConfig(data));
-    fetch('http://127.0.0.1:8001/api/ai/prompts').then(res => res.json()).then(data => setSystemPrompts(data));
+
+    return () => {
+      window.fetch = originalFetch;
+    };
   }, []);
 
   const saveAiConfig = async (newConfig: any) => {
@@ -479,7 +526,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ config: newConfig })
       });
       if (!res.ok) throw new Error('Failed to save');
+      
       setConfig(newConfig);
+      globalApiKey = newConfig.API_KEY || null;
 
       // Tell the Python backend to hot-reload .env so Config values update immediately
       try {
@@ -1102,7 +1151,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     showToast,
     activeTab, setActiveTab,
     viewMode, setViewMode,
-    config, setConfig, saveConfig,
+    config, isConfigLoaded, setConfig, saveConfig,
     workflows,
     selectedWorkflow, setSelectedWorkflow,
     selections, setSelections,
