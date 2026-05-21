@@ -45,3 +45,4 @@ installed_nodes.txt
 .pytest_cache
 .agents
 .antigravity
+recent_nodes.txt
