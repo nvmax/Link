@@ -95,7 +95,7 @@
   },
   "287": {
     "inputs": {
-      "unet_name": "fluxFusionV24StepsGGUFNF4_V2GGUFQ3KM.gguf"
+      "unet_name": ""
     },
     "class_type": "UnetLoaderGGUF",
     "_meta": {

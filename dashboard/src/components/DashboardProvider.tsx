@@ -42,6 +42,8 @@ interface DashboardContextType {
   loraPage: number;
   setLoraPage: (page: number | ((p: number) => number)) => void;
   loadWorkflow: (wf: any) => Promise<void>;
+  isLoadingWorkflow: boolean;
+  setIsLoadingWorkflow: (loading: boolean) => void;
   saveWorkflow: () => Promise<void>;
   toggleInput: (nodeId: string, field: string, type: string | null) => void;
   updateSelection: (idx: number, updates: any) => void;
@@ -544,7 +546,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const [isLoadingWorkflow, setIsLoadingWorkflow] = useState(false);
+
   const loadWorkflow = async (wf: any) => {
+    setIsLoadingWorkflow(true);
     try {
       const res = await fetch('/api/workflows', {
         method: 'POST',
@@ -656,6 +661,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setAiPrompt(data.manifest?.ai_prompt || { enabled: false, category: 'image', prompt_id: '', target_input: '' });
     } catch (e) {
       console.error('Failed to load workflow:', e);
+    } finally {
+      setIsLoadingWorkflow(false);
     }
   };
 
@@ -1186,7 +1193,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     loraFiles, setLoraFiles,
     editingLoraFile, setEditingLoraFile,
     loraPage, setLoraPage,
-    loadWorkflow, saveWorkflow, importWorkflow, deleteWorkflow,
+    loadWorkflow, isLoadingWorkflow, setIsLoadingWorkflow, saveWorkflow, importWorkflow, deleteWorkflow,
     toggleInput, updateSelection, moveInput,
     loadLoraFile, saveLoraFile, updateLoraField, moveLora, deleteLora, addLora,
     createNewLoraList, deleteLoraList,

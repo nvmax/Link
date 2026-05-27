@@ -8,7 +8,7 @@ import { ListView } from './ListView';
 
 export function ArchitectView() {
   const { 
-    workflows, selectedWorkflow, loadWorkflow, viewMode, setViewMode, 
+    workflows, selectedWorkflow, loadWorkflow, isLoadingWorkflow, viewMode, setViewMode, 
     customCommandName, setCustomCommandName, displayName, setDisplayName, 
     selections, moveInput, importWorkflow, deleteWorkflow,
     aiPrompt, setAiPrompt, systemPrompts, showToast
@@ -83,6 +83,23 @@ export function ArchitectView() {
       </div>
       
       <div className="flex-1 bg-[#0d0d0f] rounded-3xl border border-white/5 shadow-2xl overflow-hidden relative flex flex-col min-h-[500px]">
+        {isLoadingWorkflow ? (
+          <div className="absolute inset-0 bg-[#0a0a0c]/80 backdrop-blur-md z-45 flex flex-col items-center justify-center gap-6 animate-in fade-in duration-300">
+            <div className="relative flex items-center justify-center">
+              {/* Core glowing ring */}
+              <div className="w-16 h-16 rounded-full border-2 border-indigo-500/10 border-t-indigo-500 animate-spin shadow-[0_0_15px_rgba(99,102,241,0.2)]" />
+              {/* Outer orbit secondary ring */}
+              <div className="absolute w-24 h-24 rounded-full border border-dashed border-indigo-500/20 animate-[spin_10s_linear_infinite]" />
+              {/* Floating tech nodes */}
+              <div className="absolute w-2 h-2 bg-indigo-400 rounded-full animate-ping" />
+            </div>
+            <div className="flex flex-col items-center gap-1.5 text-center">
+              <h4 className="text-sm font-black text-white uppercase tracking-widest animate-pulse">Analyzing Workflow</h4>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight max-w-[220px]">Running ComfyUI model validation & schema extraction...</p>
+            </div>
+          </div>
+        ) : null}
+
         {selectedWorkflow ? (
           <>
             <div className="p-4 sm:p-6 border-b border-white/5 flex flex-col md:flex-row items-center justify-between bg-black/20 gap-4">
@@ -215,7 +232,7 @@ export function ArchitectView() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-20 opacity-30 h-full">
+          <div className="flex-1 flex flex-col items-center justify-center p-20 opacity-30 h-full animate-in fade-in duration-300">
             <h3 className="text-lg font-bold text-slate-400">Architect Canvas</h3>
             <p className="text-sm text-slate-600">Select a workflow from the sidebar to begin orchestration</p>
           </div>

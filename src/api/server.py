@@ -659,85 +659,193 @@ async def restart_bot():
     asyncio.create_task(_do_restart())
     return {"status": "success", "message": "Bot is restarting. It will be back online in a few seconds."}
 
-
 @app.post("/api/models/check")
 async def check_models(request: Request):
     """
     Accepts a ComfyUI workflow JSON body.
     Returns which required model files are missing from the ComfyUI instance.
 
+    Strategy
+    --------
+    Phase 1 – ComfyUI /prompt validation (preferred)
+        POST the workflow directly to ComfyUI's /prompt endpoint.
+        ComfyUI validates it against its own model scanner and returns
+        node_errors for any missing files.  This requires zero folder-mapping
+        heuristics — ComfyUI is the source of truth.
+
+        If validation passes (all models present), the queued prompt is
+        cancelled immediately so nothing actually runs.
+
+    Phase 2 – Local filesystem fallback
+        Used only when ComfyUI is unreachable.  Falls back to the
+        extract_required_models() heuristic + disk check.
+
     Response:
         {
           "required": [{"folder": str, "filename": str, "installed": bool}, ...],
           "missing":  [{"folder": str, "filename": str, "installed": false}, ...]
         }
-
-    If ComfyUI is unreachable, returns empty missing list so import can proceed.
     """
     try:
         workflow = await request.json()
+        comfy_url = Config.COMFY_URL
+
+        # ── Phase 1: ask ComfyUI directly ────────────────────────────────────
+        missing = await _check_models_via_comfy_validation(workflow, comfy_url)
+        if missing is not None:
+            # ComfyUI was reachable — trust its answer completely.
+            logger.info(f"Model check (ComfyUI validation): {len(missing)} missing")
+            return {"required": missing, "missing": [m for m in missing if not m["installed"]]}
+
+        # ── Phase 2: filesystem fallback (ComfyUI offline) ───────────────────
+        logger.warning("ComfyUI unreachable for model check — falling back to heuristic extractor")
         required = extract_required_models(workflow)
         if not required:
             return {"required": [], "missing": []}
 
         comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
-        if not comfy_workspace:
-            raise HTTPException(status_code=500, detail="Invalid COMFY_PATH")
-
-        # 1. Check using comfy-cli model list
-        logger.info(f"Model check: using comfy-cli on {comfy_workspace}")
-        
-        env = os.environ.copy()
-        env["COLUMNS"] = "9999"  # Prevent line wrapping in rich tables
-        
-        cmd = ["comfy", "--workspace", comfy_workspace, "model", "list"]
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env
-        )
-        stdout, stderr = await process.communicate()
-        output = stdout.decode('utf-8', errors='ignore')
-        
-        installed_models = set()
-        for line in output.split("\n"):
-            parts = line.split("|")
-            if len(parts) >= 4:
-                filename = parts[1].strip()
-                if filename and filename != "Model Name" and not filename.startswith("put_"):
-                    installed_models.add(filename.lower())
-
-        # Case-insensitive matching
         result = []
         for item in required:
-            target = item["filename"].lower().replace("\\", "/")
-            base_target = os.path.basename(target)
-            
-            # Match if exact filename (lowercase) or base filename matches
-            is_installed = (
-                target in installed_models or 
-                base_target in installed_models
-            )
-
-            # Filesystem fallback: comfy-cli model list may not enumerate every
-            # file (e.g. custom VAE names).  Check disk directly in the expected
-            # models subfolder before declaring a model missing.
-            if not is_installed:
-                disk_path = os.path.join(comfy_workspace, "models", item["folder"], item["filename"])
-                if os.path.isfile(disk_path):
-                    logger.info(f"Model check: {item['filename']} not in CLI list but found on disk at {disk_path}")
-                    is_installed = True
-
+            disk_path = os.path.join(comfy_workspace or "", "models", item["folder"], item["filename"])
+            is_installed = bool(comfy_workspace and os.path.isfile(disk_path))
             result.append({**item, "installed": is_installed})
 
-        missing = [r for r in result if not r["installed"]]
-        logger.info(f"Model check: {len(required)} required, {len(missing)} missing")
-        return {"required": result, "missing": missing}
+        missing_list = [r for r in result if not r["installed"]]
+        logger.info(f"Model check (fallback): {len(required)} required, {len(missing_list)} missing")
+        return {"required": result, "missing": missing_list}
 
     except Exception as e:
-        logger.error(f"Model check error: {e}")
+        logger.error(f"Model check error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> list[dict] | None:
+    """
+    Posts *workflow* to ComfyUI's /prompt endpoint for synchronous validation.
+
+    Returns
+    -------
+    list[dict]
+        A flat list of all model inputs found in the workflow, each with an
+        "installed" flag.  Missing items are those ComfyUI reported in
+        node_errors.  Returns None if ComfyUI is unreachable.
+
+    How it works
+    ------------
+    ComfyUI validates inputs against its own scanned models directory before
+    queuing.  If any model file is absent it returns node_errors without
+    queueing anything.  If all models are present the prompt is queued;
+    we cancel it immediately via DELETE /queue.
+
+    The node_errors structure per missing model:
+        {
+          "type": "value_not_in_list",
+          "extra_info": {
+            "input_name": "clip_name1",           # field name
+            "input_config": [["a.gguf", "b.safetensors"], {}],  # available files
+            "received_value": "gemma-3-12b-it-Q4_1.gguf"       # what was requested
+          }
+        }
+
+    We cross-reference with our extractor to infer the folder, but ComfyUI
+    determines whether the file is actually present — no heuristics for that.
+    """
+    import uuid
+    validation_client_id = str(uuid.uuid4())
+    payload = {"prompt": workflow, "client_id": validation_client_id}
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            # POST to /prompt — ComfyUI validates synchronously
+            async with session.post(
+                f"{comfy_url}/prompt",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                data = await resp.json()
+
+        node_errors: dict = data.get("node_errors", {})
+        prompt_id: str | None = data.get("prompt_id")
+
+        # If the prompt was queued (validation passed), cancel it immediately
+        if prompt_id and not node_errors:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    await session.post(
+                        f"{comfy_url}/queue",
+                        json={"delete": [prompt_id]},
+                        timeout=aiohttp.ClientTimeout(total=5)
+                    )
+                logger.info(f"Model check: all models present (queued {prompt_id} cancelled)")
+            except Exception:
+                pass  # Non-fatal — job will sit idle until something else runs it
+            return []  # Nothing missing
+
+        # Parse node_errors to extract missing filenames
+        # Build a lookup of node_id -> node data from the workflow for folder resolution
+        missing_filenames: dict[str, dict] = {}  # filename -> {"folder": str, "field": str, "node_class": str}
+
+        # Pre-compute our extractor's view so we can match folders
+        extractor_map: dict[str, str] = {}  # filename -> folder
+        for item in extract_required_models(workflow):
+            extractor_map[item["filename"]] = item["folder"]
+
+        for node_id, node_err in node_errors.items():
+            node_class = node_err.get("class_type", "")
+            for err in node_err.get("errors", []):
+                if err.get("type") != "value_not_in_list":
+                    continue
+                extra = err.get("extra_info", {})
+                field_name: str = extra.get("input_name", "")
+                missing_file: str = extra.get("received_value", "")
+                if not missing_file or not isinstance(missing_file, str):
+                    continue
+                # Infer folder: prefer our extractor's answer, fall back to field name
+                folder = extractor_map.get(missing_file, "")
+                if not folder:
+                    # Ask our field-name semantics helper
+                    from src.core.model_extractor import _folder_from_field_name
+                    folder = _folder_from_field_name(field_name) or "models"
+                missing_filenames[missing_file] = {
+                    "folder": folder,
+                    "filename": missing_file,
+                    "installed": False,
+                    "node_class": node_class,
+                    "field": field_name,
+                }
+                logger.info(
+                    f"Model check: missing '{missing_file}' "
+                    f"(node {node_id} / {node_class} / field {field_name}) → {folder}/"
+                )
+
+        # Build required list: missing ones + all others (marked installed=True)
+        all_required = extract_required_models(workflow)
+        result = []
+        for item in all_required:
+            fname = item["filename"]
+            if fname in missing_filenames:
+                result.append(missing_filenames[fname])
+            else:
+                result.append({**item, "installed": True})
+
+        # Also include any missing items not caught by our extractor
+        for fname, info in missing_filenames.items():
+            if not any(r["filename"] == fname for r in result):
+                result.append(info)
+
+        return result
+
+    except aiohttp.ClientConnectorError:
+        logger.warning("ComfyUI unreachable for model validation")
+        return None
+    except asyncio.TimeoutError:
+        logger.warning("ComfyUI model validation timed out")
+        return None
+    except Exception as e:
+        logger.warning(f"ComfyUI model validation failed: {e}")
+        return None
+
+
 
 
 MODEL_SEARCH_CACHE = {}
