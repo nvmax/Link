@@ -1,11 +1,11 @@
 "use client";
 
 import React from 'react';
-import { Network, Puzzle, Settings, Save, X, FolderSearch, RefreshCw, ShieldCheck, History, Zap, CheckCircle2, AlertCircle, Check, Activity, PackagePlus, Loader2 } from 'lucide-react';
+import { Network, Puzzle, Settings, Save, X, FolderSearch, RefreshCw, RotateCcw, ShieldCheck, History, Zap, CheckCircle2, AlertCircle, Check, Activity, PackagePlus, Loader2 } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
 export function MissionControl() {
-  const { config, setConfig, saveConfig, workflows, loraFiles, handleReboot, showToast } = useDashboard();
+  const { config, setConfig, saveConfig, workflows, loraFiles, handleReboot, handleBotRestart, showToast } = useDashboard();
 
   const handleConfigChange = (key: string, value: string) => {
     setConfig({ ...config, [key]: value });
@@ -127,7 +127,18 @@ export function MissionControl() {
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                 <span className="text-xs text-slate-400 font-medium">Discord Pipeline</span>
-                <BotStatus />
+                <div className="flex items-center gap-2">
+                  <BotStatus />
+                  <button
+                    id="btn-restart-bot"
+                    onClick={handleBotRestart}
+                    title="Restart Discord bot to pick up new slash commands"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest transition-all border border-indigo-500/20 hover:border-indigo-500/40 active:scale-95"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Restart
+                  </button>
+                </div>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                 <span className="text-xs text-slate-400 font-medium">ComfyUI Status</span>

@@ -79,6 +79,7 @@ interface DashboardContextType {
   handleModelDownload: (modelsWithRepos: any[]) => Promise<void>;
   handleRetrySingleModel: (model: any) => Promise<void>;
   handleReboot: () => Promise<void>;
+  handleBotRestart: () => Promise<void>;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -718,6 +719,22 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const handleBotRestart = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8001/api/bot/restart', {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast('Bot is restarting — new slash commands will be live in a few seconds.', 'success');
+      } else {
+        showToast(`Bot restart failed: ${data.message}`, 'error');
+      }
+    } catch (e: any) {
+      showToast(`Bot restart failed: ${e.message}`, 'error');
+    }
+  };
+
   const executeImport = async (filename: string, workflow: any) => {
     const res = await fetch('/api/workflows', {
       method: 'POST',
@@ -732,7 +749,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const listData = await listRes.json();
     setWorkflows(listData.workflows || []);
     
-    showToast('Workflow imported successfully!', 'success');
+    showToast('Workflow imported! Restarting bot to register new slash command...', 'success');
+
+    // Auto-restart the bot so the new /command goes live on Discord immediately.
+    // Non-fatal: if the API server is unreachable we still show the success toast.
+    try {
+      await handleBotRestart();
+    } catch (_) {
+      showToast('Workflow saved but bot restart failed — restart it manually from Mission Control.', 'error');
+    }
   };
 
   const handleReboot = async () => {
@@ -1174,7 +1199,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     pendingLoad, setPendingLoad,
     missingModels, setMissingModels,
     isDownloadingModels, modelDownloadProgress, modelDownloadStats,
-    handleModelDownload, handleRetrySingleModel, handleReboot,
+    handleModelDownload, handleRetrySingleModel, handleReboot, handleBotRestart,
     isSidebarOpen,
     setIsSidebarOpen,
     toggleSidebar,

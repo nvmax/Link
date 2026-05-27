@@ -636,6 +636,30 @@ async def reboot_comfy():
         return {"status": "error", "message": str(e)}
 
 
+@app.post("/api/bot/restart")
+async def restart_bot():
+    """
+    Restarts the entire bot process (Discord bot + API server) by replacing
+    the current process with a fresh Python execution of the same entry point.
+
+    This is needed after importing a new workflow so that the new slash
+    command is registered with Discord and becomes available immediately.
+
+    The response is returned *before* the restart begins (0.5 s delay).
+    """
+    import sys
+
+    async def _do_restart():
+        await asyncio.sleep(0.5)
+        logger.info("Bot restart initiated via /api/bot/restart")
+        # Replace the current process with a fresh copy of itself.
+        # os.execv() does not return — all existing state is wiped.
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    asyncio.create_task(_do_restart())
+    return {"status": "success", "message": "Bot is restarting. It will be back online in a few seconds."}
+
+
 @app.post("/api/models/check")
 async def check_models(request: Request):
     """
@@ -695,6 +719,16 @@ async def check_models(request: Request):
                 target in installed_models or 
                 base_target in installed_models
             )
+
+            # Filesystem fallback: comfy-cli model list may not enumerate every
+            # file (e.g. custom VAE names).  Check disk directly in the expected
+            # models subfolder before declaring a model missing.
+            if not is_installed:
+                disk_path = os.path.join(comfy_workspace, "models", item["folder"], item["filename"])
+                if os.path.isfile(disk_path):
+                    logger.info(f"Model check: {item['filename']} not in CLI list but found on disk at {disk_path}")
+                    is_installed = True
+
             result.append({**item, "installed": is_installed})
 
         missing = [r for r in result if not r["installed"]]

@@ -86,3 +86,55 @@ def test_checkpoint_loader():
     }
     result = extract_required_models(workflow)
     assert {"folder": "checkpoints", "filename": "v1-5-pruned.safetensors"} in result
+
+
+def test_cliploader_flux2_type_maps_to_text_encoders():
+    """CLIPLoader with type='flux2' should go to text_encoders/, not clip/."""
+    workflow = {
+        "75:71": {
+            "inputs": {
+                "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+                "type": "flux2",
+                "device": "default"
+            },
+            "class_type": "CLIPLoader"
+        }
+    }
+    result = extract_required_models(workflow)
+    assert {"folder": "text_encoders", "filename": "qwen_3_8b_fp8mixed.safetensors"} in result
+    assert not any(r["folder"] == "clip" for r in result), "flux2 CLIPLoader should NOT map to clip/"
+
+
+def test_cliploader_no_type_maps_to_clip():
+    """CLIPLoader without a type field defaults to clip/."""
+    workflow = {
+        "1": {
+            "inputs": {"clip_name": "clip_l.safetensors"},
+            "class_type": "CLIPLoader"
+        }
+    }
+    result = extract_required_models(workflow)
+    assert {"folder": "clip", "filename": "clip_l.safetensors"} in result
+
+
+def test_kleinedit_workflow():
+    """Mirrors the KleinEdit.json structure: CLIPLoader(flux2) + VAELoader."""
+    workflow = {
+        "75:70": {
+            "inputs": {"unet_name": "flux-2-klein-base-9b-fp8.safetensors", "weight_dtype": "default"},
+            "class_type": "UNETLoader"
+        },
+        "75:71": {
+            "inputs": {"clip_name": "qwen_3_8b_fp8mixed.safetensors", "type": "flux2", "device": "default"},
+            "class_type": "CLIPLoader"
+        },
+        "75:72": {
+            "inputs": {"vae_name": "full_encoder_small_decoder.safetensors"},
+            "class_type": "VAELoader"
+        },
+    }
+    result = extract_required_models(workflow)
+    folders = {r["folder"]: r["filename"] for r in result}
+    assert folders["unet"] == "flux-2-klein-base-9b-fp8.safetensors"
+    assert folders["text_encoders"] == "qwen_3_8b_fp8mixed.safetensors", "Qwen model must go to text_encoders/"
+    assert folders["vae"] == "full_encoder_small_decoder.safetensors"

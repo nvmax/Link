@@ -114,6 +114,7 @@ discord:
           - kontext
           - LTXVIA2V
           - videosegment
+          - KleinEdit
     positions:
       '8':
         x: 3100
