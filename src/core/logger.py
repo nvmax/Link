@@ -19,7 +19,7 @@ def setup_logger(name: str):
         # For newer Python, we can check if it supports reconfigure
         if hasattr(sys.stdout, 'reconfigure'):
             sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    except:
+    except Exception:
         pass
 
     ch = logging.StreamHandler(sys.stdout)

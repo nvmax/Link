@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, Request, Depends
 from datetime import datetime, timedelta
 import os
@@ -14,7 +15,7 @@ logger = setup_logger("api_discord")
 router = APIRouter()
 
 @router.get("/api/discord/guild/{guild_id}")
-async def get_guild(guild_id: int):
+async def get_guild(guild_id: int) -> Dict[str, Any]:
     if not state.bot_instance:
         raise HTTPException(status_code=503, detail="Bot not initialized")
     
@@ -22,7 +23,8 @@ async def get_guild(guild_id: int):
     if not guild:
         try:
             guild = await state.bot_instance.fetch_guild(guild_id)
-        except:
+        except Exception as e:
+            logger.error(f"Failed to fetch guild {guild_id}: {e}")
             raise HTTPException(status_code=404, detail="Guild not found")
             
     return {
@@ -32,7 +34,7 @@ async def get_guild(guild_id: int):
     }
 
 @router.get("/api/discord/channel/{channel_id}")
-async def get_channel(channel_id: int):
+async def get_channel(channel_id: int) -> Dict[str, Any]:
     if not state.bot_instance:
         raise HTTPException(status_code=503, detail="Bot not initialized")
     
@@ -40,7 +42,8 @@ async def get_channel(channel_id: int):
     if not channel:
         try:
             channel = await state.bot_instance.fetch_channel(channel_id)
-        except:
+        except Exception as e:
+            logger.error(f"Failed to fetch channel {channel_id}: {e}")
             raise HTTPException(status_code=404, detail="Channel not found")
             
     return {
@@ -51,7 +54,7 @@ async def get_channel(channel_id: int):
     }
 
 @router.get("/api/discord/guilds")
-async def get_discord_guilds():
+async def get_discord_guilds() -> Dict[str, Any]:
     if not state.bot_instance:
         return {"guilds": [], "status": "offline"}
     
@@ -87,7 +90,7 @@ async def get_discord_guilds():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/discord/permissions")
-async def get_discord_permissions():
+async def get_discord_permissions() -> Dict[str, Any]:
     permissions_path = os.path.join(Config.DATA_DIR, "permissions.json")
     if not os.path.exists(permissions_path):
         return {"guild_permissions": {}}
@@ -99,7 +102,7 @@ async def get_discord_permissions():
         raise HTTPException(status_code=500, detail=f"Failed to read permissions: {str(e)}")
 
 @router.post("/api/discord/permissions")
-async def save_discord_permissions(request: Request):
+async def save_discord_permissions(request: Request) -> Dict[str, Any]:
     try:
         data = await request.json()
         permissions_path = os.path.join(Config.DATA_DIR, "permissions.json")
@@ -116,7 +119,7 @@ async def save_discord_permissions(request: Request):
 # ==========================================
 
 @router.get("/api/discord/guild/{guild_id}/members")
-async def get_guild_members(guild_id: int):
+async def get_guild_members(guild_id: int) -> Dict[str, Any]:
     if not state.bot_instance:
         raise HTTPException(status_code=503, detail="Bot not initialized")
     
@@ -151,7 +154,7 @@ async def get_guild_members(guild_id: int):
     return {"members": members}
 
 @router.get("/api/discord/guild/{guild_id}/limits")
-async def get_server_limits(guild_id: str, db: Session = Depends(get_db)):
+async def get_server_limits(guild_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
     if not limits:
         # Return empty defaults
@@ -169,7 +172,7 @@ async def get_server_limits(guild_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/api/discord/guild/{guild_id}/limits")
-async def save_server_limits(guild_id: str, request: Request, db: Session = Depends(get_db)):
+async def save_server_limits(guild_id: str, request: Request, db: Session = Depends(get_db)) -> Dict[str, Any]:
     try:
         body = await request.json()
         rate_limit_per_minute = int(body.get("rate_limit_per_minute", 0))
@@ -191,7 +194,7 @@ async def save_server_limits(guild_id: str, request: Request, db: Session = Depe
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/discord/guild/{guild_id}/bans")
-async def get_user_bans(guild_id: str, db: Session = Depends(get_db)):
+async def get_user_bans(guild_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     from sqlalchemy import or_
     now = datetime.utcnow()
     # Fetch active and inactive bans
@@ -222,7 +225,7 @@ async def get_user_bans(guild_id: str, db: Session = Depends(get_db)):
     return {"bans": results}
 
 @router.post("/api/discord/guild/{guild_id}/bans")
-async def create_user_ban(guild_id: str, request: Request, db: Session = Depends(get_db)):
+async def create_user_ban(guild_id: str, request: Request, db: Session = Depends(get_db)) -> Dict[str, Any]:
     try:
         body = await request.json()
         user_id = str(body.get("user_id")).strip()
@@ -266,7 +269,7 @@ async def create_user_ban(guild_id: str, request: Request, db: Session = Depends
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/api/discord/guild/{guild_id}/bans/{user_id}")
-async def lift_user_ban(guild_id: str, user_id: str, db: Session = Depends(get_db)):
+async def lift_user_ban(guild_id: str, user_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     try:
         # Delete or expire the ban
         bans_deleted = db.query(UserBan).filter(

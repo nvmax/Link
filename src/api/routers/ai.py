@@ -1,3 +1,4 @@
+from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, Request
 from src.core.logger import setup_logger
 from src.api import state
@@ -7,11 +8,11 @@ logger = setup_logger("api_ai")
 router = APIRouter()
 
 @router.get("/api/ai/config")
-async def get_ai_config():
+async def get_ai_config() -> Dict[str, Any]:
     return state.ai_service.load_config().dict()
 
 @router.post("/api/ai/config")
-async def save_ai_config(request: Request):
+async def save_ai_config(request: Request) -> Dict[str, Any]:
     try:
         data = await request.json()
         state.ai_service.save_config(data)
@@ -20,11 +21,11 @@ async def save_ai_config(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/ai/prompts")
-async def get_ai_prompts():
+async def get_ai_prompts() -> List[Dict[str, Any]]:
     return [p.dict() for p in state.ai_service.load_prompts()]
 
 @router.post("/api/ai/prompts")
-async def save_ai_prompts(request: Request):
+async def save_ai_prompts(request: Request) -> Dict[str, Any]:
     try:
         data = await request.json()
         state.ai_service.save_prompts(data)
@@ -33,7 +34,7 @@ async def save_ai_prompts(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/api/ai/enhance")
-async def enhance_prompt(request: Request):
+async def enhance_prompt(request: Request) -> Dict[str, Any]:
     data = await request.json()
     user_prompt = data.get("prompt")
     system_prompt_id = data.get("system_prompt_id")
@@ -49,7 +50,7 @@ async def enhance_prompt(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/api/ai/test")
-async def test_ai_connection():
+async def test_ai_connection() -> Dict[str, Any]:
     try:
         response = await state.ai_service.test_connection()
         return {"status": "success", "response": response}

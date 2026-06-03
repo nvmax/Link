@@ -161,3 +161,42 @@ def test_inject_shared_inputs():
 
     result = PayloadBuilder.inject(template, manifest, user_inputs, shared_inputs=shared_inputs)
     assert result["1"]["inputs"]["ckpt_name"] == "sd_xl_base_1.0_custom.safetensors"
+
+def test_validate_manifest_valid():
+    from src.api.workflows import WorkflowRegistry
+    valid_manifest = {
+        "mapping": {
+            "prompt": ["10", "inputs", "text"]
+        },
+        "inputs": [
+            {"id": "prompt", "type": "text"}
+        ]
+    }
+    # Should not raise ValueError
+    WorkflowRegistry.validate_manifest(valid_manifest)
+
+def test_validate_manifest_invalid():
+    from src.api.workflows import WorkflowRegistry
+    
+    # 1. Not a dict
+    with pytest.raises(ValueError, match="must be a YAML/JSON dictionary"):
+        WorkflowRegistry.validate_manifest("not-a-dict")
+        
+    # 2. Missing mapping
+    with pytest.raises(ValueError, match="missing required 'mapping'"):
+        WorkflowRegistry.validate_manifest({"inputs": []})
+        
+    # 3. Invalid mapping path format
+    with pytest.raises(ValueError, match="must be a list of at least 3 elements"):
+        WorkflowRegistry.validate_manifest({
+            "mapping": {
+                "prompt": ["10", "inputs"] # length 2
+            }
+        })
+        
+    # 4. Invalid inputs type
+    with pytest.raises(ValueError, match="must be a list"):
+        WorkflowRegistry.validate_manifest({
+            "mapping": {"prompt": ["10", "inputs", "text"]},
+            "inputs": "not-a-list"
+        })

@@ -111,7 +111,7 @@ class QueueManager:
                 try:
                     msg = await channel.fetch_message(message_id)
                     await msg.edit(content=f"❌ **Generation failed**: Could not queue command to ComfyUI. ({str(e)})")
-                except:
+                except Exception:
                     pass
             
             # Auto-cleanup and move to next
@@ -168,7 +168,7 @@ class QueueManager:
                                 try:
                                     msg = await channel.fetch_message(message_id)
                                     await msg.edit(content="❌ **Generation timed out**: The generation took too long to complete. Moving to next in queue.")
-                                except:
+                                except Exception:
                                     pass
 
                             # Force next job

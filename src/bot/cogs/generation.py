@@ -203,7 +203,7 @@ class GenerationCog(commands.Cog):
                         return None
                         
                     # Validate file extension
-                    ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm', '.wav', '.mp3'}
+                    ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.mp4', '.webm', '.wav', '.mp3', '.mkv', '.avi'}
                     filename = attachment.filename.lower()
                     if not any(filename.endswith(ext) for ext in ALLOWED_EXTENSIONS):
                         await target_interaction.followup.send(f"❌ **Upload Failed**: Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}", ephemeral=True)
@@ -214,7 +214,7 @@ class GenerationCog(commands.Cog):
                     current_values[first_missing.get("id")] = CapturedFile(attachment_data, attachment.filename)
                     
                     try: await msg.delete()
-                    except: pass
+                    except Exception: pass
                     # Recursively check for more missing files
                     return await ensure_attachments(target_interaction, current_values)
                 except asyncio.TimeoutError:
@@ -270,7 +270,7 @@ class GenerationCog(commands.Cog):
                                 # Disable the original button message
                                 try:
                                     await button_interaction.edit_original_response(content="✅ Prompt approved. Proceeding...", view=None)
-                                except: pass
+                                except Exception: pass
                                 await self.continue_callback(modal_interaction, self.current_values)
 
                             prompt_cfg = next((p for p in inputs if p["id"] == self.target_field_id), {})
@@ -443,7 +443,7 @@ class GenerationCog(commands.Cog):
                     return
                     
                 # Extension validation
-                ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm', '.wav', '.mp3'}
+                ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm', '.wav', '.mp3', '.mkv', '.avi'}
                 filename = attachment.filename.lower()
                 if not any(filename.endswith(ext) for ext in ALLOWED_EXTENSIONS):
                     await message.channel.send(f"❌ **Upload Failed**: Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}", delete_after=10)
@@ -600,7 +600,7 @@ class GenerationCog(commands.Cog):
                     try:
                         m = await channel.fetch_message(message_id)
                         await m.edit(content=msg)
-                    except:
+                    except Exception:
                         await channel.send(msg)
                 else:
                     await channel.send(msg)
@@ -612,7 +612,7 @@ class GenerationCog(commands.Cog):
                 try:
                     msg_obj = await channel.fetch_message(message_id)
                     await msg_obj.edit(content=f"Please wait while we spin this up...")
-                except:
+                except Exception:
                     pass
 
             template = wf["template"].copy()
@@ -634,6 +634,7 @@ class GenerationCog(commands.Cog):
                                     
                                     # Detect extension from content-type or URL
                                     ctype = resp.headers.get("Content-Type", "image/png")
+                                    ctype_clean = ctype.split(";")[0].strip()
                                     ext_map = {
                                         "image/jpeg": ".jpg", "image/jpg": ".jpg",
                                         "image/png": ".png", "image/gif": ".gif",
@@ -642,7 +643,9 @@ class GenerationCog(commands.Cog):
                                         "audio/wav": ".wav", "audio/mpeg": ".mp3",
                                         "audio/ogg": ".ogg", "audio/flac": ".flac",
                                     }
-                                    ext = ext_map.get(ctype.split(";")[0].strip(), ".png")
+                                    if ctype_clean not in ext_map:
+                                        raise ValueError(f"Content-type '{ctype_clean}' is not an allowed media type.")
+                                    ext = ext_map[ctype_clean]
                                     # Try to preserve original extension from URL
                                     url_basename = value.split("?")[0].rsplit("/", 1)[-1]
                                     if "." in url_basename:

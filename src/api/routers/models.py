@@ -1,3 +1,4 @@
+from typing import Dict, Any, List, Union
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 import os
@@ -20,11 +21,11 @@ router = APIRouter()
 hf_search_semaphore = asyncio.Semaphore(3)
 
 @router.get("/api/models/progress")
-async def get_download_progress():
+async def get_download_progress() -> Dict[str, Any]:
     return state.active_downloads
 
 @router.post("/api/models/check")
-async def check_models(request: Request):
+async def check_models(request: Request) -> Dict[str, Any]:
     try:
         workflow = await request.json()
         comfy_url = Config.COMFY_URL
@@ -139,7 +140,7 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
         return None
 
 @router.post("/api/models/search")
-async def search_models(request: Request):
+async def search_models(request: Request) -> Dict[str, Any]:
     try:
         body = await request.json()
         filenames = body.get("filenames", [])
@@ -335,7 +336,7 @@ async def search_models(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/api/models/download")
-async def download_model(request: Request):
+async def download_model(request: Request) -> Any:
     try:
         body = await request.json()
         folder   = body.get("folder")

@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, Request
 import os
 import asyncio
@@ -9,7 +10,7 @@ logger = setup_logger("api_config")
 router = APIRouter()
 
 @router.post("/api/bot/restart")
-async def restart_bot():
+async def restart_bot() -> Dict[str, Any]:
     import sys
     from src.api import state
 
@@ -54,7 +55,7 @@ async def restart_bot():
     return {"status": "success", "message": "Bot is restarting. It will be back online in a few seconds."}
 
 @router.post("/api/utils/select-folder")
-async def select_folder():
+async def select_folder() -> Dict[str, Any]:
     has_display = True
     if os.name != 'nt' and not os.environ.get('DISPLAY'):
         has_display = False
@@ -92,7 +93,7 @@ async def select_folder():
     return {"path": path}
 
 @router.post("/api/config/reload")
-async def reload_config():
+async def reload_config() -> Dict[str, Any]:
     try:
         Config.reload()
         logger.info("[config] Config reloaded from .env")

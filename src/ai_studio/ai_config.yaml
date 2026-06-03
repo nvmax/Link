@@ -15,7 +15,7 @@ providers:
   lmstudio:
     active: true
     base_url: http://192.168.1.164:1234/v1
-    model: qwen/qwen3.6-27b
+    model: google/gemma-4-26b-a4b
   ollama:
     active: false
     base_url: http://127.0.0.1:11434/v1

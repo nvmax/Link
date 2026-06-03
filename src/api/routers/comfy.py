@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
+from typing import Any
 import tempfile
 import json
 import os
@@ -20,7 +21,7 @@ logger = setup_logger("api_comfy")
 router = APIRouter()
 
 @router.post("/api/comfy/restore")
-async def restore_nodes(request: Request):
+async def restore_nodes(request: Request) -> dict[str, Any]:
     try:
         body = await request.json()
         workflow_data = body
@@ -47,7 +48,7 @@ async def restore_nodes(request: Request):
                     os.makedirs(os.path.dirname(init_file), exist_ok=True)
                     with open(init_file, 'w') as f:
                         pass
-                except: pass
+                except Exception: pass
 
         installed_any = False
         dummy_webui = {"nodes": [], "links": []}
@@ -74,7 +75,7 @@ async def restore_nodes(request: Request):
             finally:
                 if os.path.exists(temp_path):
                     try: os.unlink(temp_path)
-                    except: pass
+                    except Exception: pass
 
         if not installed_any:
             return {"status": "skipped", "message": "No missing nodes were found or installation could not be resolved."}
@@ -88,7 +89,7 @@ async def restore_nodes(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/comfy/nodes")
-async def get_nodes(force: bool = False):
+async def get_nodes(force: bool = False) -> dict[str, Any]:
     try:
         workspace = resolve_comfy_workspace(Config.COMFY_PATH)
         if force:
@@ -144,7 +145,7 @@ async def get_nodes(force: bool = False):
         return {"nodes": [], "error": str(e)}
 
 @router.post("/api/comfy/nodes/update")
-async def update_nodes_api(request: Request):
+async def update_nodes_api(request: Request) -> dict[str, Any]:
     try:
         body = await request.json()
         target_nodes = body.get("nodes", [])
@@ -167,7 +168,7 @@ async def update_nodes_api(request: Request):
         return {"success": False, "error": str(e)}
 
 @router.get("/api/comfy/snapshots")
-async def get_snapshots():
+async def get_snapshots() -> dict[str, Any]:
     try:
         workspace = resolve_comfy_workspace(Config.COMFY_PATH)
         _, output = await execute_comfy_command(workspace, ["comfy", "--workspace", workspace, "node", "show", "snapshot-list"])
@@ -178,7 +179,7 @@ async def get_snapshots():
         return {"snapshots": [], "error": str(e)}
 
 @router.get("/api/comfy/snapshots/{snapshot_id}")
-async def get_snapshot_details(snapshot_id: str):
+async def get_snapshot_details(snapshot_id: str) -> dict[str, Any]:
     try:
         workspace = resolve_comfy_workspace(Config.COMFY_PATH)
         manager_dir = os.path.join(workspace, "user", "__manager")
@@ -212,7 +213,7 @@ async def get_snapshot_details(snapshot_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/api/comfy/snapshots/restore")
-async def restore_snapshot_api(request: Request):
+async def restore_snapshot_api(request: Request) -> dict[str, Any]:
     try:
         body = await request.json()
         snapshot_id = body.get("id")
@@ -228,7 +229,7 @@ async def restore_snapshot_api(request: Request):
         return {"success": False, "error": str(e)}
 
 @router.post("/api/comfy/reboot")
-async def reboot_comfy():
+async def reboot_comfy() -> dict[str, Any]:
     try:
         async with aiohttp.ClientSession() as session:
             paths = ["/v2/manager/reboot", "/manager/reboot", "/api/manager/reboot", "/reboot"]
@@ -251,7 +252,7 @@ async def reboot_comfy():
         return {"status": "error", "message": str(e)}
 
 @router.post("/api/comfy/setup")
-async def setup_comfyui(request: Request):
+async def setup_comfyui(request: Request) -> dict[str, Any]:
     from dotenv import load_dotenv
     load_dotenv(override=True)
     comfy_base = os.getenv("COMFY_PATH", "").rstrip("/\\")
@@ -290,9 +291,8 @@ async def setup_comfyui(request: Request):
         logger.info(f"[setup] Git cloning ComfyUI-Manager into: {custom_nodes_dir}")
         try:
             os.makedirs(custom_nodes_dir, exist_ok=True)
-            clone_cmd = 'git clone https://github.com/Comfy-Org/ComfyUI-Manager.git'
-            proc_clone = await asyncio.create_subprocess_shell(
-                clone_cmd,
+            proc_clone = await asyncio.create_subprocess_exec(
+                "git", "clone", "https://github.com/Comfy-Org/ComfyUI-Manager.git",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=custom_nodes_dir
@@ -313,9 +313,8 @@ async def setup_comfyui(request: Request):
         logger.info(f"[setup] Git cloning ComfyUI-KJNodes into: {custom_nodes_dir}")
         try:
             os.makedirs(custom_nodes_dir, exist_ok=True)
-            clone_kj_cmd = 'git clone https://github.com/kijai/ComfyUI-KJNodes.git'
-            proc_clone_kj = await asyncio.create_subprocess_shell(
-                clone_kj_cmd,
+            proc_clone_kj = await asyncio.create_subprocess_exec(
+                "git", "clone", "https://github.com/kijai/ComfyUI-KJNodes.git",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=custom_nodes_dir
@@ -352,10 +351,9 @@ async def setup_comfyui(request: Request):
     outputs = []
     success1 = True
     for req in req_files:
-        cmd1 = f'"{python_exe}" -m pip install -r "{req}"'
-        logger.info(f"[setup] Running: {cmd1}")
-        proc1 = await asyncio.create_subprocess_shell(
-            cmd1,
+        logger.info(f"[setup] Running: pip install -r {req}")
+        proc1 = await asyncio.create_subprocess_exec(
+            python_exe, "-m", "pip", "install", "-r", req,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             cwd=portable_root
@@ -368,8 +366,8 @@ async def setup_comfyui(request: Request):
 
     steps.append({"step": "comfyui_manager", "success": success1, "output": "\n\n".join(outputs)})
 
-    ver_proc = await asyncio.create_subprocess_shell(
-        f'"{python_exe}" --version',
+    ver_proc = await asyncio.create_subprocess_exec(
+        python_exe, "--version",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         cwd=portable_root
@@ -389,10 +387,9 @@ async def setup_comfyui(request: Request):
                 break
 
     if matched_whl:
-        logger.info(f"[setup] Installing: {os.path.basename(matched_whl)}")
-        cmd2 = f'"{python_exe}" -m pip install "{matched_whl}"'
-        proc2 = await asyncio.create_subprocess_shell(
-            cmd2,
+        logger.info(f"[setup] Installing SageAttention: {os.path.basename(matched_whl)}")
+        proc2 = await asyncio.create_subprocess_exec(
+            python_exe, "-m", "pip", "install", matched_whl,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             cwd=portable_root
@@ -422,13 +419,13 @@ async def setup_comfyui(request: Request):
 
     if triton_whl:
         logger.info(f"[setup] Installing triton from bundled wheel: {os.path.basename(triton_whl)}")
-        cmd3 = f'"{python_exe}" -m pip install "{triton_whl}"'
+        cmd3_args = [python_exe, "-m", "pip", "install", triton_whl]
     else:
         logger.info("[setup] No bundled triton wheel found — installing triton-windows from PyPI")
-        cmd3 = f'"{python_exe}" -m pip install triton-windows'
+        cmd3_args = [python_exe, "-m", "pip", "install", "triton-windows"]
 
-    proc3 = await asyncio.create_subprocess_shell(
-        cmd3,
+    proc3 = await asyncio.create_subprocess_exec(
+        *cmd3_args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         cwd=portable_root
@@ -440,9 +437,8 @@ async def setup_comfyui(request: Request):
     steps.append({"step": "triton", "success": proc3.returncode == 0, "output": msg3})
 
     logger.info("[setup] Installing extra packages: numba, gguf, opencv-python...")
-    cmd_extra = f'"{python_exe}" -m pip install numba gguf opencv-python'
-    proc_extra = await asyncio.create_subprocess_shell(
-        cmd_extra,
+    proc_extra = await asyncio.create_subprocess_exec(
+        python_exe, "-m", "pip", "install", "numba", "gguf", "opencv-python",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         cwd=portable_root
@@ -492,7 +488,7 @@ async def setup_comfyui(request: Request):
     return {"success": overall_success, "steps": steps}
 
 @router.post("/api/nodes/check")
-async def check_nodes(request: Request):
+async def check_nodes(request: Request) -> dict[str, Any]:
     try:
         workflow = await request.json()
         comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)

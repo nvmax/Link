@@ -19,11 +19,17 @@ class ComfyClient:
             self.session = aiohttp.ClientSession()
         return self.session
 
-    async def close(self):
+    async def close(self) -> None:
         if self.session and not self.session.closed:
             await self.session.close()
 
     async def upload_file(self, attachment, overwrite: bool = True) -> str:
+        import pathlib
+        ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.mp4', '.webm', '.wav', '.mp3', '.mkv', '.avi'}
+        ext = pathlib.Path(attachment.filename).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise ValueError(f"File type {ext} not allowed")
+
         session = await self._get_session()
         file_bytes = await attachment.read()
         data = aiohttp.FormData()

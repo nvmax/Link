@@ -154,7 +154,7 @@ async def handle_smart_action(interaction: discord.Interaction):
                 try:
                     import json
                     mapping_data = json.loads(input_mapping)
-                except:
+                except Exception:
                     mapping_data = {input_mapping: "image" if source_type == "image" else source_type}
 
                 prefilled = {}
@@ -189,7 +189,8 @@ async def handle_smart_action(interaction: discord.Interaction):
                 await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
             else:
                 await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        except: pass
+        except Exception:
+            pass
 
 async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, target_wf: str, source_message: discord.Message = None):
     """Internal helper to execute a chain request from a job result."""

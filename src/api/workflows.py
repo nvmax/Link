@@ -42,6 +42,10 @@ class WorkflowRegistry:
                         with open(json_path, 'r', encoding="utf-8") as j:
                             template = json.load(j)
                             
+                        self.validate_manifest(manifest)
+                        if not isinstance(template, dict):
+                            raise ValueError("Template must be a JSON dictionary")
+                            
                         self.workflows[name] = {
                             "manifest": self._resolve_shared(manifest),
                             "template": template,
@@ -51,6 +55,36 @@ class WorkflowRegistry:
                         logger.info(f"Loaded workflow: {name}")
                     except Exception as e:
                         logger.error(f"Failed to load workflow {name}: {e}")
+
+    @staticmethod
+    def validate_manifest(manifest: Any) -> None:
+        """Validates that a workflow manifest matches the expected structure."""
+        if not isinstance(manifest, dict):
+            raise ValueError("Manifest must be a YAML/JSON dictionary")
+        if "mapping" not in manifest:
+            raise ValueError("Manifest missing required 'mapping' section")
+        if not isinstance(manifest["mapping"], dict):
+            raise ValueError("Manifest 'mapping' section must be a dictionary")
+            
+        for field_id, paths in manifest["mapping"].items():
+            if not isinstance(paths, list):
+                raise ValueError(f"Mapping paths for field '{field_id}' must be a list")
+            if len(paths) == 0:
+                continue
+            # Single path or list of paths
+            test_paths = paths if isinstance(paths[0], list) else [paths]
+            for path in test_paths:
+                if not isinstance(path, list) or len(path) < 3:
+                    raise ValueError(f"Mapping path {path} for field '{field_id}' must be a list of at least 3 elements [node_id, input_type, field_name]")
+
+        if "inputs" in manifest:
+            if not isinstance(manifest["inputs"], list):
+                raise ValueError("Manifest 'inputs' section must be a list")
+            for input_cfg in manifest["inputs"]:
+                if not isinstance(input_cfg, dict):
+                    raise ValueError("Each input config in 'inputs' must be a dictionary")
+                if "id" not in input_cfg or "type" not in input_cfg:
+                    raise ValueError("Input config missing required 'id' or 'type' field")
 
     def _resolve_shared(self, manifest: Dict[str, Any]) -> Dict[str, Any]:
         """Resolves $shared references in the manifest."""

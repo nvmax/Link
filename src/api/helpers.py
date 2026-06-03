@@ -165,4 +165,4 @@ async def run_comfy_install_deps(workspace_path: str, workflow_path: str) -> boo
     finally:
         if os.path.exists(deps_path):
             try: os.unlink(deps_path)
-            except: pass
+            except Exception: pass

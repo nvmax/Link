@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 import os
 import yaml
+import json
 import inspect
 import re
 import logging
@@ -163,7 +164,7 @@ class LinkBot(commands.Bot):
                                 await interaction.response.send_message(err_msg, ephemeral=True)
                             else:
                                 await interaction.followup.send(err_msg, ephemeral=True)
-                        except:
+                        except Exception:
                             pass
                 return callback
 
