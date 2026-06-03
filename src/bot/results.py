@@ -123,9 +123,9 @@ class ResultHandler:
     async def handle_execution_done(self, prompt_id: str):
         logger.info(f"Processing finished execution for prompt {prompt_id}")
         
-        db = SessionLocal()
-        try:
-            job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
+        with SessionLocal() as db:
+            try:
+                job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
             
             if not job:
                 logger.warning(f"No job found for prompt_id {prompt_id}")
@@ -437,46 +437,44 @@ class ResultHandler:
             logger.error(f"Error handling execution results for job {job.id}: {e}")
             job.status = JobStatus.FAILED
             db.commit()
-        finally:
-            db.close()
-            if hasattr(self.bot, 'queue_manager') and self.bot.queue_manager:
-                await self.bot.queue_manager.on_job_completed(prompt_id)
+            finally:
+                if hasattr(self.bot, 'queue_manager') and self.bot.queue_manager:
+                    await self.bot.queue_manager.on_job_completed(prompt_id)
 
     async def handle_execution_error(self, prompt_id: str, node_type: str, message: str):
         """Called when ComfyUI reports execution_error or execution_interrupted."""
         logger.error(f"Handling execution error for prompt {prompt_id}: [{node_type}] {message}")
 
-        db = SessionLocal()
-        try:
-            job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
-            if not job:
-                logger.warning(f"No job found for prompt_id {prompt_id} during error handling")
-                return
+        with SessionLocal() as db:
+            try:
+                job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
+                if not job:
+                    logger.warning(f"No job found for prompt_id {prompt_id} during error handling")
+                    return
 
-            if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
-                return  # already handled
+                if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                    return  # already handled
 
-            job.status = JobStatus.FAILED
-            db.commit()
+                job.status = JobStatus.FAILED
+                db.commit()
 
-            channel = self.bot.get_channel(int(job.channel_id))
-            if channel and job.discord_message_id:
-                try:
-                    msg = await channel.fetch_message(int(job.discord_message_id))
-                    friendly = self._friendly_node_label(node_type)
-                    short_msg = message[:200] if message else "An unknown error occurred"
-                    await msg.edit(
-                        content=f"❌ **Generation failed** while {friendly}\n> `{short_msg}`",
-                        embed=None,
-                        attachments=[],
-                        view=None,
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to post error message to Discord: {e}")
-        finally:
-            db.close()
-            if hasattr(self.bot, 'queue_manager') and self.bot.queue_manager:
-                await self.bot.queue_manager.on_job_completed(prompt_id)
+                channel = self.bot.get_channel(int(job.channel_id))
+                if channel and job.discord_message_id:
+                    try:
+                        msg = await channel.fetch_message(int(job.discord_message_id))
+                        friendly = self._friendly_node_label(node_type)
+                        short_msg = message[:200] if message else "An unknown error occurred"
+                        await msg.edit(
+                            content=f"❌ **Generation failed** while {friendly}\n> `{short_msg}`",
+                            embed=None,
+                            attachments=[],
+                            view=None,
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to post error message to Discord: {e}")
+            finally:
+                if hasattr(self.bot, 'queue_manager') and self.bot.queue_manager:
+                    await self.bot.queue_manager.on_job_completed(prompt_id)
 
     def _resolve_node_name(self, job, node_info: str | None) -> str | None:
         """Resolve a numeric node ID to its class name using the job's node_map."""
@@ -500,8 +498,7 @@ class ResultHandler:
         if not prompt_id or not node_info:
             return
 
-        db = SessionLocal()
-        try:
+        with SessionLocal() as db:
             job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
             if not job or not job.discord_message_id or not job.channel_id:
                 return
@@ -527,15 +524,12 @@ class ResultHandler:
                         logger.debug(f"Node status → '{label}' (0%) for job {job.id}")
                 except Exception:
                     pass
-        finally:
-            db.close()
 
     async def update_progress(self, prompt_id: str, value: int, max_val: int, node_type: str | None = None):
         if not prompt_id or max_val <= 0:
             return
             
-        db = SessionLocal()
-        try:
+        with SessionLocal() as db:
             job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
             if job and job.discord_message_id and job.channel_id:
                 percent = int((value / max_val) * 100)
@@ -566,5 +560,3 @@ class ResultHandler:
                                 logger.info(f"Updated Discord progress to {percent}% ({label}) for job {job.id}")
                     except Exception:
                         pass
-        finally:
-            db.close()

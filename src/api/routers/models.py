@@ -16,6 +16,9 @@ logger = setup_logger("api_models")
 
 router = APIRouter()
 
+# Global semaphore to limit concurrent HuggingFace search requests to avoid rate limits
+hf_search_semaphore = asyncio.Semaphore(3)
+
 @router.get("/api/models/progress")
 async def get_download_progress():
     return state.active_downloads
@@ -314,10 +317,14 @@ async def search_models(request: Request):
                             return res
                     return None
 
+                async def fetch_with_semaphore():
+                    async with hf_search_semaphore:
+                        return await fetch_and_resolve_hf_repo()
+
                 # Leverage CacheManager for search queries with 1-day (86400s) TTL
                 resolved_repo = await cache.get_or_set(
                     f"hf_search_{filename}", 
-                    fetch_and_resolve_hf_repo, 
+                    fetch_with_semaphore, 
                     ttl=86400
                 )
                 results[filename] = resolved_repo

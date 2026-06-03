@@ -33,6 +33,8 @@ async def main():
     # Initialize WebSocket Listener
     # Use the same client_id as the bot for consistent events
     ws = ComfyWebSocket(Config.COMFY_WS_URL, client_id=bot.client_id)
+    from src.api import state
+    state.ws_instance = ws
     
     current_prompt_id = None
 

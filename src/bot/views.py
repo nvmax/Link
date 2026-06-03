@@ -94,97 +94,94 @@ async def handle_smart_action(interaction: discord.Interaction):
         if "link_gen_" in custom_id: return # Let the View handle it if possible
         return await interaction.response.send_message("❌ Could not find Job ID for this action. (Footer might be disabled)", ephemeral=True)
     
-    db = SessionLocal()
     try:
-        job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
-        if not job:
-            return await interaction.response.send_message("❌ Could not find original job data.", ephemeral=True)
+        with SessionLocal() as db:
+            job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+            if not job:
+                return await interaction.response.send_message("❌ Could not find original job data.", ephemeral=True)
 
-        if custom_id.startswith("link_chain_"):
-            raw_target = custom_id.replace("link_chain_", "")
-            target_wf = raw_target.split("|")[0]
-            await _execute_chain(interaction, job, target_wf)
-        elif custom_id.startswith("link_selector_"):
-            # New handler for curated selector
-            wf_config = interaction.client.workflow_registry.get_workflow(job.workflow_name)
-            manifest = wf_config.get("manifest", {})
-            ui_cfg = manifest.get("discord", {}).get("ui") or manifest.get("ui", {})
-            
-            target_workflows = []
-            for btn in ui_cfg.get("buttons", []):
-                if btn.get("type") == "selector":
-                    target_workflows = btn.get("target_workflows", [])
-                    break
-            
-            if not target_workflows:
-                return await interaction.response.send_message("❌ No target workflows configured for this selector.", ephemeral=True)
+            if custom_id.startswith("link_chain_"):
+                raw_target = custom_id.replace("link_chain_", "")
+                target_wf = raw_target.split("|")[0]
+                await _execute_chain(interaction, job, target_wf)
+            elif custom_id.startswith("link_selector_"):
+                # New handler for curated selector
+                wf_config = interaction.client.workflow_registry.get_workflow(job.workflow_name)
+                manifest = wf_config.get("manifest", {})
+                ui_cfg = manifest.get("discord", {}).get("ui") or manifest.get("ui", {})
+                
+                target_workflows = []
+                for btn in ui_cfg.get("buttons", []):
+                    if btn.get("type") == "selector":
+                        target_workflows = btn.get("target_workflows", [])
+                        break
+                
+                if not target_workflows:
+                    return await interaction.response.send_message("❌ No target workflows configured for this selector.", ephemeral=True)
 
-            from src.bot.ui import ChainSelectView
-            
-            async def on_select(sel_interaction, target_wf_name, original_job_id):
-                # Use the original interaction's message for attachments
-                original_msg = interaction.message
-                # We need to re-fetch the job in the callback to ensure DB session is fresh
-                _db = SessionLocal()
-                try:
-                    _job = _db.query(GenerationJob).filter(GenerationJob.id == original_job_id).first()
-                    if _job:
-                        await _execute_chain(sel_interaction, _job, target_wf_name, source_message=original_msg)
-                finally:
-                    _db.close()
+                from src.bot.ui import ChainSelectView
+                
+                async def on_select(sel_interaction, target_wf_name, original_job_id):
+                    # Use the original interaction's message for attachments
+                    original_msg = interaction.message
+                    # We need to re-fetch the job in the callback to ensure DB session is fresh
+                    with SessionLocal() as _db:
+                        _job = _db.query(GenerationJob).filter(GenerationJob.id == original_job_id).first()
+                        if _job:
+                            await _execute_chain(sel_interaction, _job, target_wf_name, source_message=original_msg)
 
-            view = ChainSelectView(target_workflows, job.id, on_select, registry=interaction.client.workflow_registry)
-            await interaction.response.send_message("Choose a workflow to chain to:", view=view, ephemeral=True)
-        elif custom_id.startswith("link_gen_redo"):
-            gen_cog = interaction.client.get_cog("GenerationCog")
-            if gen_cog:
-                await gen_cog.handle_regeneration(interaction, job.id)
-        elif custom_id.startswith("link_gen_options"):
-            gen_cog = interaction.client.get_cog("GenerationCog")
-            if gen_cog:
-                await gen_cog.handle_options_request(interaction, job.id)
-        else:
-            # custom_id format: link_action_{target_wf}_{source_type}_{input_mapping}
-            raw = custom_id.replace("link_action_", "")
-            parts = raw.split("_", 2)
-            if len(parts) < 3: return
-            target_wf = parts[0]
-            source_type = parts[1]
-            input_mapping = parts[2]
-            
-            # ... (rest of legacy mapping logic)
-            mapping_data = {}
-            try:
-                import json
-                mapping_data = json.loads(input_mapping)
-            except:
-                mapping_data = {input_mapping: "image" if source_type == "image" else source_type}
-
-            prefilled = {}
-            for target_field, source_ref in mapping_data.items():
-                # (Keeping existing attachment matching logic for legacy support)
-                if source_ref in ["image", "video", "audio"]:
-                    if interaction.message and interaction.message.attachments:
-                        match = None
-                        for att in interaction.message.attachments:
-                            ctype = (att.content_type or "").lower()
-                            if source_ref == "image" and "image" in ctype: match = att
-                            elif source_ref == "video" and ("video" in ctype or ctype == "image/gif"): match = att
-                            elif source_ref == "audio" and "audio" in ctype: match = att
-                        prefilled[target_field] = match.url if match else interaction.message.attachments[0].url
-                elif source_ref == "prompt": prefilled[target_field] = job.input_params.get("prompt", "")
-                elif source_ref == "seed": prefilled[target_field] = str(job.input_params.get("seed", ""))
-                elif source_ref in job.input_params: prefilled[target_field] = job.input_params[source_ref]
-
-            gen_cog = interaction.client.get_cog("GenerationCog")
-            if gen_cog:
-                await gen_cog.handle_generation_request(
-                    interaction, 
-                    target_wf, 
-                    prefilled=prefilled
-                )
+                view = ChainSelectView(target_workflows, job.id, on_select, registry=interaction.client.workflow_registry)
+                await interaction.response.send_message("Choose a workflow to chain to:", view=view, ephemeral=True)
+            elif custom_id.startswith("link_gen_redo"):
+                gen_cog = interaction.client.get_cog("GenerationCog")
+                if gen_cog:
+                    await gen_cog.handle_regeneration(interaction, job.id)
+            elif custom_id.startswith("link_gen_options"):
+                gen_cog = interaction.client.get_cog("GenerationCog")
+                if gen_cog:
+                    await gen_cog.handle_options_request(interaction, job.id)
             else:
-                await interaction.response.send_message("❌ Generation system unavailable.", ephemeral=True)
+                # custom_id format: link_action_{target_wf}_{source_type}_{input_mapping}
+                raw = custom_id.replace("link_action_", "")
+                parts = raw.split("_", 2)
+                if len(parts) < 3: return
+                target_wf = parts[0]
+                source_type = parts[1]
+                input_mapping = parts[2]
+                
+                # ... (rest of legacy mapping logic)
+                mapping_data = {}
+                try:
+                    import json
+                    mapping_data = json.loads(input_mapping)
+                except:
+                    mapping_data = {input_mapping: "image" if source_type == "image" else source_type}
+
+                prefilled = {}
+                for target_field, source_ref in mapping_data.items():
+                    # (Keeping existing attachment matching logic for legacy support)
+                    if source_ref in ["image", "video", "audio"]:
+                        if interaction.message and interaction.message.attachments:
+                            match = None
+                            for att in interaction.message.attachments:
+                                ctype = (att.content_type or "").lower()
+                                if source_ref == "image" and "image" in ctype: match = att
+                                elif source_ref == "video" and ("video" in ctype or ctype == "image/gif"): match = att
+                                elif source_ref == "audio" and "audio" in ctype: match = att
+                            prefilled[target_field] = match.url if match else interaction.message.attachments[0].url
+                    elif source_ref == "prompt": prefilled[target_field] = job.input_params.get("prompt", "")
+                    elif source_ref == "seed": prefilled[target_field] = str(job.input_params.get("seed", ""))
+                    elif source_ref in job.input_params: prefilled[target_field] = job.input_params[source_ref]
+
+                gen_cog = interaction.client.get_cog("GenerationCog")
+                if gen_cog:
+                    await gen_cog.handle_generation_request(
+                        interaction, 
+                        target_wf, 
+                        prefilled=prefilled
+                    )
+                else:
+                    await interaction.response.send_message("❌ Generation system unavailable.", ephemeral=True)
     except Exception as e:
         logger.error(f"Error in handle_smart_action: {e}", exc_info=True)
         try:
@@ -193,8 +190,6 @@ async def handle_smart_action(interaction: discord.Interaction):
             else:
                 await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         except: pass
-    finally:
-        db.close()
 
 async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, target_wf: str, source_message: discord.Message = None):
     """Internal helper to execute a chain request from a job result."""
@@ -258,9 +253,7 @@ async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, t
                 local_asset_path = None
                 try:
                     from src.database.models import Asset as AssetModel, GenerationJob as GenJob
-                    from src.database.session import SessionLocal as DBSession
-                    _db = DBSession()
-                    try:
+                    with SessionLocal() as _db:
                         ctype_check = (att.content_type or "").lower()
                         if "image" in ctype_check:
                             mime_like = "image%"
@@ -279,8 +272,6 @@ async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, t
                             ).order_by(AssetModel.id.desc()).first()
                             if last_local and os.path.isfile(last_local.file_path):
                                 local_asset_path = last_local.file_path
-                    finally:
-                        _db.close()
                 except Exception as _e:
                     logger.warning(f"Could not query local asset from DB: {_e}")
                 

@@ -1,6 +1,7 @@
 import asyncio
 import websockets
 import json
+import random
 from typing import Callable, Awaitable, Dict, Any
 from src.core.config import Config
 from src.core.logger import setup_logger
@@ -18,10 +19,12 @@ class ComfyWebSocket:
         self.handlers[event_type] = handler
 
     async def connect(self):
+        delay = 5
         while True:
             try:
                 async with websockets.connect(self.uri) as ws:
                     self.ws = ws
+                    delay = 5  # Reset delay on successful connection
                     logger.info(f"Connected to ComfyUI WebSocket at {self.uri}")
                     async for message in ws:
                         if isinstance(message, str):
@@ -31,8 +34,18 @@ class ComfyWebSocket:
                                 # Pass the full message so handlers can see top-level fields like prompt_id
                                 await self.handlers[event_type](data)
             except Exception as e:
-                logger.error(f"WebSocket error: {e}. Retrying in 5s...")
-                await asyncio.sleep(5)
+                jitter = random.uniform(0, delay * 0.1)
+                sleep_time = delay + jitter
+                logger.error(f"WebSocket error: {e}. Retrying in {sleep_time:.2f}s...")
+                await asyncio.sleep(sleep_time)
+                delay = min(delay * 2, 300)  # Cap delay at 5 minutes
 
     async def listen(self):
         await self.connect()
+
+    async def close(self):
+        """Closes the WebSocket connection gracefully if it is open."""
+        if self.ws:
+            logger.info("Closing WebSocket connection...")
+            await self.ws.close()
+            self.ws = None

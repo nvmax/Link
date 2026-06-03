@@ -17,17 +17,10 @@ import aiofiles
 import asyncio
 from src.core.config import Config
 from src.bot.loras import LoraSelectionView
+from src.core.utils import CapturedFile, SEED_MIN, SEED_MAX
 
 logger = setup_logger(__name__)
  
-class CapturedFile:
-    """Wrapper for file data to allow reading after original message deletion."""
-    def __init__(self, data: bytes, filename: str):
-        self.data = data
-        self.filename = filename
-    async def read(self):
-        return self.data
-
 class GenerationCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -43,8 +36,7 @@ class GenerationCog(commands.Cog):
             if interaction.guild:
                 guild_id = str(interaction.guild.id)
                 user_id = str(interaction.user.id)
-                db = SessionLocal()
-                try:
+                with SessionLocal() as db:
                     from sqlalchemy import or_
                     ban = db.query(UserBan).filter(
                         UserBan.guild_id == guild_id,
@@ -71,15 +63,12 @@ class GenerationCog(commands.Cog):
                             return await interaction.response.send_message(msg, ephemeral=True)
                         else:
                             return await interaction.followup.send(msg, ephemeral=True)
-                finally:
-                    db.close()
 
             # Rate Limits & Quotas Check
             if interaction.guild:
                 guild_id = str(interaction.guild.id)
                 user_id = str(interaction.user.id)
-                db = SessionLocal()
-                try:
+                with SessionLocal() as db:
                     limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
                     if limits:
                         # Rate limit per minute
@@ -126,8 +115,6 @@ class GenerationCog(commands.Cog):
                                     return await interaction.response.send_message(msg, ephemeral=True)
                                 else:
                                     return await interaction.followup.send(msg, ephemeral=True)
-                finally:
-                    db.close()
 
             # Channel Lockdown Check
             if Config.ALLOWED_CHANNEL_IDS and interaction.channel_id not in Config.ALLOWED_CHANNEL_IDS:
@@ -208,6 +195,19 @@ class GenerationCog(commands.Cog):
                 try:
                     msg = await self.bot.wait_for('message', check=check, timeout=120.0)
                     attachment = msg.attachments[0]
+                    
+                    # Validate file size (max 50MB)
+                    MAX_FILE_SIZE = 50 * 1024 * 1024
+                    if attachment.size > MAX_FILE_SIZE:
+                        await target_interaction.followup.send("❌ **Upload Failed**: File is too large (max 50MB).", ephemeral=True)
+                        return None
+                        
+                    # Validate file extension
+                    ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm', '.wav', '.mp3'}
+                    filename = attachment.filename.lower()
+                    if not any(filename.endswith(ext) for ext in ALLOWED_EXTENSIONS):
+                        await target_interaction.followup.send(f"❌ **Upload Failed**: Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}", ephemeral=True)
+                        return None
                     
                     # Materialize the data immediately so we can delete the message without losing the file
                     attachment_data = await attachment.read()
@@ -434,8 +434,21 @@ class GenerationCog(commands.Cog):
             
             # Read the data BEFORE deleting the message
             try:
-                # We store the actual bytes and filename to avoid CDN 404s after deletion
                 attachment = message.attachments[0]
+                
+                # Size validation (max 50MB)
+                MAX_FILE_SIZE = 50 * 1024 * 1024
+                if attachment.size > MAX_FILE_SIZE:
+                    await message.channel.send(f"❌ **Upload Failed**: File is too large (max 50MB).", delete_after=10)
+                    return
+                    
+                # Extension validation
+                ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm', '.wav', '.mp3'}
+                filename = attachment.filename.lower()
+                if not any(filename.endswith(ext) for ext in ALLOWED_EXTENSIONS):
+                    await message.channel.send(f"❌ **Upload Failed**: Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}", delete_after=10)
+                    return
+
                 file_bytes = await attachment.read()
                 
                 # Save the uploaded file to data/assets immediately so it can be reused for chaining
@@ -446,8 +459,7 @@ class GenerationCog(commands.Cog):
                 logger.info(f"Saved Discord upload to {local_path}")
                 
                 # Register in DB so chain buttons can find it later
-                db = SessionLocal()
-                try:
+                with SessionLocal() as db:
                     from src.database.models import Asset, GenerationJob
                     # Find most recent job for this user to associate the asset
                     recent_job = db.query(GenerationJob).filter(
@@ -465,16 +477,6 @@ class GenerationCog(commands.Cog):
                         db.add(asset)
                         db.commit()
                         logger.info(f"Registered Discord upload as asset for job {recent_job.id}")
-                finally:
-                    db.close()
-                
-                # We'll use a simple wrapper to mimic the attachment interface for the uploader
-                class CapturedFile:
-                    def __init__(self, bytes_data, filename):
-                        self.bytes_data = bytes_data
-                        self.filename = filename
-                    async def read(self):
-                        return self.bytes_data
                 
                 state["values"][field["id"]] = CapturedFile(file_bytes, attachment.filename)
                 
@@ -605,7 +607,6 @@ class GenerationCog(commands.Cog):
             return
 
         # Proceed with generation
-        db = SessionLocal()
         try:
             if message_id:
                 try:
@@ -738,7 +739,7 @@ class GenerationCog(commands.Cog):
                         'seed' in field_name.lower() and isinstance(node_inputs[field_name], (int, float))
                         and not isinstance(node_inputs[field_name], list)
                     ):
-                        new_seed = random.randint(10**14, 10**15 - 1)
+                        new_seed = random.randint(SEED_MIN, SEED_MAX)
                         node_inputs[field_name] = new_seed
                         final_values[f'__seed_{node_id}_{field_name}__'] = new_seed
                         logger.info(f"Randomized seed in node {node_id} field '{field_name}': {new_seed}")
@@ -746,28 +747,30 @@ class GenerationCog(commands.Cog):
 
             # Create DB Job
             guild_id_str = str(channel.guild.id) if hasattr(channel, 'guild') and channel.guild else None
-            job = GenerationJob(
-                guild_id=guild_id_str,
-                user_id=str(user.id),
-                workflow_name=workflow_name,
-                input_params=final_values,
-                channel_id=str(channel.id),
-                discord_message_id=str(message_id) if message_id else None,
-                status=JobStatus.PENDING
-            )
-            db.add(job)
-            db.commit()
-            db.refresh(job)
+            with SessionLocal() as db:
+                job = GenerationJob(
+                    guild_id=guild_id_str,
+                    user_id=str(user.id),
+                    workflow_name=workflow_name,
+                    input_params=final_values,
+                    channel_id=str(channel.id),
+                    discord_message_id=str(message_id) if message_id else None,
+                    status=JobStatus.PENDING
+                )
+                db.add(job)
+                db.commit()
+                db.refresh(job)
 
-            # Queue Prompt
-            payload = PayloadBuilder.inject(template, manifest, final_values, shared_inputs=self.bot.workflow_registry.shared_inputs)
-            node_map = {str(node_id): node_data.get("class_type") for node_id, node_data in payload.items()}
-            job.node_map = node_map
-            db.commit()
+                # Queue Prompt
+                payload = PayloadBuilder.inject(template, manifest, final_values, shared_inputs=self.bot.workflow_registry.shared_inputs)
+                node_map = {str(node_id): node_data.get("class_type") for node_id, node_data in payload.items()}
+                job.node_map = node_map
+                db.commit()
+                job_id = job.id
             
             # Send to QueueManager
             await self.bot.queue_manager.add_job(
-                job_id=job.id,
+                job_id=job_id,
                 payload=payload,
                 client_id=self.bot.client_id,
                 channel=channel,
@@ -782,12 +785,9 @@ class GenerationCog(commands.Cog):
             err_msg = f"❌ Error: {e}"
             if interaction: await interaction.followup.send(err_msg, ephemeral=True)
             else: await channel.send(err_msg)
-        finally:
-            db.close()
 
     async def handle_regeneration(self, interaction: discord.Interaction, job_id: str):
-        db = SessionLocal()
-        try:
+        with SessionLocal() as db:
             old_job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
             if not old_job:
                 return await interaction.response.send_message("Job not found.", ephemeral=True)
@@ -803,8 +803,6 @@ class GenerationCog(commands.Cog):
             for k in list(values.keys()):
                 if "seed" in k.lower():
                     values[k] = -1
-        finally:
-            db.close()
         
         wf = self.bot.workflow_registry.get_workflow(workflow_name)
         if not wf:
@@ -831,16 +829,13 @@ class GenerationCog(commands.Cog):
         await self._execute_generation(interaction, workflow_name, wf, wf["manifest"], values, message_id=message.id)
 
     async def handle_options_request(self, interaction: discord.Interaction, job_id: str):
-        db = SessionLocal()
-        try:
+        with SessionLocal() as db:
             old_job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
             if not old_job:
                 return await interaction.response.send_message("Job not found.", ephemeral=True)
                 
             workflow_name = old_job.workflow_name
             current_values = dict(old_job.input_params)
-        finally:
-            db.close()
         
         wf = self.bot.workflow_registry.get_workflow(workflow_name)
         if not wf:

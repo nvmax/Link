@@ -6,8 +6,9 @@ node_modules
 dashboard/node_modules
 dashboard/.next
 dashboard/out
-data/*.db
-data/link.db
-logs
+data/
+logs/
+.env
+.env.*
 *.pyc
 __pycache__

@@ -11,10 +11,43 @@ router = APIRouter()
 @router.post("/api/bot/restart")
 async def restart_bot():
     import sys
+    from src.api import state
 
     async def _do_restart():
+        logger.info("Graceful bot restart initiated. Cleaning up resources...")
         await asyncio.sleep(0.5)
-        logger.info("Bot restart initiated via /api/bot/restart")
+        
+        # 1. Stop queue processing and stuck-job monitor loop
+        if state.bot_instance and state.bot_instance.queue_manager:
+            if state.bot_instance.queue_manager.cleanup_task:
+                state.bot_instance.queue_manager.cleanup_task.cancel()
+                logger.info("Queue monitor cleanup task cancelled.")
+        
+        # 2. Close WS connection gracefully
+        if state.ws_instance:
+            try:
+                await state.ws_instance.close()
+                logger.info("Gracefully closed Comfy WebSocket connection.")
+            except Exception as e:
+                logger.warning(f"Error closing WebSocket: {e}")
+
+        # 3. Close API client session
+        if state.bot_instance and state.bot_instance.api_client:
+            try:
+                await state.bot_instance.api_client.close()
+                logger.info("Gracefully closed API client session.")
+            except Exception as e:
+                logger.warning(f"Error closing API client: {e}")
+
+        # 4. Close bot connection
+        if state.bot_instance:
+            try:
+                await state.bot_instance.close()
+                logger.info("Gracefully closed Discord Bot connection.")
+            except Exception as e:
+                logger.warning(f"Error closing Bot: {e}")
+
+        logger.info("Restarting process via execv...")
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
     asyncio.create_task(_do_restart())

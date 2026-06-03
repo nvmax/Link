@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from datetime import datetime, timedelta
 import os
 import json
+from sqlalchemy.orm import Session
 from src.core.config import Config
 from src.core.logger import setup_logger
 from src.api import state
-from src.database.session import SessionLocal
+from src.database.session import SessionLocal, get_db
 from src.database.models import ServerLimit, UserBan
 
 logger = setup_logger("api_discord")
@@ -150,90 +151,78 @@ async def get_guild_members(guild_id: int):
     return {"members": members}
 
 @router.get("/api/discord/guild/{guild_id}/limits")
-async def get_server_limits(guild_id: str):
-    db = SessionLocal()
-    try:
-        limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
-        if not limits:
-            # Return empty defaults
-            return {
-                "guild_id": guild_id,
-                "rate_limit_per_minute": 0,
-                "rate_limit_per_hour": 0,
-                "quota_per_day": 0
-            }
+async def get_server_limits(guild_id: str, db: Session = Depends(get_db)):
+    limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
+    if not limits:
+        # Return empty defaults
         return {
-            "guild_id": limits.guild_id,
-            "rate_limit_per_minute": limits.rate_limit_per_minute,
-            "rate_limit_per_hour": limits.rate_limit_per_hour,
-            "quota_per_day": limits.quota_per_day
+            "guild_id": guild_id,
+            "rate_limit_per_minute": 0,
+            "rate_limit_per_hour": 0,
+            "quota_per_day": 0
         }
-    finally:
-        db.close()
+    return {
+        "guild_id": limits.guild_id,
+        "rate_limit_per_minute": limits.rate_limit_per_minute,
+        "rate_limit_per_hour": limits.rate_limit_per_hour,
+        "quota_per_day": limits.quota_per_day
+    }
 
 @router.post("/api/discord/guild/{guild_id}/limits")
-async def save_server_limits(guild_id: str, request: Request):
+async def save_server_limits(guild_id: str, request: Request, db: Session = Depends(get_db)):
     try:
         body = await request.json()
         rate_limit_per_minute = int(body.get("rate_limit_per_minute", 0))
         rate_limit_per_hour = int(body.get("rate_limit_per_hour", 0))
         quota_per_day = int(body.get("quota_per_day", 0))
         
-        db = SessionLocal()
-        try:
-            limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
-            if not limits:
-                limits = ServerLimit(guild_id=guild_id)
-                db.add(limits)
-            
-            limits.rate_limit_per_minute = rate_limit_per_minute
-            limits.rate_limit_per_hour = rate_limit_per_hour
-            limits.quota_per_day = quota_per_day
-            db.commit()
-            return {"status": "success"}
-        finally:
-            db.close()
+        limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
+        if not limits:
+            limits = ServerLimit(guild_id=guild_id)
+            db.add(limits)
+        
+        limits.rate_limit_per_minute = rate_limit_per_minute
+        limits.rate_limit_per_hour = rate_limit_per_hour
+        limits.quota_per_day = quota_per_day
+        db.commit()
+        return {"status": "success"}
     except Exception as e:
         logger.error(f"Error saving server limits: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/discord/guild/{guild_id}/bans")
-async def get_user_bans(guild_id: str):
-    db = SessionLocal()
-    try:
-        from sqlalchemy import or_
-        now = datetime.utcnow()
-        # Fetch active and inactive bans
-        bans = db.query(UserBan).filter(UserBan.guild_id == guild_id).all()
-        
-        results = []
-        for ban in bans:
-            # Check if active
-            is_active = ban.expires_at is None or ban.expires_at > now
-            time_left = None
-            if is_active and ban.expires_at:
-                diff = ban.expires_at - now
-                time_left = int(diff.total_seconds())
-                
-            results.append({
-                "id": ban.id,
-                "user_id": ban.user_id,
-                "username": ban.username,
-                "banned_by": ban.banned_by,
-                "reason": ban.reason,
-                "ban_type": ban.ban_type,
-                "duration_seconds": ban.duration_seconds,
-                "created_at": ban.created_at.isoformat() if ban.created_at else None,
-                "expires_at": ban.expires_at.isoformat() if ban.expires_at else None,
-                "is_active": is_active,
-                "time_left_seconds": time_left
-            })
-        return {"bans": results}
-    finally:
-        db.close()
+async def get_user_bans(guild_id: str, db: Session = Depends(get_db)):
+    from sqlalchemy import or_
+    now = datetime.utcnow()
+    # Fetch active and inactive bans
+    bans = db.query(UserBan).filter(UserBan.guild_id == guild_id).all()
+    
+    results = []
+    for ban in bans:
+        # Check if active
+        is_active = ban.expires_at is None or ban.expires_at > now
+        time_left = None
+        if is_active and ban.expires_at:
+            diff = ban.expires_at - now
+            time_left = int(diff.total_seconds())
+            
+        results.append({
+            "id": ban.id,
+            "user_id": ban.user_id,
+            "username": ban.username,
+            "banned_by": ban.banned_by,
+            "reason": ban.reason,
+            "ban_type": ban.ban_type,
+            "duration_seconds": ban.duration_seconds,
+            "created_at": ban.created_at.isoformat() if ban.created_at else None,
+            "expires_at": ban.expires_at.isoformat() if ban.expires_at else None,
+            "is_active": is_active,
+            "time_left_seconds": time_left
+        })
+    return {"bans": results}
 
 @router.post("/api/discord/guild/{guild_id}/bans")
-async def create_user_ban(guild_id: str, request: Request):
+async def create_user_ban(guild_id: str, request: Request, db: Session = Depends(get_db)):
     try:
         body = await request.json()
         user_id = str(body.get("user_id")).strip()
@@ -252,37 +241,32 @@ async def create_user_ban(guild_id: str, request: Request):
         else:
             expires_at = None
 
-        db = SessionLocal()
-        try:
-            # Delete any existing active ban for the user first to overwrite
-            db.query(UserBan).filter(
-                UserBan.guild_id == guild_id,
-                UserBan.user_id == user_id
-            ).delete()
+        # Delete any existing active ban for the user first to overwrite
+        db.query(UserBan).filter(
+            UserBan.guild_id == guild_id,
+            UserBan.user_id == user_id
+        ).delete()
 
-            new_ban = UserBan(
-                guild_id=guild_id,
-                user_id=user_id,
-                username=username,
-                ban_type=ban_type,
-                duration_seconds=duration_seconds,
-                reason=reason,
-                banned_by=banned_by,
-                expires_at=expires_at,
-                created_at=datetime.utcnow()
-            )
-            db.add(new_ban)
-            db.commit()
-            return {"status": "success", "id": new_ban.id}
-        finally:
-            db.close()
+        new_ban = UserBan(
+            guild_id=guild_id,
+            user_id=user_id,
+            username=username,
+            ban_type=ban_type,
+            duration_seconds=duration_seconds,
+            reason=reason,
+            banned_by=banned_by,
+            expires_at=expires_at,
+            created_at=datetime.utcnow()
+        )
+        db.add(new_ban)
+        db.commit()
+        return {"status": "success", "id": new_ban.id}
     except Exception as e:
         logger.error(f"Error creating user ban: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/api/discord/guild/{guild_id}/bans/{user_id}")
-async def lift_user_ban(guild_id: str, user_id: str):
-    db = SessionLocal()
+async def lift_user_ban(guild_id: str, user_id: str, db: Session = Depends(get_db)):
     try:
         # Delete or expire the ban
         bans_deleted = db.query(UserBan).filter(
@@ -294,5 +278,6 @@ async def lift_user_ban(guild_id: str, user_id: str):
         if bans_deleted == 0:
             raise HTTPException(status_code=404, detail="No active ban found for this user.")
         return {"status": "success", "message": f"Ban lifted for user {user_id}."}
-    finally:
-        db.close()
+    except Exception as e:
+        logger.error(f"Error lifting user ban: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

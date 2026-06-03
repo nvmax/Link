@@ -21,15 +21,12 @@ class Utility(commands.Cog):
     @commands.command()
     async def last_job(self, ctx):
         """Show your last generation job ID."""
-        db = SessionLocal()
-        try:
+        with SessionLocal() as db:
             job = db.query(GenerationJob).filter(GenerationJob.user_id == str(ctx.author.id)).order_by(GenerationJob.created_at.desc()).first()
             if job:
                 await ctx.send(f"Your last Job ID: `{job.id}` (Status: {job.status.value})")
             else:
                 await ctx.send("You haven't run any jobs yet.")
-        finally:
-            db.close()
 
     @commands.command()
     async def help(self, ctx: commands.Context, command: str = None):

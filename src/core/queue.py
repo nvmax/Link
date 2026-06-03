@@ -86,25 +86,26 @@ class QueueManager:
                 logger.warning(f"Failed to update progress message for job {job_id}: {e}")
 
         # Queue prompt in ComfyUI
-        db = SessionLocal()
         try:
             prompt_id = await self.bot.api_client.queue_prompt(payload, client_id)
             if prompt_id:
                 job_data["prompt_id"] = prompt_id
-                job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
-                if job:
-                    job.comfy_prompt_id = prompt_id
-                    job.status = JobStatus.PROCESSING
-                    db.commit()
+                with SessionLocal() as db:
+                    job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+                    if job:
+                        job.comfy_prompt_id = prompt_id
+                        job.status = JobStatus.PROCESSING
+                        db.commit()
                 logger.info(f"Queued prompt {prompt_id} for job {job_id}")
             else:
                 raise Exception("ComfyUI did not return a prompt ID.")
         except Exception as e:
             logger.error(f"Failed to queue prompt for job {job_id}: {e}")
-            job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
-            if job:
-                job.status = JobStatus.FAILED
-                db.commit()
+            with SessionLocal() as db:
+                job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+                if job:
+                    job.status = JobStatus.FAILED
+                    db.commit()
                 
             if channel and message_id:
                 try:
@@ -115,8 +116,6 @@ class QueueManager:
             
             # Auto-cleanup and move to next
             asyncio.create_task(self.on_job_completed(None))
-        finally:
-            db.close()
 
     async def on_job_completed(self, prompt_id):
         async with self.lock:
@@ -153,16 +152,14 @@ class QueueManager:
                             logger.warning(f"Job {self.active_job['job_id']} has been running for {elapsed}s. Timing out...")
                             
                             # Mark as FAILED in database
-                            db = SessionLocal()
                             try:
-                                job = db.query(GenerationJob).filter(GenerationJob.id == self.active_job["job_id"]).first()
-                                if job and job.status == JobStatus.PROCESSING:
-                                    job.status = JobStatus.FAILED
-                                    db.commit()
+                                with SessionLocal() as db:
+                                    job = db.query(GenerationJob).filter(GenerationJob.id == self.active_job["job_id"]).first()
+                                    if job and job.status == JobStatus.PROCESSING:
+                                        job.status = JobStatus.FAILED
+                                        db.commit()
                             except Exception as db_err:
                                 logger.error(f"Error marking stuck job as failed in DB: {db_err}")
-                            finally:
-                                db.close()
 
                             # Edit Discord message
                             channel = self.active_job["channel"]

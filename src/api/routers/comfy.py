@@ -92,9 +92,9 @@ async def get_nodes(force: bool = False):
     try:
         workspace = resolve_comfy_workspace(Config.COMFY_PATH)
         if force:
-            await execute_comfy_command(workspace, f'comfy --workspace "{workspace}" node update-cache')
+            await execute_comfy_command(workspace, ["comfy", "--workspace", workspace, "node", "update-cache"])
         
-        _, output = await execute_comfy_command(workspace, f'comfy --workspace "{workspace}" node show installed')
+        _, output = await execute_comfy_command(workspace, ["comfy", "--workspace", workspace, "node", "show", "installed"])
         nodes = parse_node_list(output)
         
         try:
@@ -151,12 +151,15 @@ async def update_nodes_api(request: Request):
         workspace = resolve_comfy_workspace(Config.COMFY_PATH)
         
         ts = asyncio.get_event_loop().time()
-        backup_cmd = f'comfy --workspace "{workspace}" node save-snapshot "auto_pre_update_{int(ts)}"'
+        backup_cmd = ["comfy", "--workspace", workspace, "node", "save-snapshot", f"auto_pre_update_{int(ts)}"]
         await execute_comfy_command(workspace, backup_cmd)
         
-        target_str = " ".join(target_nodes) if target_nodes else "all"
-        update_cmd = f'comfy --workspace "{workspace}" --skip-prompt node update {target_str}'
-        success, _ = await execute_comfy_command(workspace, update_cmd)
+        update_args = ["comfy", "--workspace", workspace, "--skip-prompt", "node", "update"]
+        if target_nodes:
+            update_args.extend(target_nodes)
+        else:
+            update_args.append("all")
+        success, _ = await execute_comfy_command(workspace, update_args)
         
         return {"success": success}
     except Exception as e:
@@ -167,7 +170,7 @@ async def update_nodes_api(request: Request):
 async def get_snapshots():
     try:
         workspace = resolve_comfy_workspace(Config.COMFY_PATH)
-        _, output = await execute_comfy_command(workspace, f'comfy --workspace "{workspace}" node show snapshot-list')
+        _, output = await execute_comfy_command(workspace, ["comfy", "--workspace", workspace, "node", "show", "snapshot-list"])
         snapshots = parse_snapshot_list(output)
         return {"snapshots": snapshots}
     except Exception as e:
@@ -217,7 +220,7 @@ async def restore_snapshot_api(request: Request):
             return {"success": False, "error": "No snapshot ID provided"}
             
         workspace = resolve_comfy_workspace(Config.COMFY_PATH)
-        restore_cmd = f'comfy --workspace "{workspace}" --skip-prompt node restore-snapshot "{snapshot_id}"'
+        restore_cmd = ["comfy", "--workspace", workspace, "--skip-prompt", "node", "restore-snapshot", snapshot_id]
         success, _ = await execute_comfy_command(workspace, restore_cmd)
         return {"success": success}
     except Exception as e:

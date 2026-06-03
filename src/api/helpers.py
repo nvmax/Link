@@ -29,7 +29,7 @@ def resolve_comfy_workspace(base_path: str):
         
     return base_path
 
-async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, str]:
+async def execute_comfy_command(workspace_path: str, cmd: list[str]) -> tuple[bool, str]:
     python_exe = None
     if workspace_path and os.name == 'nt':
         p_root = workspace_path.replace("/", os.sep).rstrip(os.sep)
@@ -44,35 +44,27 @@ async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, st
         if os.path.exists(embed_py):
             python_exe = embed_py
 
-    if python_exe and cmd.startswith("comfy"):
-        import shlex
-        try:
-            parts = shlex.split(cmd)
-            cmd_parts = []
-            i = 1
-            while i < len(parts):
-                part = parts[i]
-                if part == "--workspace":
-                    i += 2
-                elif part == "--skip-prompt":
-                    i += 1
-                elif part == "node":
-                    i += 1
-                elif part == "--deps":
-                    i += 1
-                else:
-                    if ' ' in part or '\\' in part or '/' in part or '"' in part:
-                        escaped = part.replace('"', '\\"')
-                        cmd_parts.append(f'"{escaped}"')
-                    else:
-                        cmd_parts.append(part)
-                    i += 1
-            cmd = f'"{python_exe}" -m cm_cli {" ".join(cmd_parts)}'
-        except Exception as e:
-            logger.warning(f"Failed to translate comfy command: {e}")
+    exec_args = cmd
+    if python_exe and cmd and cmd[0] == "comfy":
+        cmd_parts = []
+        i = 1
+        while i < len(cmd):
+            part = cmd[i]
+            if part == "--workspace":
+                i += 2
+            elif part == "--skip-prompt":
+                i += 1
+            elif part == "node":
+                i += 1
+            elif part == "--deps":
+                i += 1
+            else:
+                cmd_parts.append(part)
+                i += 1
+        exec_args = [python_exe, "-m", "cm_cli"] + cmd_parts
 
     logger.info(f"[comfy-cli] Execute from: {workspace_path}")
-    logger.info(f"[comfy-cli] Command: {cmd}")
+    logger.info(f"[comfy-cli] Command arguments: {exec_args}")
     
     full_output = []
     env = os.environ.copy()
@@ -109,8 +101,8 @@ async def execute_comfy_command(workspace_path: str, cmd: str) -> tuple[bool, st
         env["PYTHONPATH"] = workspace_path + os.pathsep + env.get("PYTHONPATH", "")
         env["COMFYUI_PATH"] = workspace_path
 
-    process = await asyncio.create_subprocess_shell(
-        cmd,
+    process = await asyncio.create_subprocess_exec(
+        *exec_args,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
@@ -140,7 +132,7 @@ async def run_comfy_install_deps(workspace_path: str, workflow_path: str) -> boo
         deps_path = tf.name
 
     try:
-        cmd1 = f'comfy --workspace "{workspace_path}" node deps-in-workflow --workflow "{workflow_path}" --output "{deps_path}"'
+        cmd1 = ["comfy", "--workspace", workspace_path, "node", "deps-in-workflow", "--workflow", workflow_path, "--output", deps_path]
         success1, _ = await execute_comfy_command(workspace_path, cmd1)
         if not success1: return False
 
@@ -167,7 +159,7 @@ async def run_comfy_install_deps(workspace_path: str, workflow_path: str) -> boo
             except Exception as e:
                 logger.error(f"Failed to patch deps.json: {e}")
 
-        cmd2 = f'comfy --workspace "{workspace_path}" --skip-prompt node install-deps --deps "{deps_path}"'
+        cmd2 = ["comfy", "--workspace", workspace_path, "--skip-prompt", "node", "install-deps", "--deps", deps_path]
         success2, _ = await execute_comfy_command(workspace_path, cmd2)
         return success2
     finally:

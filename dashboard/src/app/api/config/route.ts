@@ -65,8 +65,19 @@ export async function POST(request: Request) {
       }
     }
     
-    // Always write with LF line endings
-    fs.writeFileSync(envPath, updatedLines.join('\n'), 'utf8');
+    // Write atomically via temporary file to prevent race conditions during concurrent reload requests
+    const tmpPath = envPath + '.tmp';
+    fs.writeFileSync(tmpPath, updatedLines.join('\n'), 'utf8');
+    try {
+      fs.renameSync(tmpPath, envPath);
+    } catch (e) {
+      try {
+        fs.copyFileSync(tmpPath, envPath);
+        fs.unlinkSync(tmpPath);
+      } catch (err) {
+        fs.writeFileSync(envPath, updatedLines.join('\n'), 'utf8');
+      }
+    }
     return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('Config save error:', error);

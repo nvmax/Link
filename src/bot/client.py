@@ -9,6 +9,7 @@ import logging
 from typing import Dict, Any, List
 from src.core.config import Config
 from src.core.logger import setup_logger
+from src.core.utils import DISCORD_MAX_CHOICES
 
 logger = setup_logger(__name__)
 
@@ -275,7 +276,7 @@ class LinkBot(commands.Bot):
 
                 safe_fid = re.sub(r'[^a-zA-Z0-9_]', '_', fid).lstrip('_') or '_input'
 
-                if len(all_choices) <= 25:
+                if len(all_choices) <= DISCORD_MAX_CHOICES:
                     choices_to_apply[safe_fid] = [
                         app_commands.Choice(name=str(c)[:100], value=str(c)[:100])
                         for c in all_choices
@@ -289,7 +290,7 @@ class LinkBot(commands.Bot):
             for safe_fid, all_vals in autocomplete_to_apply.items():
                 def make_ac(values):
                     async def autocomplete_cb(ac_interaction: discord.Interaction, current: str):
-                        filtered = [v for v in values if current.lower() in v.lower()][:25]
+                        filtered = [v for v in values if current.lower() in v.lower()][:DISCORD_MAX_CHOICES]
                         return [app_commands.Choice(name=v[:100], value=v[:100]) for v in filtered]
                     return autocomplete_cb
                 callback = app_commands.autocomplete(**{safe_fid: make_ac(all_vals)})(callback)
