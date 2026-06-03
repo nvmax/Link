@@ -64,6 +64,9 @@ A professional-grade management system for your model library.
 Theme Stuido is where you can customize your colors of Link's Dashboard, and share if you choose. have fun gives you a bit of your own custom (doesnt provide any additional functionality apart from aesthetics)
 
 
+Join us on discord [https://discord.gg/t4WYqVb93A](https://discord.gg/t4WYqVb93A)
+
+
 ## 🗂️ Full Manual
 
 Follow this link to see the full manual for LINK: [Full Manual](./Manual.md)
@@ -173,5 +176,7 @@ We love contributions! If you want to help make LINK even better, please check o
 If you find **LINK** useful and want to help support its continued development, consider buying the dev a coffee!
 
 [![Buy Me A Coffee](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://paypal.me/nvmaxx)
+
+Join the **LINK** [Discord](https://discord.gg/t4WYqVb93A) community for help, updates, and workflow sharing! 
 
 *Built with ❤️ for the ComfyUI Community.*
