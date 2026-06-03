@@ -17,14 +17,21 @@ class LinkBot(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.guild_messages = True
+        intents.members = True
         super().__init__(command_prefix="!", intents=intents)
         self.workflow_registry = None
         self.api_client = None
         self.client_id = None
         self.node_display_names = {}
+        self.queue_manager = None
 
     async def setup_hook(self):
         self.sync_node_info.start()
+        
+        # Initialize Queue Manager
+        from src.core.queue import QueueManager
+        self.queue_manager = QueueManager(self)
+        self.queue_manager.start()
         
         # Load Cogs
         await self.load_extension("src.bot.cogs.generation")

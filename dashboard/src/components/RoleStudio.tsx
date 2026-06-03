@@ -15,7 +15,13 @@ import {
   Users, 
   ArrowRight,
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  Ban,
+  Unlock,
+  Settings2,
+  Activity,
+  Trash2
 } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
@@ -54,6 +60,56 @@ export function RoleStudio() {
 
   // Search filter for workflows
   const [workflowSearch, setWorkflowSearch] = useState('');
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'permissions' | 'limits' | 'bans'>('permissions');
+  
+  // Server limits state
+  const [limitsData, setLimitsData] = useState({
+    rate_limit_per_minute: 0,
+    rate_limit_per_hour: 0,
+    quota_per_day: 0
+  });
+  const [isSavingLimits, setIsSavingLimits] = useState(false);
+  
+  // Bans state
+  const [bansList, setBansList] = useState<any[]>([]);
+  const [guildMembers, setGuildMembers] = useState<any[]>([]);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+  const [manualUserQuery, setManualUserQuery] = useState<string>('');
+  const [banType, setBanType] = useState<'ban' | 'restrict'>('ban');
+  const [banDuration, setBanDuration] = useState<number | null>(3600); // 1 hour default
+  const [banReason, setBanReason] = useState<string>('');
+  const [isApplyingBan, setIsApplyingBan] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+
+  const fetchLimitsAndBans = useCallback(async (guildId: string) => {
+    try {
+      const limitsRes = await fetch(`http://127.0.0.1:8001/api/discord/guild/${guildId}/limits`);
+      if (limitsRes.ok) {
+        const data = await limitsRes.json();
+        setLimitsData({
+          rate_limit_per_minute: data.rate_limit_per_minute || 0,
+          rate_limit_per_hour: data.rate_limit_per_hour || 0,
+          quota_per_day: data.quota_per_day || 0
+        });
+      }
+      
+      const bansRes = await fetch(`http://127.0.0.1:8001/api/discord/guild/${guildId}/bans`);
+      if (bansRes.ok) {
+        const data = await bansRes.json();
+        setBansList(data.bans || []);
+      }
+      
+      const membersRes = await fetch(`http://127.0.0.1:8001/api/discord/guild/${guildId}/members`);
+      if (membersRes.ok) {
+        const data = await membersRes.json();
+        setGuildMembers(data.members || []);
+      }
+    } catch (err) {
+      console.error("Error fetching limits and bans:", err);
+    }
+  }, []);
 
   // Fetch guilds & existing permissions mappings
   const fetchData = useCallback(async (showNotification = false) => {
@@ -104,6 +160,106 @@ export function RoleStudio() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (selectedGuildId) {
+      fetchLimitsAndBans(selectedGuildId);
+    }
+  }, [selectedGuildId, fetchLimitsAndBans]);
+
+  const handleSaveLimits = async () => {
+    if (!selectedGuildId) return;
+    setIsSavingLimits(true);
+    try {
+      const res = await fetch(`http://127.0.0.1:8001/api/discord/guild/${selectedGuildId}/limits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(limitsData)
+      });
+      if (res.ok) {
+        showToast('Rate limits and quotas updated successfully!', 'success');
+      } else {
+        throw new Error("Failed to save limits");
+      }
+    } catch (err) {
+      console.error("Save limits error:", err);
+      showToast('Failed to save rate limits.', 'error');
+    } finally {
+      setIsSavingLimits(false);
+    }
+  };
+
+  const handleApplyBan = async () => {
+    if (!selectedGuildId) return;
+    setIsApplyingBan(true);
+    try {
+      let userId = selectedMemberId;
+      let username = '';
+      
+      if (userId === 'manual') {
+        userId = manualUserQuery.replace(/[^0-9]/g, '');
+        username = manualUserQuery;
+        if (!userId) {
+          userId = manualUserQuery;
+        }
+      } else {
+        const member = guildMembers.find(m => m.id === userId);
+        username = member ? member.display_name : 'Unknown User';
+      }
+
+      if (!userId) {
+        showToast('Please select a member or enter a name/ID.', 'error');
+        setIsApplyingBan(false);
+        return;
+      }
+
+      const res = await fetch(`http://127.0.0.1:8001/api/discord/guild/${selectedGuildId}/bans`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          username: username,
+          ban_type: banType,
+          duration_seconds: banDuration,
+          reason: banReason,
+          banned_by: 'Admin'
+        })
+      });
+
+      if (res.ok) {
+        showToast(`User successfully ${banType === 'ban' ? 'banned' : 'restricted'}!`, 'success');
+        setBanReason('');
+        setManualUserQuery('');
+        setSelectedMemberId('');
+        fetchLimitsAndBans(selectedGuildId);
+      } else {
+        throw new Error("Failed to apply restriction");
+      }
+    } catch (err) {
+      console.error("Apply restriction error:", err);
+      showToast('Failed to restrict user.', 'error');
+    } finally {
+      setIsApplyingBan(false);
+    }
+  };
+
+  const handleLiftBan = async (userId: string) => {
+    if (!selectedGuildId) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:8001/api/discord/guild/${selectedGuildId}/bans/${userId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showToast('User restriction successfully lifted!', 'success');
+        fetchLimitsAndBans(selectedGuildId);
+      } else {
+        throw new Error("Failed to lift restriction");
+      }
+    } catch (err) {
+      console.error("Lift restriction error:", err);
+      showToast('Failed to lift restriction.', 'error');
+    }
+  };
 
   // Find currently selected guild
   const selectedGuild = useMemo(() => {
@@ -379,234 +535,517 @@ export function RoleStudio() {
           </div>
 
           {/* COLUMN 2: Server Roles Hierarchy */}
-          <div className="xl:col-span-1 bg-[#0d0d0f]/90 border border-white/5 rounded-3xl p-5 shadow-2xl flex flex-col h-[650px]">
-            <div className="flex items-center justify-between mb-4 shrink-0 px-1">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-indigo-400" />
-                <h3 className="font-bold text-white text-sm uppercase tracking-wider">Roles Hierarchy</h3>
+          {activeTab === 'permissions' && (
+            <div className="xl:col-span-1 bg-[#0d0d0f]/90 border border-white/5 rounded-3xl p-5 shadow-2xl flex flex-col h-[650px] animate-in fade-in duration-300">
+              <div className="flex items-center justify-between mb-4 shrink-0 px-1">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-indigo-400" />
+                  <h3 className="font-bold text-white text-sm uppercase tracking-wider">Roles Hierarchy</h3>
+                </div>
+                <span className="text-[9px] text-slate-500 font-bold bg-white/5 px-2 py-0.5 rounded-full">
+                  {selectedGuild?.roles.length || 0} Total
+                </span>
               </div>
-              <span className="text-[9px] text-slate-500 font-bold bg-white/5 px-2 py-0.5 rounded-full">
-                {selectedGuild?.roles.length || 0} Total
-              </span>
+
+              {selectedGuild && (
+                <div className="space-y-2 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                  {selectedGuild.roles.map((role) => {
+                    const isSelected = role.id === selectedRoleId;
+                    const allowedCount = permissions[selectedGuild.id]?.[role.id]?.length || 0;
+                    
+                    // Color conversion logic
+                    const pillColor = role.color || '#94a3b8';
+
+                    return (
+                      <button
+                        key={role.id}
+                        onClick={() => setSelectedRoleId(role.id)}
+                        className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between group active:scale-[0.98] ${
+                          isSelected 
+                            ? 'bg-indigo-500/10 border-indigo-500/30 text-white shadow-lg' 
+                            : 'bg-white/[0.02] border-white/5 text-slate-400 hover:border-white/15 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Role Color Pill Indicator */}
+                          <div 
+                            className="w-3.5 h-3.5 rounded-full border border-white/10 shrink-0" 
+                            style={{ backgroundColor: pillColor }}
+                          />
+                          <div className="flex flex-col min-w-0">
+                            <span className={`text-xs font-bold truncate leading-none mb-1 ${isSelected ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>
+                              {role.name}
+                            </span>
+                            <span className="text-[9px] text-slate-500 font-mono truncate">
+                              {role.is_everyone ? 'Default @everyone role' : `ID: ${role.id}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {allowedCount > 0 && (
+                            <span className="text-[9px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                              {allowedCount} Allowed
+                            </span>
+                          )}
+                          <ChevronRight className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isSelected ? 'translate-x-0.5 text-indigo-400' : 'group-hover:translate-x-0.5 group-hover:text-slate-350'}`} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!selectedGuild && (
+                <div className="flex-1 flex items-center justify-center text-slate-500 text-xs italic text-center p-4">
+                  Select a server to view roles
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* RIGHT PANEL (Permissions, Limits, or Bans) */}
+          <div className={`${activeTab === 'permissions' ? 'xl:col-span-2' : 'xl:col-span-3'} bg-[#0d0d0f]/90 border border-white/5 rounded-3xl p-6 shadow-2xl flex flex-col h-[650px] relative transition-all duration-300`}>
+            
+            {/* Tab Navigation */}
+            <div className="flex border-b border-white/5 pb-3 mb-4 gap-6 shrink-0">
+              <button
+                onClick={() => setActiveTab('permissions')}
+                className={`flex items-center gap-2 pb-1 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+                  activeTab === 'permissions'
+                    ? 'text-indigo-400 border-indigo-400'
+                    : 'text-slate-500 border-transparent hover:text-slate-350'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Role Permissions</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('limits')}
+                className={`flex items-center gap-2 pb-1 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+                  activeTab === 'limits'
+                    ? 'text-indigo-400 border-indigo-400'
+                    : 'text-slate-500 border-transparent hover:text-slate-350'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Limits & Quotas</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('bans')}
+                className={`flex items-center gap-2 pb-1 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+                  activeTab === 'bans'
+                    ? 'text-indigo-400 border-indigo-400'
+                    : 'text-slate-500 border-transparent hover:text-slate-350'
+                }`}
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>Ban & Restriction</span>
+              </button>
             </div>
 
-            {selectedGuild && (
-              <div className="space-y-2 overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                {selectedGuild.roles.map((role) => {
-                  const isSelected = role.id === selectedRoleId;
-                  const allowedCount = permissions[selectedGuild.id]?.[role.id]?.length || 0;
-                  
-                  // Color conversion logic
-                  const pillColor = role.color || '#94a3b8';
-
-                  return (
-                    <button
-                      key={role.id}
-                      onClick={() => setSelectedRoleId(role.id)}
-                      className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between group active:scale-[0.98] ${
-                        isSelected 
-                          ? 'bg-indigo-500/10 border-indigo-500/30 text-white shadow-lg' 
-                          : 'bg-white/[0.02] border-white/5 text-slate-400 hover:border-white/15 hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* Role Color Pill Indicator */}
-                        <div 
-                          className="w-3.5 h-3.5 rounded-full border border-white/10 shrink-0" 
-                          style={{ backgroundColor: pillColor }}
-                        />
-                        <div className="flex flex-col min-w-0">
-                          <span className={`text-xs font-bold truncate leading-none mb-1 ${isSelected ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>
-                            {role.name}
-                          </span>
-                          <span className="text-[9px] text-slate-500 font-mono truncate">
-                            {role.is_everyone ? 'Default @everyone role' : `ID: ${role.id}`}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {allowedCount > 0 && (
-                          <span className="text-[9px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">
-                            {allowedCount} Allowed
-                          </span>
-                        )}
-                        <ChevronRight className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isSelected ? 'translate-x-0.5 text-indigo-400' : 'group-hover:translate-x-0.5 group-hover:text-slate-350'}`} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {!selectedGuild && (
-              <div className="flex-1 flex items-center justify-center text-slate-500 text-xs italic text-center p-4">
-                Select a server to view roles
-              </div>
-            )}
-          </div>
-
-          {/* COLUMN 3 & 4: Allowed Workflows Panel */}
-          <div className="xl:col-span-2 bg-[#0d0d0f]/90 border border-white/5 rounded-3xl p-6 shadow-2xl flex flex-col h-[650px] relative">
-            
-            {selectedRole && selectedGuild && (
+            {/* TAB CONTENT: Permissions */}
+            {activeTab === 'permissions' && (
               <>
-                {/* Header Information for Selected Role */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-4 mb-4 gap-3 shrink-0">
-                  <div>
-                    <div className="flex items-center gap-2.5">
-                      <div 
-                        className="w-4 h-4 rounded-full border border-white/10" 
-                        style={{ backgroundColor: selectedRole.color || '#94a3b8' }}
-                      />
-                      <h4 className="font-extrabold text-white text-lg">{selectedRole.name} Permissions</h4>
-                    </div>
-                    <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
-                      {selectedRole.is_everyone ? (
-                        <>Public access settings. Workflows selected here are accessible to <span className="text-indigo-400 font-bold">everyone</span> by default.</>
-                      ) : (
-                        <>Assign permitted generation workflows for members possessing the role.</>
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Quick toggle actions */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggleAllWorkflows(true)}
-                      className="text-[9px] font-black uppercase text-indigo-400 hover:text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/15 px-2.5 py-1.5 rounded-xl transition-all"
-                    >
-                      Allow All
-                    </button>
-                    <button
-                      onClick={() => handleToggleAllWorkflows(false)}
-                      className="text-[9px] font-black uppercase text-slate-500 hover:text-slate-400 bg-white/5 hover:bg-white/10 border border-white/5 px-2.5 py-1.5 rounded-xl transition-all"
-                    >
-                      Revoke All
-                    </button>
-                  </div>
-                </div>
-
-                {/* Info Box about Fallbacks */}
-                <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 mb-4 shrink-0 flex items-start gap-3">
-                  <HelpCircle className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-                  <div className="text-[11px] text-slate-400 leading-relaxed font-semibold">
-                    <span className="text-white font-extrabold block mb-0.5">Standard Pipeline Fallback Rules</span>
-                    If a workflow is <span className="text-indigo-300">not assigned to any roles</span> on this server, it remains <span className="text-emerald-400">publicly available</span>. 
-                    The moment you restrict a workflow to specific roles, it becomes blocked for unauthorized users.
-                  </div>
-                </div>
-
-                {/* Workflows Search bar */}
-                <div className="relative mb-4 shrink-0">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input
-                    type="text"
-                    placeholder="Filter workflows by name or command..."
-                    value={workflowSearch}
-                    onChange={(e) => setWorkflowSearch(e.target.value)}
-                    className="w-full bg-black/40 border border-white/5 rounded-xl pl-11 pr-4 py-3 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500/50 outline-none transition-all"
-                  />
-                  {workflowSearch && (
-                    <button 
-                      onClick={() => setWorkflowSearch('')}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Scrollable Workflows checkboxes grid */}
-                <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar pb-2">
-                  {filteredWorkflows.length === 0 ? (
-                    <div className="py-12 flex flex-col items-center justify-center opacity-40 gap-2">
-                      <AlertCircle className="w-7 h-7 text-slate-600" />
-                      <span className="text-xs font-bold uppercase tracking-widest text-slate-500">No matching workflows</span>
-                    </div>
-                  ) : (
-                    filteredWorkflows.map((wf) => {
-                      const isAllowed = selectedRoleAllowedWorkflows.includes(wf.name);
-                      
-                      // Check if restricted in guild
-                      const isRestricted = isWorkflowRestrictedInGuild(wf.name);
-                      
-                      const discordCmd = wf.manifest?.discord_command || wf.name;
-                      const description = wf.manifest?.description || `Trigger ComfyUI execution command for ${wf.name}`;
-
-                      return (
-                        <div
-                          key={wf.name}
-                          onClick={() => handleToggleWorkflow(wf.name)}
-                          className={`group flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer select-none active:scale-[0.99] ${
-                            isAllowed
-                              ? 'bg-indigo-500/10 border-indigo-500/30'
-                              : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            {/* Checkbox indicator */}
-                            <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
-                              isAllowed 
-                                ? 'bg-indigo-500 border-indigo-400 text-white shadow-[0_0_8px_rgba(99,102,241,0.3)]' 
-                                : 'border-white/10 group-hover:border-white/25 bg-black/20'
-                            }`}>
-                              {isAllowed && <Check className="w-3.5 h-3.5 stroke-[3px]" />}
-                            </div>
-
-                            <div className="flex flex-col min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs font-bold leading-none ${isAllowed ? 'text-indigo-300' : 'text-slate-200'}`}>
-                                  {wf.name}
-                                </span>
-                                <span className="text-[9px] font-mono text-slate-500 bg-white/5 border border-white/5 px-1.5 py-0.5 rounded">
-                                  /{discordCmd.toLowerCase()}
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-slate-500 truncate mt-1 leading-none">
-                                {description}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 ml-2">
-                            {isAllowed ? (
-                              <span className="text-[9px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">
-                                Allowed
-                              </span>
-                            ) : isRestricted ? (
-                              <span className="text-[9px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full" title="Restricted to other specific roles. Members without those roles cannot access this.">
-                                Restricted
-                              </span>
-                            ) : (
-                              <span className="text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full animate-pulse-slow" title="Publicly accessible to everyone on the server.">
-                                Public
-                              </span>
-                            )}
-                          </div>
+                {selectedRole && selectedGuild && (
+                  <>
+                    {/* Header Information for Selected Role */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-4 mb-4 gap-3 shrink-0">
+                      <div>
+                        <div className="flex items-center gap-2.5">
+                          <div 
+                            className="w-4 h-4 rounded-full border border-white/10" 
+                            style={{ backgroundColor: selectedRole.color || '#94a3b8' }}
+                          />
+                          <h4 className="font-extrabold text-white text-lg">{selectedRole.name} Permissions</h4>
                         </div>
-                      );
-                    })
-                  )}
-                </div>
+                        <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                          {selectedRole.is_everyone ? (
+                            <>Public access settings. Workflows selected here are accessible to <span className="text-indigo-400 font-bold">everyone</span> by default.</>
+                          ) : (
+                            <>Assign permitted generation workflows for members possessing the role.</>
+                          )}
+                        </p>
+                      </div>
 
-                {/* Footer Metrics Panel */}
-                <div className="shrink-0 border-t border-white/5 pt-4 mt-2 flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{selectedRoleAllowedWorkflows.length} assigned to this role</span>
-                  </span>
-                  <span>{restrictedWorkflowsCount} restricted in server</span>
-                </div>
+                      {/* Quick toggle actions */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleAllWorkflows(true)}
+                          className="text-[9px] font-black uppercase text-indigo-400 hover:text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/15 px-2.5 py-1.5 rounded-xl transition-all"
+                        >
+                          Allow All
+                        </button>
+                        <button
+                          onClick={() => handleToggleAllWorkflows(false)}
+                          className="text-[9px] font-black uppercase text-slate-500 hover:text-slate-400 bg-white/5 hover:bg-white/10 border border-white/5 px-2.5 py-1.5 rounded-xl transition-all"
+                        >
+                          Revoke All
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Info Box about Fallbacks */}
+                    <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 mb-4 shrink-0 flex items-start gap-3">
+                      <HelpCircle className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                      <div className="text-[11px] text-slate-400 leading-relaxed font-semibold">
+                        <span className="text-white font-extrabold block mb-0.5">Standard Pipeline Fallback Rules</span>
+                        If a workflow is <span className="text-indigo-300">not assigned to any roles</span> on this server, it remains <span className="text-emerald-400">publicly available</span>. 
+                        The moment you restrict a workflow to specific roles, it becomes blocked for unauthorized users.
+                      </div>
+                    </div>
+
+                    {/* Workflows Search bar */}
+                    <div className="relative mb-4 shrink-0">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <input
+                        type="text"
+                        placeholder="Filter workflows by name or command..."
+                        value={workflowSearch}
+                        onChange={(e) => setWorkflowSearch(e.target.value)}
+                        className="w-full bg-black/40 border border-white/5 rounded-xl pl-11 pr-4 py-3 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500/50 outline-none transition-all"
+                      />
+                      {workflowSearch && (
+                        <button 
+                          onClick={() => setWorkflowSearch('')}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Scrollable Workflows checkboxes grid */}
+                    <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar pb-2">
+                      {filteredWorkflows.length === 0 ? (
+                        <div className="py-12 flex flex-col items-center justify-center opacity-40 gap-2">
+                          <AlertCircle className="w-7 h-7 text-slate-600" />
+                          <span className="text-xs font-bold uppercase tracking-widest text-slate-500">No matching workflows</span>
+                        </div>
+                      ) : (
+                        filteredWorkflows.map((wf) => {
+                          const isAllowed = selectedRoleAllowedWorkflows.includes(wf.name);
+                          
+                          // Check if restricted in guild
+                          const isRestricted = isWorkflowRestrictedInGuild(wf.name);
+                          
+                          const discordCmd = wf.manifest?.discord_command || wf.name;
+                          const description = wf.manifest?.description || `Trigger ComfyUI execution command for ${wf.name}`;
+
+                          return (
+                            <div
+                              key={wf.name}
+                              onClick={() => handleToggleWorkflow(wf.name)}
+                              className={`group flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer select-none active:scale-[0.99] ${
+                                isAllowed
+                                  ? 'bg-indigo-500/10 border-indigo-500/30'
+                                  : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3.5 min-w-0">
+                                {/* Checkbox indicator */}
+                                <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
+                                  isAllowed 
+                                    ? 'bg-indigo-500 border-indigo-400 text-white shadow-[0_0_8px_rgba(99,102,241,0.3)]' 
+                                    : 'border-white/10 group-hover:border-white/25 bg-black/20'
+                                }`}>
+                                  {isAllowed && <Check className="w-3.5 h-3.5 stroke-[3px]" />}
+                                </div>
+
+                                <div className="flex flex-col min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-xs font-bold leading-none ${isAllowed ? 'text-indigo-300' : 'text-slate-200'}`}>
+                                      {wf.name}
+                                    </span>
+                                    <span className="text-[9px] font-mono text-slate-500 bg-white/5 border border-white/5 px-1.5 py-0.5 rounded">
+                                      /{discordCmd.toLowerCase()}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-500 truncate mt-1 leading-none">
+                                    {description}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 ml-2">
+                                {isAllowed ? (
+                                  <span className="text-[9px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                                    Allowed
+                                  </span>
+                                ) : isRestricted ? (
+                                  <span className="text-[9px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full" title="Restricted to other specific roles. Members without those roles cannot access this.">
+                                    Restricted
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full animate-pulse-slow" title="Publicly accessible to everyone on the server.">
+                                    Public
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Footer Metrics Panel */}
+                    <div className="shrink-0 border-t border-white/5 pt-4 mt-2 flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                      <span className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>{selectedRoleAllowedWorkflows.length} assigned to this role</span>
+                      </span>
+                      <span>{restrictedWorkflowsCount} restricted in server</span>
+                    </div>
+                  </>
+                )}
+
+                {(!selectedRole || !selectedGuild) && (
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3 text-center p-8 animate-in fade-in duration-300">
+                    <Shield className="w-12 h-12 text-slate-700 animate-pulse" />
+                    <div>
+                      <h4 className="font-bold text-slate-400 text-sm">No Role Selected</h4>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-xs">Select a whitelisted server and role to begin mapping permissions.</p>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
-            {(!selectedRole || !selectedGuild) && (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3 text-center p-8 animate-in fade-in duration-300">
-                <Shield className="w-12 h-12 text-slate-700 animate-pulse" />
+            {/* TAB CONTENT: Limits & Quotas */}
+            {activeTab === 'limits' && selectedGuild && (
+              <div className="flex flex-col gap-6 animate-in fade-in duration-300 flex-1 overflow-y-auto pr-1">
                 <div>
-                  <h4 className="font-bold text-slate-400 text-sm">No Role Selected</h4>
-                  <p className="text-[11px] text-slate-500 mt-1 max-w-xs">Select a whitelisted server and role to begin mapping permissions.</p>
+                  <h4 className="font-extrabold text-white text-lg">Server Limits & Quotas</h4>
+                  <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                    Set up default user rate limits and daily generation quotas for the server <span className="text-indigo-400 font-bold">{selectedGuild.name}</span>.
+                  </p>
+                </div>
+
+                <div className="space-y-4 max-w-md">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Rate Limit: Generations Per Minute</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={limitsData.rate_limit_per_minute}
+                      onChange={(e) => setLimitsData({...limitsData, rate_limit_per_minute: parseInt(e.target.value) || 0})}
+                      className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500/50 outline-none transition-all"
+                    />
+                    <span className="text-[9px] text-slate-500 leading-relaxed font-semibold">Max generations a user can run in a 1-minute window. Set to 0 to disable.</span>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Rate Limit: Generations Per Hour</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={limitsData.rate_limit_per_hour}
+                      onChange={(e) => setLimitsData({...limitsData, rate_limit_per_hour: parseInt(e.target.value) || 0})}
+                      className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500/50 outline-none transition-all"
+                    />
+                    <span className="text-[9px] text-slate-500 leading-relaxed font-semibold">Max generations a user can run in a 1-hour window. Set to 0 to disable.</span>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Daily Quota: Generations Per Day</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={limitsData.quota_per_day}
+                      onChange={(e) => setLimitsData({...limitsData, quota_per_day: parseInt(e.target.value) || 0})}
+                      className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500/50 outline-none transition-all"
+                    />
+                    <span className="text-[9px] text-slate-500 leading-relaxed font-semibold">Max generations a user can run in a 24-hour period. Set to 0 to disable.</span>
+                  </div>
+
+                  <button
+                    onClick={handleSaveLimits}
+                    disabled={isSavingLimits}
+                    className="flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 mt-4"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingLimits ? 'Saving limits...' : 'Save Limits & Quotas'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Ban Management */}
+            {activeTab === 'bans' && selectedGuild && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-300 flex-1 min-h-0">
+                {/* Left Side: Ban Form */}
+                <div className="flex flex-col gap-4 border-r border-white/5 pr-6 overflow-y-auto custom-scrollbar">
+                  <div>
+                    <h4 className="font-extrabold text-white text-md">Restrict or Ban User</h4>
+                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">
+                      Prevent specific users in this guild from executing commands or accessing Link services.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Guild Member</label>
+                      <select
+                        value={selectedMemberId}
+                        onChange={(e) => setSelectedMemberId(e.target.value)}
+                        className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500/50 outline-none transition-all"
+                      >
+                        <option value="">-- Choose Member from Server --</option>
+                        {guildMembers.map(m => (
+                          <option key={m.id} value={m.id}>{m.display_name} (@{m.name})</option>
+                        ))}
+                        <option value="manual">Manual Entry (Username / ID)...</option>
+                      </select>
+                    </div>
+
+                    {selectedMemberId === 'manual' && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">User @name or Discord ID</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. @john or 123456789012345678"
+                          value={manualUserQuery}
+                          onChange={(e) => setManualUserQuery(e.target.value)}
+                          className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-slate-650 focus:border-indigo-500/50 outline-none transition-all"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Action Type</label>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setBanType('ban')}
+                          className={`flex-1 py-2.5 rounded-xl font-bold text-xs border transition-all active:scale-[0.98] ${
+                            banType === 'ban'
+                              ? 'bg-rose-500/10 border-rose-500/35 text-rose-400 shadow-md shadow-rose-500/5'
+                              : 'bg-white/[0.02] border-white/5 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Ban Complete
+                        </button>
+                        <button
+                          onClick={() => setBanType('restrict')}
+                          className={`flex-1 py-2.5 rounded-xl font-bold text-xs border transition-all active:scale-[0.98] ${
+                            banType === 'restrict'
+                              ? 'bg-amber-500/10 border-amber-500/35 text-amber-400 shadow-md shadow-amber-500/5'
+                              : 'bg-white/[0.02] border-white/5 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Restrict Commands
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Restriction Duration</label>
+                      <select
+                        value={banDuration === null ? 'permanent' : String(banDuration)}
+                        onChange={(e) => setBanDuration(e.target.value === 'permanent' ? null : parseInt(e.target.value))}
+                        className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500/50 outline-none transition-all"
+                      >
+                        <option value="1800">30 Minutes</option>
+                        <option value="3600">1 Hour</option>
+                        <option value="43200">12 Hours</option>
+                        <option value="86400">24 Hours</option>
+                        <option value="604800">7 Days</option>
+                        <option value="permanent">Permanent / Forever</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reason for Ban/Restriction</label>
+                      <textarea
+                        placeholder="Provide details (e.g. Spamming commands, offensive prompts)..."
+                        value={banReason}
+                        onChange={(e) => setBanReason(e.target.value)}
+                        rows={3}
+                        className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-slate-655 focus:border-indigo-500/50 outline-none resize-none transition-all"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleApplyBan}
+                      disabled={isApplyingBan}
+                      className="w-full flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 text-white py-3 rounded-xl font-bold text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 mt-2"
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      <span>{isApplyingBan ? 'Applying Restriction...' : 'Apply Restriction'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Side: Active Restrictions */}
+                <div className="flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar">
+                  <div>
+                    <h4 className="font-extrabold text-white text-md">Active Restrictions ({bansList.length})</h4>
+                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">
+                      All currently restricted users on this server. Click unlock to unban.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                    {bansList.length === 0 ? (
+                      <div className="py-12 flex flex-col items-center justify-center opacity-40 gap-2 border border-dashed border-white/5 rounded-2xl">
+                        <Activity className="w-6 h-6 text-slate-600 animate-pulse-slow" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">No Restricted Users</span>
+                      </div>
+                    ) : (
+                      bansList.map((banItem) => {
+                        const expiryDate = banItem.expires_at ? new Date(banItem.expires_at) : null;
+                        const isExpired = expiryDate ? new Date() > expiryDate : false;
+                        
+                        let durationLabel = 'Permanent';
+                        if (expiryDate) {
+                          if (isExpired) durationLabel = 'Expired';
+                          else {
+                            const minutesLeft = Math.ceil((expiryDate.getTime() - new Date().getTime()) / 60000);
+                            if (minutesLeft < 60) durationLabel = `${minutesLeft}m remaining`;
+                            else if (minutesLeft < 1440) durationLabel = `${Math.ceil(minutesLeft / 60)}h remaining`;
+                            else durationLabel = `${Math.ceil(minutesLeft / 1440)}d remaining`;
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={banItem.id}
+                            className={`p-4 rounded-2xl border bg-white/[0.01] transition-all flex items-center justify-between group border-white/5 hover:border-white/10`}
+                          >
+                            <div className="flex flex-col min-w-0 pr-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-slate-200 truncate">
+                                  {banItem.username}
+                                </span>
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                  banItem.ban_type === 'ban' 
+                                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                }`}>
+                                  {banItem.ban_type === 'ban' ? 'Ban' : 'Restricted'}
+                                </span>
+                              </div>
+                              <span className="text-[9px] text-slate-500 font-mono mt-1">ID: {banItem.user_id}</span>
+                              <span className="text-[10px] text-slate-400 mt-2 leading-relaxed italic bg-white/[0.02] p-2 rounded-lg border border-white/5">
+                                Reason: {banItem.reason || 'No reason provided'}
+                              </span>
+                              <span className="text-[9px] text-slate-500 font-semibold mt-2 flex items-center gap-1.5">
+                                <Clock className="w-3 h-3 text-slate-500" />
+                                <span>Time left: {durationLabel}</span>
+                              </span>
+                            </div>
+                            
+                            <button
+                              onClick={() => handleLiftBan(banItem.user_id)}
+                              className="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/15 transition-all shrink-0 active:scale-95"
+                              title="Lift Restriction"
+                            >
+                              <Unlock className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             )}

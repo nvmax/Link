@@ -23,6 +23,8 @@
 - **Auto Download and install Models**: Automatically scans Hugging Face for models, downlods them and installs them to your comfyui workspace.
    - If not found you can copy a link to download or if not found on Hugging Face for some reason you can post the repo short link example: `Lightricks/LTX-2.3`
    - Advanced nodes like Florence2 must be manually added to the custom_nodes folder. 
+- **Bot-Level Queue System**: Thread-Safe QueueManager with asynchronous locking, postition messages are updated live in discord.
+- **Server Limits, Quota's & Bans**: Per server settings to control usage of Link, allowing per 30m/1h/12h/24h/7d/forever bans, Limits for rate limits per minute, per hour and per day. 
 
 
 ### 🎨 Visual Architect

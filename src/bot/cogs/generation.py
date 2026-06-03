@@ -5,9 +5,10 @@ from src.bot.ui import DynamicModal, OptionsView
 from src.bot.modals import AIReviewModal
 from src.api.workflows import PayloadBuilder
 from src.api.ai_service import AiService
-from src.database.models import GenerationJob, JobStatus, Asset
+from src.database.models import GenerationJob, JobStatus, Asset, ServerLimit, UserBan
 from src.database.session import SessionLocal
 from src.core.logger import setup_logger
+from datetime import datetime, timedelta
 import uuid
 import random
 import os
@@ -38,6 +39,96 @@ class GenerationCog(commands.Cog):
         """Common entry point for both slash commands and modal submissions."""
         logger.info(f"handle_generation_request called for {workflow_name} by {interaction.user.display_name}")
         try:
+            # Ban Check
+            if interaction.guild:
+                guild_id = str(interaction.guild.id)
+                user_id = str(interaction.user.id)
+                db = SessionLocal()
+                try:
+                    from sqlalchemy import or_
+                    ban = db.query(UserBan).filter(
+                        UserBan.guild_id == guild_id,
+                        UserBan.user_id == user_id,
+                        or_(UserBan.expires_at == None, UserBan.expires_at > datetime.utcnow())
+                    ).first()
+                    
+                    if ban:
+                        reason = ban.reason or "No reason provided."
+                        ban_type_str = "restricted from using commands" if ban.ban_type == "restrict" else "banned"
+                        time_left_str = "permanently"
+                        if ban.expires_at:
+                            time_left = ban.expires_at - datetime.utcnow()
+                            minutes = int(time_left.total_seconds() / 60)
+                            if minutes < 60:
+                                time_left_str = f"for another {minutes}m"
+                            elif minutes < 1440:
+                                time_left_str = f"for another {int(minutes/60)}h"
+                            else:
+                                time_left_str = f"for another {int(minutes/1440)}d"
+                                
+                        msg = f"❌ **Access Denied**: You have been {ban_type_str} on this server {time_left_str}.\n> **Reason**: {reason}"
+                        if not interaction.response.is_done():
+                            return await interaction.response.send_message(msg, ephemeral=True)
+                        else:
+                            return await interaction.followup.send(msg, ephemeral=True)
+                finally:
+                    db.close()
+
+            # Rate Limits & Quotas Check
+            if interaction.guild:
+                guild_id = str(interaction.guild.id)
+                user_id = str(interaction.user.id)
+                db = SessionLocal()
+                try:
+                    limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
+                    if limits:
+                        # Rate limit per minute
+                        if limits.rate_limit_per_minute > 0:
+                            one_min_ago = datetime.utcnow() - timedelta(minutes=1)
+                            job_count = db.query(GenerationJob).filter(
+                                GenerationJob.user_id == user_id,
+                                GenerationJob.guild_id == guild_id,
+                                GenerationJob.created_at > one_min_ago
+                            ).count()
+                            if job_count >= limits.rate_limit_per_minute:
+                                msg = f"⚠️ **Rate Limited**: You can only run {limits.rate_limit_per_minute} command(s) per minute on this server. Please wait."
+                                if not interaction.response.is_done():
+                                    return await interaction.response.send_message(msg, ephemeral=True)
+                                else:
+                                    return await interaction.followup.send(msg, ephemeral=True)
+
+                        # Rate limit per hour
+                        if limits.rate_limit_per_hour > 0:
+                            one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+                            job_count = db.query(GenerationJob).filter(
+                                GenerationJob.user_id == user_id,
+                                GenerationJob.guild_id == guild_id,
+                                GenerationJob.created_at > one_hour_ago
+                            ).count()
+                            if job_count >= limits.rate_limit_per_hour:
+                                msg = f"⚠️ **Rate Limited**: You can only run {limits.rate_limit_per_hour} command(s) per hour on this server. Please wait."
+                                if not interaction.response.is_done():
+                                    return await interaction.response.send_message(msg, ephemeral=True)
+                                else:
+                                    return await interaction.followup.send(msg, ephemeral=True)
+
+                        # Daily Quota
+                        if limits.quota_per_day > 0:
+                            one_day_ago = datetime.utcnow() - timedelta(days=1)
+                            job_count = db.query(GenerationJob).filter(
+                                GenerationJob.user_id == user_id,
+                                GenerationJob.guild_id == guild_id,
+                                GenerationJob.created_at > one_day_ago
+                            ).count()
+                            if job_count >= limits.quota_per_day:
+                                msg = f"⚠️ **Quota Exceeded**: You have reached your daily quota of {limits.quota_per_day} command(s) per day on this server."
+                                if not interaction.response.is_done():
+                                    return await interaction.response.send_message(msg, ephemeral=True)
+                                else:
+                                    return await interaction.followup.send(msg, ephemeral=True)
+                finally:
+                    db.close()
+
             # Channel Lockdown Check
             if Config.ALLOWED_CHANNEL_IDS and interaction.channel_id not in Config.ALLOWED_CHANNEL_IDS:
                 allowed_list = ", ".join([f"<#{cid}>" for cid in Config.ALLOWED_CHANNEL_IDS])
@@ -654,7 +745,9 @@ class GenerationCog(commands.Cog):
 
 
             # Create DB Job
+            guild_id_str = str(channel.guild.id) if hasattr(channel, 'guild') and channel.guild else None
             job = GenerationJob(
+                guild_id=guild_id_str,
                 user_id=str(user.id),
                 workflow_name=workflow_name,
                 input_params=final_values,
@@ -670,17 +763,17 @@ class GenerationCog(commands.Cog):
             payload = PayloadBuilder.inject(template, manifest, final_values, shared_inputs=self.bot.workflow_registry.shared_inputs)
             node_map = {str(node_id): node_data.get("class_type") for node_id, node_data in payload.items()}
             job.node_map = node_map
+            db.commit()
             
-            prompt_id = await self.bot.api_client.queue_prompt(payload, self.bot.client_id)
-            
-            if prompt_id:
-                job.comfy_prompt_id = prompt_id
-                db.commit()
-                logger.info(f"Queued job {job.id} with prompt_id {prompt_id}")
-            else:
-                error_msg = "❌ ComfyUI did not return a prompt ID. Check if ComfyUI is running."
-                if interaction: await interaction.followup.send(error_msg, ephemeral=True)
-                else: await channel.send(error_msg)
+            # Send to QueueManager
+            await self.bot.queue_manager.add_job(
+                job_id=job.id,
+                payload=payload,
+                client_id=self.bot.client_id,
+                channel=channel,
+                message_id=message_id,
+                workflow_name=workflow_name
+            )
 
         except Exception as e:
             logger.error(f"Generation error: {e}")

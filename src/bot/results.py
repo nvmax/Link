@@ -439,6 +439,8 @@ class ResultHandler:
             db.commit()
         finally:
             db.close()
+            if hasattr(self.bot, 'queue_manager') and self.bot.queue_manager:
+                await self.bot.queue_manager.on_job_completed(prompt_id)
 
     async def handle_execution_error(self, prompt_id: str, node_type: str, message: str):
         """Called when ComfyUI reports execution_error or execution_interrupted."""
@@ -473,6 +475,8 @@ class ResultHandler:
                     logger.error(f"Failed to post error message to Discord: {e}")
         finally:
             db.close()
+            if hasattr(self.bot, 'queue_manager') and self.bot.queue_manager:
+                await self.bot.queue_manager.on_job_completed(prompt_id)
 
     def _resolve_node_name(self, job, node_info: str | None) -> str | None:
         """Resolve a numeric node ID to its class name using the job's node_map."""
