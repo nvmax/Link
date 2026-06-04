@@ -6,7 +6,7 @@ from src.bot.modals import AIReviewModal
 from src.api.workflows import PayloadBuilder
 from src.api.ai_service import AiService
 from src.database.models import GenerationJob, JobStatus, Asset, ServerLimit, UserBan
-from src.database.session import SessionLocal
+from src.database.session import db_session
 from src.core.logger import setup_logger
 from datetime import datetime, timedelta
 import uuid
@@ -36,7 +36,9 @@ class GenerationCog(commands.Cog):
             if interaction.guild:
                 guild_id = str(interaction.guild.id)
                 user_id = str(interaction.user.id)
-                with SessionLocal() as db:
+                ban_found = False
+                ban_msg = None
+                with db_session() as db:
                     from sqlalchemy import or_
                     ban = db.query(UserBan).filter(
                         UserBan.guild_id == guild_id,
@@ -45,6 +47,7 @@ class GenerationCog(commands.Cog):
                     ).first()
                     
                     if ban:
+                        ban_found = True
                         reason = ban.reason or "No reason provided."
                         ban_type_str = "restricted from using commands" if ban.ban_type == "restrict" else "banned"
                         time_left_str = "permanently"
@@ -57,18 +60,21 @@ class GenerationCog(commands.Cog):
                                 time_left_str = f"for another {int(minutes/60)}h"
                             else:
                                 time_left_str = f"for another {int(minutes/1440)}d"
-                                
-                        msg = f"❌ **Access Denied**: You have been {ban_type_str} on this server {time_left_str}.\n> **Reason**: {reason}"
-                        if not interaction.response.is_done():
-                            return await interaction.response.send_message(msg, ephemeral=True)
-                        else:
-                            return await interaction.followup.send(msg, ephemeral=True)
+                        ban_msg = f"❌ **Access Denied**: You have been {ban_type_str} on this server {time_left_str}.\n> **Reason**: {reason}"
+                
+                if ban_found:
+                    if not interaction.response.is_done():
+                        return await interaction.response.send_message(ban_msg, ephemeral=True)
+                    else:
+                        return await interaction.followup.send(ban_msg, ephemeral=True)
 
             # Rate Limits & Quotas Check
             if interaction.guild:
                 guild_id = str(interaction.guild.id)
                 user_id = str(interaction.user.id)
-                with SessionLocal() as db:
+                limit_blocked = False
+                limit_msg = None
+                with db_session() as db:
                     limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
                     if limits:
                         # Rate limit per minute
@@ -80,14 +86,11 @@ class GenerationCog(commands.Cog):
                                 GenerationJob.created_at > one_min_ago
                             ).count()
                             if job_count >= limits.rate_limit_per_minute:
-                                msg = f"⚠️ **Rate Limited**: You can only run {limits.rate_limit_per_minute} command(s) per minute on this server. Please wait."
-                                if not interaction.response.is_done():
-                                    return await interaction.response.send_message(msg, ephemeral=True)
-                                else:
-                                    return await interaction.followup.send(msg, ephemeral=True)
+                                limit_blocked = True
+                                limit_msg = f"⚠️ **Rate Limited**: You can only run {limits.rate_limit_per_minute} command(s) per minute on this server. Please wait."
 
                         # Rate limit per hour
-                        if limits.rate_limit_per_hour > 0:
+                        if not limit_blocked and limits.rate_limit_per_hour > 0:
                             one_hour_ago = datetime.utcnow() - timedelta(hours=1)
                             job_count = db.query(GenerationJob).filter(
                                 GenerationJob.user_id == user_id,
@@ -95,14 +98,11 @@ class GenerationCog(commands.Cog):
                                 GenerationJob.created_at > one_hour_ago
                             ).count()
                             if job_count >= limits.rate_limit_per_hour:
-                                msg = f"⚠️ **Rate Limited**: You can only run {limits.rate_limit_per_hour} command(s) per hour on this server. Please wait."
-                                if not interaction.response.is_done():
-                                    return await interaction.response.send_message(msg, ephemeral=True)
-                                else:
-                                    return await interaction.followup.send(msg, ephemeral=True)
+                                limit_blocked = True
+                                limit_msg = f"⚠️ **Rate Limited**: You can only run {limits.rate_limit_per_hour} command(s) per hour on this server. Please wait."
 
                         # Daily Quota
-                        if limits.quota_per_day > 0:
+                        if not limit_blocked and limits.quota_per_day > 0:
                             one_day_ago = datetime.utcnow() - timedelta(days=1)
                             job_count = db.query(GenerationJob).filter(
                                 GenerationJob.user_id == user_id,
@@ -110,11 +110,15 @@ class GenerationCog(commands.Cog):
                                 GenerationJob.created_at > one_day_ago
                             ).count()
                             if job_count >= limits.quota_per_day:
-                                msg = f"⚠️ **Quota Exceeded**: You have reached your daily quota of {limits.quota_per_day} command(s) per day on this server."
-                                if not interaction.response.is_done():
-                                    return await interaction.response.send_message(msg, ephemeral=True)
-                                else:
-                                    return await interaction.followup.send(msg, ephemeral=True)
+                                limit_blocked = True
+                                limit_msg = f"⚠️ **Quota Exceeded**: You have reached your daily quota of {limits.quota_per_day} command(s) per day on this server."
+
+                if limit_blocked:
+                    if not interaction.response.is_done():
+                        return await interaction.response.send_message(limit_msg, ephemeral=True)
+                    else:
+                        return await interaction.followup.send(limit_msg, ephemeral=True)
+
 
             # Channel Lockdown Check
             if Config.ALLOWED_CHANNEL_IDS and interaction.channel_id not in Config.ALLOWED_CHANNEL_IDS:
@@ -459,7 +463,7 @@ class GenerationCog(commands.Cog):
                 logger.info(f"Saved Discord upload to {local_path}")
                 
                 # Register in DB so chain buttons can find it later
-                with SessionLocal() as db:
+                with db_session() as db:
                     from src.database.models import Asset, GenerationJob
                     # Find most recent job for this user to associate the asset
                     recent_job = db.query(GenerationJob).filter(
@@ -750,7 +754,7 @@ class GenerationCog(commands.Cog):
 
             # Create DB Job
             guild_id_str = str(channel.guild.id) if hasattr(channel, 'guild') and channel.guild else None
-            with SessionLocal() as db:
+            with db_session() as db:
                 job = GenerationJob(
                     guild_id=guild_id_str,
                     user_id=str(user.id),
@@ -790,22 +794,25 @@ class GenerationCog(commands.Cog):
             else: await channel.send(err_msg)
 
     async def handle_regeneration(self, interaction: discord.Interaction, job_id: str):
-        with SessionLocal() as db:
+        workflow_name = None
+        values = {}
+        with db_session() as db:
             old_job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
-            if not old_job:
-                return await interaction.response.send_message("Job not found.", ephemeral=True)
+            if old_job:
+                workflow_name = old_job.workflow_name
+                values = old_job.input_params.copy()
                 
-            workflow_name = old_job.workflow_name
-            values = old_job.input_params.copy()
+        if not workflow_name:
+            return await interaction.response.send_message("Job not found.", ephemeral=True)
             
-            # Re-inject profile for the redo
-            if "__profile__" in values:
-                values["profile"] = values["__profile__"]
-                
-            # IMPORTANT: Reset all seeds to -1 for the new run
-            for k in list(values.keys()):
-                if "seed" in k.lower():
-                    values[k] = -1
+        # Re-inject profile for the redo
+        if "__profile__" in values:
+            values["profile"] = values["__profile__"]
+            
+        # IMPORTANT: Reset all seeds to -1 for the new run
+        for k in list(values.keys()):
+            if "seed" in k.lower():
+                values[k] = -1
         
         wf = self.bot.workflow_registry.get_workflow(workflow_name)
         if not wf:
@@ -832,13 +839,16 @@ class GenerationCog(commands.Cog):
         await self._execute_generation(interaction, workflow_name, wf, wf["manifest"], values, message_id=message.id)
 
     async def handle_options_request(self, interaction: discord.Interaction, job_id: str):
-        with SessionLocal() as db:
+        workflow_name = None
+        current_values = {}
+        with db_session() as db:
             old_job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
-            if not old_job:
-                return await interaction.response.send_message("Job not found.", ephemeral=True)
+            if old_job:
+                workflow_name = old_job.workflow_name
+                current_values = dict(old_job.input_params)
                 
-            workflow_name = old_job.workflow_name
-            current_values = dict(old_job.input_params)
+        if not workflow_name:
+            return await interaction.response.send_message("Job not found.", ephemeral=True)
         
         wf = self.bot.workflow_registry.get_workflow(workflow_name)
         if not wf:

@@ -17,8 +17,7 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(autouse=True)
 def setup_test_db():
     Base.metadata.create_all(bind=engine)
-    with patch("src.bot.cogs.generation.SessionLocal", TestingSessionLocal), \
-         patch("src.core.queue.SessionLocal", TestingSessionLocal):
+    with patch("src.database.session.SessionLocal", TestingSessionLocal):
         yield
     Base.metadata.drop_all(bind=engine)
 

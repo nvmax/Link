@@ -2,6 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from src.core.config import Config
 from src.database.models import Base
+from contextlib import contextmanager
 
 engine = create_engine(Config.DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in Config.DATABASE_URL else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -34,3 +35,17 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+@contextmanager
+def db_session():
+    """Provide a transactional scope around a series of operations."""
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+

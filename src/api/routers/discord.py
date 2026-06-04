@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from src.core.config import Config
 from src.core.logger import setup_logger
 from src.api import state
-from src.database.session import SessionLocal, get_db
+from src.database.session import get_db
 from src.database.models import ServerLimit, UserBan
 
 logger = setup_logger("api_discord")

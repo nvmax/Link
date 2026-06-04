@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 from src.core.logger import setup_logger
-from src.database.session import SessionLocal
+from src.database.session import db_session
 from src.database.models import GenerationJob, JobStatus
 
 logger = setup_logger("queue_manager")
@@ -90,22 +90,20 @@ class QueueManager:
             prompt_id = await self.bot.api_client.queue_prompt(payload, client_id)
             if prompt_id:
                 job_data["prompt_id"] = prompt_id
-                with SessionLocal() as db:
+                with db_session() as db:
                     job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
                     if job:
                         job.comfy_prompt_id = prompt_id
                         job.status = JobStatus.PROCESSING
-                        db.commit()
                 logger.info(f"Queued prompt {prompt_id} for job {job_id}")
             else:
                 raise Exception("ComfyUI did not return a prompt ID.")
         except Exception as e:
             logger.error(f"Failed to queue prompt for job {job_id}: {e}")
-            with SessionLocal() as db:
+            with db_session() as db:
                 job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
                 if job:
                     job.status = JobStatus.FAILED
-                    db.commit()
                 
             if channel and message_id:
                 try:
@@ -153,11 +151,10 @@ class QueueManager:
                             
                             # Mark as FAILED in database
                             try:
-                                with SessionLocal() as db:
+                                with db_session() as db:
                                     job = db.query(GenerationJob).filter(GenerationJob.id == self.active_job["job_id"]).first()
                                     if job and job.status == JobStatus.PROCESSING:
                                         job.status = JobStatus.FAILED
-                                        db.commit()
                             except Exception as db_err:
                                 logger.error(f"Error marking stuck job as failed in DB: {db_err}")
 

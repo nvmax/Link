@@ -36,72 +36,79 @@ async def main():
     from src.api import state
     state.ws_instance = ws
     
-    current_prompt_id = None
-
-    # Tracks the node type currently being executed so progress can show friendly labels
-    current_node_type = None
+    active_nodes = {}
+    last_active_prompt_id = None
 
     async def progress_handler(packet):
-        nonlocal current_prompt_id, current_node_type
+        nonlocal last_active_prompt_id
         data = packet.get("data", {})
-        prompt_id = packet.get("prompt_id") or current_prompt_id
+        prompt_id = data.get("prompt_id") or packet.get("prompt_id") or last_active_prompt_id
         value = data.get("value")
         max_val = data.get("max")
+        node_id = data.get("node")
 
-        if value is not None and max_val is not None:
-            logger.info(f"Progress for {prompt_id}: {value}/{max_val} (node={current_node_type})")
-            await result_handler.update_progress(prompt_id, value, max_val, node_type=current_node_type)
+        if value is not None and max_val is not None and prompt_id:
+            node_info = active_nodes.get(prompt_id) or node_id
+            logger.info(f"Progress for {prompt_id}: {value}/{max_val} (node={node_info})")
+            await result_handler.update_progress(prompt_id, value, max_val, node_type=node_info)
 
     async def execution_start_handler(packet):
-        nonlocal current_prompt_id, current_node_type
-        current_prompt_id = packet.get("data", {}).get("prompt_id")
-        current_node_type = None
-        logger.info(f"Execution started for prompt {current_prompt_id}")
+        nonlocal last_active_prompt_id
+        data = packet.get("data", {})
+        prompt_id = data.get("prompt_id")
+        if prompt_id:
+            last_active_prompt_id = prompt_id
+            active_nodes[prompt_id] = None
+            logger.info(f"Execution started for prompt {prompt_id}")
 
     async def executing_handler(packet):
         """Fires once per node as ComfyUI begins executing it."""
-        nonlocal current_prompt_id, current_node_type
+        nonlocal last_active_prompt_id
         data = packet.get("data", {})
         node = data.get("node")
         node_type = data.get("node_type") or data.get("class_type")
-        prompt_id = data.get("prompt_id") or current_prompt_id
+        prompt_id = data.get("prompt_id") or packet.get("prompt_id") or last_active_prompt_id
 
         if node is None:
             # node=None signals the entire prompt finished execution
             if prompt_id:
                 logger.info(f"Execution fully finished for prompt {prompt_id}")
+                active_nodes.pop(prompt_id, None)
                 await result_handler.handle_execution_done(prompt_id)
         else:
             # A new node just started — update the Discord status line
             node_info = node_type or node # Fallback to numeric ID for resolution
-            current_node_type = node_info
-            logger.debug(f"Executing node {node} ({node_info}) for prompt {prompt_id}")
-            await result_handler.update_node_status(prompt_id, node_info)
+            if prompt_id:
+                active_nodes[prompt_id] = node_info
+                logger.debug(f"Executing node {node} ({node_info}) for prompt {prompt_id}")
+                await result_handler.update_node_status(prompt_id, node_info)
 
     async def execution_success_handler(packet):
         data = packet.get("data", {})
-        prompt_id = data.get("prompt_id")
+        prompt_id = data.get("prompt_id") or packet.get("prompt_id")
         if prompt_id:
             logger.info(f"execution_success received for prompt {prompt_id}")
+            active_nodes.pop(prompt_id, None)
             await result_handler.handle_execution_done(prompt_id)
 
     async def execution_error_handler(packet):
-        nonlocal current_node_type
         data = packet.get("data", {})
-        prompt_id = data.get("prompt_id")
+        prompt_id = data.get("prompt_id") or packet.get("prompt_id")
         node_id = data.get("node_id", "?")
         node_type = data.get("node_type", "Unknown node")
         exc_message = data.get("exception_message", "An unknown error occurred")
         logger.error(f"ComfyUI execution_error for prompt {prompt_id}: [{node_type}] {exc_message}")
         if prompt_id:
+            active_nodes.pop(prompt_id, None)
             await result_handler.handle_execution_error(prompt_id, node_type, exc_message)
 
     async def execution_interrupted_handler(packet):
         data = packet.get("data", {})
-        prompt_id = data.get("prompt_id")
+        prompt_id = data.get("prompt_id") or packet.get("prompt_id")
         node_type = data.get("node_type", "Unknown node")
         logger.warning(f"ComfyUI execution_interrupted for prompt {prompt_id} at node {node_type}")
         if prompt_id:
+            active_nodes.pop(prompt_id, None)
             await result_handler.handle_execution_error(prompt_id, node_type, "Generation was interrupted.")
 
     ws.register_handler("execution_start", execution_start_handler)

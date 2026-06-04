@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from src.database.session import SessionLocal
+from src.database.session import db_session
 from src.database.models import GenerationJob
 import logging
 
@@ -21,12 +21,18 @@ class Utility(commands.Cog):
     @commands.command()
     async def last_job(self, ctx):
         """Show your last generation job ID."""
-        with SessionLocal() as db:
+        job_id = None
+        job_status = None
+        with db_session() as db:
             job = db.query(GenerationJob).filter(GenerationJob.user_id == str(ctx.author.id)).order_by(GenerationJob.created_at.desc()).first()
             if job:
-                await ctx.send(f"Your last Job ID: `{job.id}` (Status: {job.status.value})")
-            else:
-                await ctx.send("You haven't run any jobs yet.")
+                job_id = job.id
+                job_status = job.status.value
+
+        if job_id:
+            await ctx.send(f"Your last Job ID: `{job_id}` (Status: {job_status})")
+        else:
+            await ctx.send("You haven't run any jobs yet.")
 
     @commands.command()
     async def help(self, ctx: commands.Context, command: str = None):
