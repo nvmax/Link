@@ -40,6 +40,7 @@ Design the perfect user experience for your generation results.
 - **Dynamic Action Buttons**: Add custom buttons (Regenerate, Upscale, Video-ify) that trigger chained workflows.
 - **Dynamic Modal Selection**: Allows users to select a different workflow to run after a successful generation. 
 - **Asset Propagation**: Automatically pass generated images or videos from one workflow to the next.
+- **Message V1/V2** Now fully Supports Discord Message Components V2.
 
 ### 📁 LoRA Studio
 A professional-grade management system for your model library.
