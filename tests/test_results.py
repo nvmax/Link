@@ -129,7 +129,7 @@ async def test_handle_execution_done_v1_legacy():
     assert "Prompt" in embed.description
     
     # Check files/view
-    assert len(kwargs.get("files")) == 1
+    assert len(kwargs.get("attachments")) == 1
     view = kwargs.get("view")
     assert view is not None
     # Verify buttons inside view

@@ -457,7 +457,7 @@ class ResultHandler:
                                     view.add_item(action_row)
 
                             try:
-                                await msg.edit(content=None, embed=None, files=files_to_upload, view=view)
+                                await msg.edit(content=None, embed=None, attachments=files_to_upload, view=view)
                             except Exception as e:
                                 logger.warning(f"Failed to edit message with V2 layout: {e}. Falling back to fresh message...")
                                 try:
@@ -658,7 +658,7 @@ class ResultHandler:
                                     embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
 
                             try:
-                                await msg.edit(content=None, embed=embed, files=files_to_upload, view=view)
+                                await msg.edit(content=None, embed=embed, attachments=files_to_upload, view=view)
                             except Exception as e:
                                 logger.warning(f"Failed to edit message with files: {e}. Falling back to fresh message...")
                                 try:
