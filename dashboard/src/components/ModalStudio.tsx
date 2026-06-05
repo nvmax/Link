@@ -10,121 +10,233 @@ export function ModalStudio() {
   return (
     <div className="flex flex-col xl:flex-row gap-8 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex-1 bg-[#0d0d0f] rounded-3xl border border-white/5 p-4 sm:p-8 overflow-y-auto shadow-2xl">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h3 className="text-2xl font-black text-white tracking-tight">Modal Studio</h3>
             <p className="text-slate-500 text-sm">Design the generation interaction flow for Discord</p>
           </div>
+          <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 h-[34px] w-fit shrink-0">
+            <button 
+              onClick={() => setUiConfig({ ...uiConfig, layout_version: 'v1' })}
+              className={`px-3 rounded-lg text-[9px] font-black transition-all ${uiConfig.layout_version !== 'v2' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            >LEGACY EMBED (V1)</button>
+            <button 
+              onClick={() => setUiConfig({ ...uiConfig, layout_version: 'v2' })}
+              className={`px-3 rounded-lg text-[9px] font-black transition-all ${uiConfig.layout_version === 'v2' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            >MESSAGE GRID (V2)</button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-10">
-          <div className="space-y-6">
-              <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                <Layout className="w-3 h-3" /> Embed Layout
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 uppercase font-bold">Title Template</label>
-                  <input 
-                    value={uiConfig.embed?.title_template || ''}
-                    onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, title_template: e.target.value } })}
-                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-indigo-500/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-slate-500 uppercase font-bold">Accent Color</label>
-                    <label className="flex items-center gap-1.5 cursor-pointer group">
+          {uiConfig.layout_version === 'v2' ? (
+            <>
+              <div className="space-y-6">
+                  <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                    <Layout className="w-3 h-3" /> V2 Grid Layout Settings
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold">Title Template</label>
                       <input 
-                        type="checkbox"
-                        checked={uiConfig.embed?.use_role_color || false}
-                        onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, use_role_color: e.target.checked } })}
-                        className="w-3 h-3 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                        value={uiConfig.v2_layout?.title_template || ''}
+                        onChange={(e) => setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, title_template: e.target.value } })}
+                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-indigo-500/50"
                       />
-                      <span className="text-[9px] font-bold text-slate-500 group-hover:text-indigo-400 transition-colors uppercase">Role Color</span>
-                    </label>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-slate-500 uppercase font-bold">Accent Color</label>
+                        <label className="flex items-center gap-1.5 cursor-pointer group">
+                          <input 
+                            type="checkbox"
+                            checked={uiConfig.v2_layout?.use_role_color || false}
+                            onChange={(e) => setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, use_role_color: e.target.checked } })}
+                            className="w-3 h-3 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                          />
+                          <span className="text-[9px] font-bold text-slate-500 group-hover:text-indigo-400 transition-colors uppercase">Role Color</span>
+                        </label>
+                      </div>
+                      <div className="flex gap-2">
+                        <input 
+                          type="color" 
+                          value={uiConfig.v2_layout?.color || '#5865F2'} 
+                          disabled={uiConfig.v2_layout?.use_role_color}
+                          onChange={(e) => setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, color: e.target.value } })} 
+                          className={`w-10 h-10 rounded-lg bg-transparent border-none cursor-pointer ${uiConfig.v2_layout?.use_role_color ? 'opacity-30' : ''}`} 
+                        />
+                        <input 
+                          value={uiConfig.v2_layout?.color || '#5865F2'} 
+                          disabled={uiConfig.v2_layout?.use_role_color}
+                          onChange={(e) => setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, color: e.target.value } })} 
+                          className={`flex-1 bg-black/40 border border-white/5 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-indigo-500/50 ${uiConfig.v2_layout?.use_role_color ? 'opacity-30' : ''}`} 
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <input 
-                      type="color" 
-                      value={uiConfig.embed?.color || '#5865F2'} 
-                      disabled={uiConfig.embed?.use_role_color}
-                      onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, color: e.target.value } })} 
-                      className={`w-10 h-10 rounded-lg bg-transparent border-none cursor-pointer ${uiConfig.embed?.use_role_color ? 'opacity-30' : ''}`} 
-                    />
-                    <input 
-                      value={uiConfig.embed?.color || '#5865F2'} 
-                      disabled={uiConfig.embed?.use_role_color}
-                      onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, color: e.target.value } })} 
-                      className={`flex-1 bg-black/40 border border-white/5 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-indigo-500/50 ${uiConfig.embed?.use_role_color ? 'opacity-30' : ''}`} 
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold">Media Position (Grid Alignment)</label>
+                      <select 
+                        value={uiConfig.v2_layout?.media_position || 'left'} 
+                        onChange={(e) => setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, media_position: e.target.value } })}
+                        className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] text-slate-400 font-bold"
+                      >
+                        <option value="left">Left Column (Split layout)</option>
+                        <option value="right">Right Column (Split layout)</option>
+                        <option value="top">Top Row (Stacked layout)</option>
+                        <option value="bottom">Bottom Row (Stacked layout)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold">Grid Layout Columns</label>
+                      <select 
+                        value={uiConfig.v2_layout?.grid_columns || 2} 
+                        onChange={(e) => setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, grid_columns: parseInt(e.target.value) } })}
+                        className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] text-slate-400 font-bold"
+                      >
+                        <option value={1}>1 Column Stack</option>
+                        <option value={2}>2 Columns Split</option>
+                      </select>
+                    </div>
                   </div>
-                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 uppercase font-bold">Image Position</label>
-                  <select 
-                    value={uiConfig.embed?.image_position || 'top'} 
-                    onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, image_position: e.target.value } })}
-                    className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] text-slate-400 font-bold"
-                  >
-                    <option value="top">Main (Top)</option>
-                    <option value="bottom">Thumbnail (Bottom) do not use for video/audio modal</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 uppercase font-bold">Show Footer</label>
-                  <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 h-[34px]">
-                    <button 
-                      onClick={() => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_footer: true } })}
-                      className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.embed?.show_footer !== false ? 'bg-indigo-500 text-white' : 'text-slate-500'}`}
-                    >ON</button>
-                    <button 
-                      onClick={() => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_footer: false } })}
-                      className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.embed?.show_footer === false ? 'bg-rose-500 text-white' : 'text-slate-500'}`}
-                    >OFF</button>
+              <div className="space-y-6">
+                  <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                    <Layout className="w-3 h-3" /> V2 Display Metadata
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {['prompt', 'seed', 'model', 'lora', 'ratio', 'steps', 'sampler', 'cfg'].map((field) => (
+                      <label key={field} className="flex items-center gap-2 bg-black/40 border border-white/5 rounded-xl p-3 cursor-pointer hover:border-indigo-500/50 transition-colors">
+                        <input 
+                          type="checkbox"
+                          checked={uiConfig.v2_layout?.show_metadata?.includes(field) || false}
+                          onChange={(e) => {
+                            const current = uiConfig.v2_layout?.show_metadata || [];
+                            const next = e.target.checked ? [...current, field] : current.filter((m: string) => m !== field);
+                            setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, show_metadata: next } });
+                          }}
+                          className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                        />
+                        <span className="text-xs font-bold text-slate-300 capitalize">{field}</span>
+                      </label>
+                    ))}
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 uppercase font-bold">Show Author</label>
-                  <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 h-[34px]">
-                    <button 
-                      onClick={() => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_author: true } })}
-                      className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.embed?.show_author !== false ? 'bg-indigo-500 text-white' : 'text-slate-500'}`}
-                    >ON</button>
-                    <button 
-                      onClick={() => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_author: false } })}
-                      className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.embed?.show_author === false ? 'bg-rose-500 text-white' : 'text-slate-500'}`}
-                    >OFF</button>
-                  </div>
-                </div>
               </div>
-          </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-6">
+                  <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                    <Layout className="w-3 h-3" /> Embed Layout
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold">Title Template</label>
+                      <input 
+                        value={uiConfig.embed?.title_template || ''}
+                        onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, title_template: e.target.value } })}
+                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-indigo-500/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-slate-500 uppercase font-bold">Accent Color</label>
+                        <label className="flex items-center gap-1.5 cursor-pointer group">
+                          <input 
+                            type="checkbox"
+                            checked={uiConfig.embed?.use_role_color || false}
+                            onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, use_role_color: e.target.checked } })}
+                            className="w-3 h-3 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                          />
+                          <span className="text-[9px] font-bold text-slate-500 group-hover:text-indigo-400 transition-colors uppercase">Role Color</span>
+                        </label>
+                      </div>
+                      <div className="flex gap-2">
+                        <input 
+                          type="color" 
+                          value={uiConfig.embed?.color || '#5865F2'} 
+                          disabled={uiConfig.embed?.use_role_color}
+                          onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, color: e.target.value } })} 
+                          className={`w-10 h-10 rounded-lg bg-transparent border-none cursor-pointer ${uiConfig.embed?.use_role_color ? 'opacity-30' : ''}`} 
+                        />
+                        <input 
+                          value={uiConfig.embed?.color || '#5865F2'} 
+                          disabled={uiConfig.embed?.use_role_color}
+                          onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, color: e.target.value } })} 
+                          className={`flex-1 bg-black/40 border border-white/5 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-indigo-500/50 ${uiConfig.embed?.use_role_color ? 'opacity-30' : ''}`} 
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-          <div className="space-y-6">
-              <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                <Layout className="w-3 h-3" /> Display Metadata
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {['prompt', 'seed', 'model', 'lora', 'ratio', 'steps', 'sampler', 'cfg'].map((field) => (
-                  <label key={field} className="flex items-center gap-2 bg-black/40 border border-white/5 rounded-xl p-3 cursor-pointer hover:border-indigo-500/50 transition-colors">
-                    <input 
-                      type="checkbox"
-                      checked={uiConfig.embed?.show_metadata?.includes(field) || false}
-                      onChange={(e) => {
-                        const current = uiConfig.embed?.show_metadata || [];
-                        const next = e.target.checked ? [...current, field] : current.filter((m: string) => m !== field);
-                        setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_metadata: next } });
-                      }}
-                      className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0"
-                    />
-                    <span className="text-xs font-bold text-slate-300 capitalize">{field}</span>
-                  </label>
-                ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold">Image Position</label>
+                      <select 
+                        value={uiConfig.embed?.image_position || 'top'} 
+                        onChange={(e) => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, image_position: e.target.value } })}
+                        className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] text-slate-400 font-bold"
+                      >
+                        <option value="top">Main (Top)</option>
+                        <option value="bottom">Thumbnail (Bottom) do not use for video/audio modal</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold">Show Footer</label>
+                      <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 h-[34px]">
+                        <button 
+                          onClick={() => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_footer: true } })}
+                          className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.embed?.show_footer !== false ? 'bg-indigo-500 text-white' : 'text-slate-500'}`}
+                        >ON</button>
+                        <button 
+                          onClick={() => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_footer: false } })}
+                          className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.embed?.show_footer === false ? 'bg-rose-500 text-white' : 'text-slate-500'}`}
+                        >OFF</button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold">Show Author</label>
+                      <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 h-[34px]">
+                        <button 
+                          onClick={() => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_author: true } })}
+                          className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.embed?.show_author !== false ? 'bg-indigo-500 text-white' : 'text-slate-500'}`}
+                        >ON</button>
+                        <button 
+                          onClick={() => setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_author: false } })}
+                          className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.embed?.show_author === false ? 'bg-rose-500 text-white' : 'text-slate-500'}`}
+                        >OFF</button>
+                      </div>
+                    </div>
+                  </div>
               </div>
-          </div>
+
+              <div className="space-y-6">
+                  <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                    <Layout className="w-3 h-3" /> Display Metadata
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {['prompt', 'seed', 'model', 'lora', 'ratio', 'steps', 'sampler', 'cfg'].map((field) => (
+                      <label key={field} className="flex items-center gap-2 bg-black/40 border border-white/5 rounded-xl p-3 cursor-pointer hover:border-indigo-500/50 transition-colors">
+                        <input 
+                          type="checkbox"
+                          checked={uiConfig.embed?.show_metadata?.includes(field) || false}
+                          onChange={(e) => {
+                            const current = uiConfig.embed?.show_metadata || [];
+                            const next = e.target.checked ? [...current, field] : current.filter((m: string) => m !== field);
+                            setUiConfig({ ...uiConfig, embed: { ...uiConfig.embed, show_metadata: next } });
+                          }}
+                          className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                        />
+                        <span className="text-xs font-bold text-slate-300 capitalize">{field}</span>
+                      </label>
+                    ))}
+                  </div>
+              </div>
+            </>
+          )}
+
 
           <div className="space-y-6">
               <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
@@ -359,66 +471,165 @@ export function ModalStudio() {
             <h4 className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-6 text-center">Discord Response Preview</h4>
             <div className="flex justify-center">
                 <div className="w-full max-w-sm space-y-2 animate-in zoom-in duration-300">
-                  {uiConfig.embed?.image_position !== 'bottom' && (
-                    <div className="aspect-video w-full bg-[#2b2d31] rounded-xl border border-white/5 flex items-center justify-center text-slate-500 text-[10px] italic shadow-xl mb-2">
-                      Main Image Area (Attachment)
-                    </div>
-                  )}
-
-                  <div 
-                    className="bg-[#2b2d31] rounded-xl shadow-2xl border border-black/20 overflow-hidden"
-                    style={{ borderLeft: `4px solid ${uiConfig.embed?.color || '#5865F2'}` }}
-                  >
-                    <div className="p-4 space-y-3">
+                  {uiConfig.layout_version === 'v2' ? (
+                    <div 
+                      className="bg-[#2b2d31] rounded-xl shadow-2xl border border-black/20 overflow-hidden"
+                      style={{ 
+                        borderLeft: uiConfig.v2_layout?.use_role_color ? '4px solid #5865F2' : `4px solid ${uiConfig.v2_layout?.color || '#5865F2'}`
+                      }}
+                    >
+                      <div className="p-4 space-y-3">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className="text-[11px] font-bold text-white">Link Bot</span>
                           <span className="bg-[#5865F2] text-[8px] text-white px-1.5 rounded-sm font-black uppercase">Bot</span>
+                          <span className="bg-indigo-500/10 text-indigo-400 text-[7px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">V2 Layout</span>
                         </div>
-                        
+
                         <div className="space-y-3">
-                           <h5 className="text-[13px] font-black text-white">✨ {uiConfig.embed?.title_template?.replace('{user}', 'User') || 'User\'s Generation'}</h5>
-                           
-                           {/* Prompt Block */}
-                           {uiConfig.embed?.show_metadata?.includes('prompt') && (
-                             <div className="space-y-1">
-                               <div className="text-[9px] text-slate-400 font-bold flex items-center gap-1">📝 Prompt:</div>
-                               <div className="text-[10px] text-slate-200 bg-black/20 p-2 rounded-lg border border-white/5 italic leading-relaxed">a hyper-realistic high-detail photograph of the magma core workstation...</div>
-                             </div>
-                           )}
+                          <h5 className="text-[13px] font-black text-white">✨ {uiConfig.v2_layout?.title_template?.replace('{user}', 'User') || 'User\'s Generation'}</h5>
 
-                           <div className="grid grid-cols-2 gap-3">
-                               {uiConfig.embed?.show_metadata?.filter((m: string) => m !== 'prompt').map((m: string) => {
-                                 const metaMap: any = {
-                                   seed: { label: 'Seed', icon: '🎲' },
-                                   model: { label: 'Model', icon: '🤖' },
-                                   lora: { label: 'LoRAs', icon: '🧩' },
-                                   ratio: { label: 'Resolution', icon: '📐' },
-                                   steps: { label: 'Steps', icon: '⏱️' }
-                                 };
-                                 const item = metaMap[m] || { label: m.toUpperCase(), icon: '🔹' };
-                                 return (
-                                   <div key={m} className="flex flex-col gap-0.5">
-                                     <span className="text-[8px] text-slate-500 font-bold flex items-center gap-1">{item.icon} {item.label}:</span>
-                                     <span className="text-[9px] text-slate-300 font-medium bg-black/10 px-1.5 py-0.5 rounded border border-white/5">value_data</span>
-                                   </div>
-                                 );
-                               })}
-                           </div>
+                          {(() => {
+                            const showMetadata = uiConfig.v2_layout?.show_metadata || [];
+                            const promptInMeta = showMetadata.includes('prompt');
 
-                           {uiConfig.embed?.image_position === 'bottom' && (
-                             <div className="aspect-video w-full bg-black/20 rounded-lg border border-white/5 flex items-center justify-center text-slate-500 text-[10px] italic mt-3 mb-1">
-                               Main Image Area (Embed Image)
-                             </div>
-                           )}
+                            const mediaBlock = (
+                              <div className="aspect-square bg-black/20 rounded-lg border border-white/5 flex flex-col items-center justify-center text-slate-500 text-[8px] font-bold p-2 text-center select-none">
+                                <span className="text-xl mb-1">🖼️</span>
+                                Media Gallery Component (V2)
+                              </div>
+                            );
 
-                           {uiConfig.embed?.show_footer !== false && (
-                             <div className="pt-2 border-t border-white/5 text-[8px] text-slate-500 font-medium italic">
-                               Link | Profile: Standard | Job ID: 1df68cf7-ad75-46e5-b4be-32883c498fe9
-                             </div>
-                           )}
+                            const metaBlock = (
+                              <div className="space-y-2 flex-1">
+                                {promptInMeta && (
+                                  <div className="space-y-0.5">
+                                    <span className="text-[8px] text-slate-400 font-bold">📝 Prompt:</span>
+                                    <span className="text-[9px] text-slate-200 block italic leading-tight truncate">a detailed photograph of magma core workstation...</span>
+                                  </div>
+                                )}
+                                <div className="grid grid-cols-1 gap-1.5">
+                                  {showMetadata.filter((m: string) => m !== 'prompt').map((m: string) => {
+                                    const metaMap: any = {
+                                      seed: { label: 'Seed', icon: '🎲' },
+                                      model: { label: 'Model', icon: '🤖' },
+                                      lora: { label: 'LoRAs', icon: '🧩' },
+                                      ratio: { label: 'Resolution', icon: '📐' },
+                                      steps: { label: 'Steps', icon: '⏱️' }
+                                    };
+                                    const item = metaMap[m] || { label: m.toUpperCase(), icon: '🔹' };
+                                    return (
+                                      <div key={m} className="flex flex-col gap-0.5">
+                                        <span className="text-[7px] text-slate-500 font-bold flex items-center gap-0.5">{item.icon} {item.label}:</span>
+                                        <span className="text-[8px] text-slate-300 font-medium bg-black/10 px-1 py-0.5 rounded border border-white/5 truncate">value</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+
+                            const pos = uiConfig.v2_layout?.media_position || 'left';
+                            if (pos === 'left') {
+                              return (
+                                <div className="grid grid-cols-2 gap-3 items-start">
+                                  {mediaBlock}
+                                  {metaBlock}
+                                </div>
+                              );
+                            } else if (pos === 'right') {
+                              return (
+                                <div className="grid grid-cols-2 gap-3 items-start">
+                                  {metaBlock}
+                                  {mediaBlock}
+                                </div>
+                              );
+                            } else if (pos === 'top') {
+                              return (
+                                <div className="space-y-3">
+                                  {mediaBlock}
+                                  {metaBlock}
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div className="space-y-3">
+                                  {metaBlock}
+                                  {mediaBlock}
+                                </div>
+                              );
+                            }
+                          })()}
+
+                          <div className="pt-2 border-t border-white/5 text-[8px] text-slate-500 font-medium italic">
+                            Link | Profile: Standard | Job ID: v2-job-id-preview
+                          </div>
                         </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      {uiConfig.embed?.image_position !== 'bottom' && (
+                        <div className="aspect-video w-full bg-[#2b2d31] rounded-xl border border-white/5 flex items-center justify-center text-slate-500 text-[10px] italic shadow-xl mb-2">
+                          Main Image Area (Attachment)
+                        </div>
+                      )}
+
+                      <div 
+                        className="bg-[#2b2d31] rounded-xl shadow-2xl border border-black/20 overflow-hidden"
+                        style={{ borderLeft: `4px solid ${uiConfig.embed?.color || '#5865F2'}` }}
+                      >
+                        <div className="p-4 space-y-3">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="text-[11px] font-bold text-white">Link Bot</span>
+                              <span className="bg-[#5865F2] text-[8px] text-white px-1.5 rounded-sm font-black uppercase">Bot</span>
+                            </div>
+                            
+                            <div className="space-y-3">
+                               <h5 className="text-[13px] font-black text-white">✨ {uiConfig.embed?.title_template?.replace('{user}', 'User') || 'User\'s Generation'}</h5>
+                               
+                               {/* Prompt Block */}
+                               {uiConfig.embed?.show_metadata?.includes('prompt') && (
+                                 <div className="space-y-1">
+                                   <div className="text-[9px] text-slate-400 font-bold flex items-center gap-1">📝 Prompt:</div>
+                                   <div className="text-[10px] text-slate-200 bg-black/20 p-2 rounded-lg border border-white/5 italic leading-relaxed">a hyper-realistic high-detail photograph of the magma core workstation...</div>
+                                 </div>
+                               )}
+
+                               <div className="grid grid-cols-2 gap-3">
+                                   {uiConfig.embed?.show_metadata?.filter((m: string) => m !== 'prompt').map((m: string) => {
+                                     const metaMap: any = {
+                                       seed: { label: 'Seed', icon: '🎲' },
+                                       model: { label: 'Model', icon: '🤖' },
+                                       lora: { label: 'LoRAs', icon: '🧩' },
+                                       ratio: { label: 'Resolution', icon: '📐' },
+                                       steps: { label: 'Steps', icon: '⏱️' }
+                                     };
+                                     const item = metaMap[m] || { label: m.toUpperCase(), icon: '🔹' };
+                                     return (
+                                       <div key={m} className="flex flex-col gap-0.5">
+                                         <span className="text-[8px] text-slate-500 font-bold flex items-center gap-1">{item.icon} {item.label}:</span>
+                                         <span className="text-[9px] text-slate-300 font-medium bg-black/10 px-1.5 py-0.5 rounded border border-white/5">value_data</span>
+                                       </div>
+                                     );
+                                   })}
+                               </div>
+
+                               {uiConfig.embed?.image_position === 'bottom' && (
+                                 <div className="aspect-video w-full bg-black/20 rounded-lg border border-white/5 flex items-center justify-center text-slate-500 text-[10px] italic mt-3 mb-1">
+                                   Main Image Area (Embed Image)
+                                 </div>
+                               )}
+
+                               {uiConfig.embed?.show_footer !== false && (
+                                 <div className="pt-2 border-t border-white/5 text-[8px] text-slate-500 font-medium italic">
+                                   Link | Profile: Standard | Job ID: 1df68cf7-ad75-46e5-b4be-32883c498fe9
+                                 </div>
+                               )}
+                            </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div className="flex flex-wrap gap-2 pl-0 justify-center">
                     {uiConfig.buttons?.map((btn: any, i: number) => (

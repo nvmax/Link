@@ -371,10 +371,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const [uiConfig, setUiConfig] = useState<any>({
+    layout_version: "v1",
     embed: {
       title_template: "{user}'s Generation",
       color: "#5865F2",
       use_role_color: true,
+      show_metadata: ["prompt", "seed", "model", "ratio"]
+    },
+    v2_layout: {
+      title_template: "{user}'s Generation",
+      color: "#5865F2",
+      use_role_color: true,
+      grid_columns: 2,
+      media_position: "left",
       show_metadata: ["prompt", "seed", "model", "ratio"]
     },
     buttons: [
@@ -649,7 +658,32 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setDisplayName(data.manifest?.display_name || data.manifest?.workflow_name || '');
       setLoraSelections(data.manifest?.discord?.loras || {});
       if (data.manifest?.discord?.ui) {
-        setUiConfig(data.manifest.discord.ui);
+        const loadedUi = data.manifest.discord.ui;
+        setUiConfig({
+          layout_version: loadedUi.layout_version || "v1",
+          embed: {
+            title_template: "{user}'s Generation",
+            color: "#5865F2",
+            use_role_color: true,
+            show_metadata: ["prompt", "seed", "model", "ratio"],
+            ...(loadedUi.embed || {})
+          },
+          v2_layout: {
+            title_template: "{user}'s Generation",
+            color: "#5865F2",
+            use_role_color: true,
+            grid_columns: 2,
+            media_position: "left",
+            show_metadata: ["prompt", "seed", "model", "ratio"],
+            ...(loadedUi.v2_layout || {})
+          },
+          buttons: loadedUi.buttons || [
+            { type: "regenerate", label: "Regenerate", style: "primary" },
+            { type: "options", label: "Options", style: "secondary" },
+            { type: "delete", label: "Delete", style: "danger" }
+          ],
+          positions: loadedUi.positions || {}
+        });
         if (data.manifest.discord.ui.positions) {
           setNodeCoords(data.manifest.discord.ui.positions);
         } else {

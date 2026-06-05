@@ -84,6 +84,7 @@ discord:
       label: ➕ Add Lora
       required: true
   ui:
+    layout_version: v2
     embed:
       title_template: '{user}''s Generation'
       color: '#5865F2'
@@ -95,6 +96,17 @@ discord:
         - ratio
         - lora
       show_footer: false
+    v2_layout:
+      title_template: '{user}''s Generation'
+      color: '#5865F2'
+      use_role_color: true
+      grid_columns: 2
+      media_position: top
+      show_metadata:
+        - prompt
+        - seed
+        - model
+        - ratio
     buttons:
       - type: regenerate
         label: Regenerate

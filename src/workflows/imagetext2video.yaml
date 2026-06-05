@@ -36,10 +36,22 @@ discord:
       label: text
       required: true
   ui:
+    layout_version: v2
     embed:
       title_template: '{user}''s Generation'
       color: '#5865F2'
       use_role_color: true
+      show_metadata:
+        - prompt
+        - seed
+        - model
+        - ratio
+    v2_layout:
+      title_template: '{user}''s Generation'
+      color: '#5865F2'
+      use_role_color: true
+      grid_columns: 2
+      media_position: top
       show_metadata:
         - prompt
         - seed
@@ -57,3 +69,8 @@ discord:
         style: danger
     positions: {}
   loras: {}
+ai_prompt:
+  enabled: false
+  category: image
+  prompt_id: ''
+  target_input: ''

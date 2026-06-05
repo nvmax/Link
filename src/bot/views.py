@@ -202,9 +202,14 @@ async def handle_smart_action(interaction: discord.Interaction):
                         match = None
                         for att in interaction.message.attachments:
                             ctype = (att.content_type or "").lower()
-                            if source_ref == "image" and "image" in ctype: match = att
-                            elif source_ref == "video" and ("video" in ctype or ctype == "image/gif"): match = att
-                            elif source_ref == "audio" and "audio" in ctype: match = att
+                            filename = (att.filename or "").lower()
+                            is_img = "image" in ctype or any(filename.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'])
+                            is_vid = "video" in ctype or "gif" in ctype or any(filename.endswith(ext) for ext in ['.mp4', '.webm', '.mov', '.gif', '.avi', '.mkv'])
+                            is_aud = "audio" in ctype or any(filename.endswith(ext) for ext in ['.mp3', '.wav', '.flac', '.ogg', '.m4a'])
+                            
+                            if source_ref == "image" and is_img: match = att
+                            elif source_ref == "video" and is_vid: match = att
+                            elif source_ref == "audio" and is_aud: match = att
                         prefilled[target_field] = match.url if match else interaction.message.attachments[0].url
                 elif source_ref == "prompt": prefilled[target_field] = job.input_params.get("prompt", "")
                 elif source_ref == "seed": prefilled[target_field] = str(job.input_params.get("seed", ""))
@@ -248,79 +253,156 @@ async def _execute_chain(interaction: discord.Interaction, job: GenerationJob, t
     
     prefilled = {}
     
-    # Auto-detect mapping based on attachment types
+    # Gather source media items (from DB assets first, then fallback to Discord message attachments)
+    source_media = []
+    seen_refs = set()
+    
+    # 1. Fetch DB Assets for the original job
+    try:
+        from src.database.models import Asset as AssetModel
+        from src.core.config import Config
+        with db_session() as _db:
+            db_assets = _db.query(AssetModel).filter(AssetModel.job_id == job.id).order_by(AssetModel.created_at.desc()).all()
+            for asset in db_assets:
+                ref = asset.file_path
+                if not ref or ref in seen_refs:
+                    continue
+                
+                # Check if it's a valid local file or a URL
+                is_local = os.path.isfile(ref) if os.path.isabs(ref) else os.path.isfile(os.path.join(Config.ASSETS_DIR, os.path.basename(ref)))
+                
+                filename = os.path.basename(ref).lower()
+                mime = (asset.file_type or "").lower()
+                
+                is_img_ext = any(filename.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'])
+                is_vid_ext = any(filename.endswith(ext) for ext in ['.mp4', '.webm', '.mov', '.gif', '.avi', '.mkv'])
+                is_aud_ext = any(filename.endswith(ext) for ext in ['.mp3', '.wav', '.flac', '.ogg', '.m4a'])
+                
+                mtype = None
+                if "image" in mime or is_img_ext:
+                    mtype = "image"
+                elif "video" in mime or "gif" in mime or is_vid_ext:
+                    mtype = "video"
+                elif "audio" in mime or is_aud_ext:
+                    mtype = "audio"
+                
+                if mtype:
+                    # Resolve to local path if local file exists, otherwise keep ref
+                    final_path = ref if os.path.isabs(ref) else os.path.join(Config.ASSETS_DIR, os.path.basename(ref))
+                    resolved_ref = final_path if is_local else ref
+                    
+                    source_media.append({
+                        "type": mtype,
+                        "ref": resolved_ref,
+                        "filename": filename
+                    })
+                    seen_refs.add(ref)
+    except Exception as _e:
+        logger.warning(f"Could not query assets from DB in execute_chain: {_e}")
+
+    # 2. Fetch attachments from message as fallback
     if msg_with_attachments and msg_with_attachments.attachments:
         for att in msg_with_attachments.attachments:
+            ref = att.url
+            if not ref or ref in seen_refs:
+                continue
+                
             ctype = (att.content_type or "").lower()
+            filename = (att.filename or "").lower()
             
-            # Filter candidates by type — match both explicit upload types AND name keywords
-            candidates = []
-            for inp in target_inputs:
-                itype = inp.get("type", "")
-                iid = inp.get("id", "").lower()
-                label = inp.get("label", "").lower()
+            is_img_ext = any(filename.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'])
+            is_vid_ext = any(filename.endswith(ext) for ext in ['.mp4', '.webm', '.mov', '.gif', '.avi', '.mkv'])
+            is_aud_ext = any(filename.endswith(ext) for ext in ['.mp3', '.wav', '.flac', '.ogg', '.m4a'])
+            
+            mtype = None
+            if "image" in ctype or is_img_ext:
+                mtype = "image"
+            elif "video" in ctype or "gif" in ctype or is_vid_ext:
+                mtype = "video"
+            elif "audio" in ctype or is_aud_ext:
+                mtype = "audio"
                 
-                is_image_field = itype == "image_upload" or (itype not in ["audio_upload","video_upload"] and any(k in iid or k in label for k in ["image","img","photo","picture","frame"]))
-                is_video_field = itype == "video_upload" or (itype not in ["image_upload","audio_upload"] and any(k in iid or k in label for k in ["video","clip","film","footage"]))
-                is_audio_field = itype == "audio_upload" or (itype not in ["image_upload","video_upload"] and any(k in iid or k in label for k in ["audio","sound","music","voice","track"]))
-                
-                if "image" in ctype and is_image_field: candidates.append(inp)
-                elif ("video" in ctype or ctype == "image/gif") and is_video_field: candidates.append(inp)
-                elif "audio" in ctype and is_audio_field: candidates.append(inp)
-            
-            if not candidates: continue
-            
-            # Rank candidates to find the "Main" one
-            best_score = -1
-            best_inp = None
-            
-            for c in candidates:
-                cid = c.get("id", "").lower()
-                clabel = c.get("label", "").lower()
-                score = 0
-                
-                if cid in ["image", "video", "audio", "input", "source"]: score += 10
-                if any(k in cid or k in clabel for k in ["main", "source", "input", "primary", "base"]): score += 5
-                if any(k in cid or k in clabel for k in ["mask", "style", "control", "depth", "pose", "canny"]): score -= 5
-                
-                if score > best_score:
-                    best_score = score
-                    best_inp = c
-            
-            if best_inp and best_inp["id"] not in prefilled:
+            if mtype:
+                # Check if we can find a matching local asset file from DB to avoid downloading again
                 local_asset_path = None
                 try:
-                    from src.database.models import Asset as AssetModel, GenerationJob as GenJob
+                    from src.database.models import Asset as AssetModel
+                    from src.core.config import Config
                     with db_session() as _db:
-                        ctype_check = (att.content_type or "").lower()
-                        if "image" in ctype_check:
-                            mime_like = "image%"
-                        elif "video" in ctype_check or ctype_check == "image/gif":
-                            mime_like = "video%"
-                        elif "audio" in ctype_check:
-                            mime_like = "audio%"
-                        else:
-                            mime_like = None
-                        
-                        if mime_like:
-                            last_local = _db.query(AssetModel).filter(
-                                AssetModel.job_id == job.id,
-                                AssetModel.file_type.like(mime_like),
-                                AssetModel.file_path.notlike("http%")
-                            ).order_by(AssetModel.id.desc()).first()
-                            if last_local and os.path.isfile(last_local.file_path):
-                                local_asset_path = last_local.file_path
+                        mime_like = "image%" if mtype == "image" else ("video%" if mtype == "video" else "audio%")
+                        last_local = _db.query(AssetModel).filter(
+                            AssetModel.job_id == job.id,
+                            AssetModel.file_type.like(mime_like),
+                            AssetModel.file_path.notlike("http%")
+                        ).order_by(AssetModel.created_at.desc()).first()
+                        if last_local:
+                            check_path = last_local.file_path if os.path.isabs(last_local.file_path) else os.path.join(Config.ASSETS_DIR, os.path.basename(last_local.file_path))
+                            if os.path.isfile(check_path):
+                                local_asset_path = check_path
                 except Exception as _e:
-                    logger.warning(f"Could not query local asset from DB: {_e}")
+                    logger.warning(f"Could not query local asset fallback from DB: {_e}")
                 
-                prefilled[best_inp["id"]] = local_asset_path if local_asset_path else att.url
+                resolved_ref = local_asset_path if local_asset_path else ref
+                source_media.append({
+                    "type": mtype,
+                    "ref": resolved_ref,
+                    "filename": filename
+                })
+                seen_refs.add(ref)
+
+    # 3. Perform candidate mapping using scoring heuristics
+    for media_item in source_media:
+        mtype = media_item["type"]
+        ref = media_item["ref"]
+        filename = media_item["filename"]
+        
+        candidates = []
+        for inp in target_inputs:
+            itype = inp.get("type", "")
+            iid = inp.get("id", "").lower()
+            label = inp.get("label", "").lower()
+            
+            is_image_field = itype == "image_upload" or (itype not in ["audio_upload","video_upload"] and any(k in iid or k in label for k in ["image","img","photo","picture","frame"]))
+            is_video_field = itype == "video_upload" or (itype not in ["image_upload","audio_upload"] and any(k in iid or k in label for k in ["video","clip","film","footage"]))
+            is_audio_field = itype == "audio_upload" or (itype not in ["image_upload","video_upload"] and any(k in iid or k in label for k in ["audio","sound","music","voice","track"]))
+            
+            if mtype == "image" and is_image_field: candidates.append(inp)
+            elif mtype == "video" and is_video_field: candidates.append(inp)
+            elif mtype == "audio" and is_audio_field: candidates.append(inp)
+            
+        if not candidates:
+            continue
+            
+        # Rank candidates to find the "Main" one
+        best_score = -1
+        best_inp = None
+        
+        for c in candidates:
+            cid = c.get("id", "").lower()
+            clabel = c.get("label", "").lower()
+            score = 0
+            
+            if cid in ["image", "video", "audio", "input", "source"]: score += 10
+            if any(k in cid or k in clabel for k in ["main", "source", "input", "primary", "base"]): score += 5
+            if any(k in cid or k in clabel for k in ["mask", "style", "control", "depth", "pose", "canny"]): score -= 5
+            
+            if score > best_score:
+                best_score = score
+                best_inp = c
+                
+        if best_inp and best_inp["id"] not in prefilled:
+            prefilled[best_inp["id"]] = ref
     
-    # Also pass prompt and seed if applicable
+    # Also pass seed if applicable (prompt/text is intentionally left blank so the user is prompted fresh)
     for inp in target_inputs:
         iid = inp.get("id", "")
         if iid in prefilled: continue
-        if "prompt" in iid.lower(): prefilled[iid] = job.input_params.get("prompt", "")
-        if "seed" in iid.lower(): prefilled[iid] = str(job.input_params.get("seed", ""))
+        if "seed" in iid.lower():
+            s_val = job.input_params.get("seed")
+            if not s_val:
+                seed_key = next((k for k in job.input_params.keys() if k.startswith('__seed_')), None)
+                if seed_key: s_val = job.input_params[seed_key]
+            prefilled[iid] = str(s_val) if s_val is not None else ""
 
     gen_cog = interaction.client.get_cog("GenerationCog")
     if gen_cog:
