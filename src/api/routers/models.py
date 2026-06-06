@@ -139,15 +139,21 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
 
         all_required = extract_required_models(workflow)
         result = []
+        seen_filenames: set[str] = set()
+
         for item in all_required:
             fname = item["filename"]
+            if fname in seen_filenames:
+                continue   # same file referenced by multiple nodes — already added
+            seen_filenames.add(fname)
             if fname in missing_filenames:
                 result.append(missing_filenames[fname])
             else:
                 result.append({**item, "installed": True})
 
         for fname, info in missing_filenames.items():
-            if not any(r["filename"] == fname for r in result):
+            if fname not in seen_filenames:
+                seen_filenames.add(fname)
                 result.append(info)
 
         return result
@@ -170,7 +176,7 @@ async def search_models(request: Request) -> Dict[str, Any]:
         
         results = {}
         preseeded_by_family = {
-            "ltx": {"Comfy-Org/ltx-2", "Kijai/LTX2.3_comfy", "Lightricks/LTX-2.3"},
+            "ltx": {"Comfy-Org/ltx-2", "Kijai/LTX2.3_comfy", "Lightricks/LTX-2.3", "Lightricks/LTX-2.3-fp8"},
             "flux": {"black-forest-labs/FLUX.1-dev", "black-forest-labs/FLUX.1-schnell", "Kijai/flux-fp8", "comfyanonymous/flux_flux8_repack"},
             "wan": {"Kijai/Wan2.1_comfy", "Comfy-Org/Wan2.1-ComfyUI", "comfyanonymous/wan2.1_repack"},
             "sd": {"stabilityai/stable-diffusion-3.5-large", "Comfy-Org/stable-diffusion-3.5-fp8", "stabilityai/stable-diffusion-xl-base-1.0", "runwayml/stable-diffusion-v1-5"}

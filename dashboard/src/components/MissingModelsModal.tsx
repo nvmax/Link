@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Database, Download, Check, AlertCircle, RefreshCw, FolderSearch, ExternalLink } from 'lucide-react';
 
 export type ModelRepoInfo = {
@@ -12,10 +12,17 @@ export const KNOWN_MODEL_REPOS: Record<string, ModelRepoInfo> = {
   'ae.safetensors':                             { repo_id: 'black-forest-labs/FLUX.1-dev', gated: true },
   't5xxl_fp16.safetensors':                     { repo_id: 'comfyanonymous/flux_text_encoders', gated: false },
   'clip_l.safetensors':                         { repo_id: 'comfyanonymous/flux_text_encoders', gated: false },
-  'gemma_3_12B_it_fp4_mixed.safetensors':       { repo_id: 'Comfy-Org/ltx-2', gated: false },
+  // LTX-2.3 — fp8 variant lives in the dedicated fp8 repo, NOT the main LTX-2.3 repo
+  'ltx-2.3-22b-dev-fp8.safetensors':            { repo_id: 'Lightricks/LTX-2.3-fp8', gated: false },
+  'ltx-2.3-22b-dev.safetensors':                { repo_id: 'Lightricks/LTX-2.3', gated: false },
+  'ltx-2.3-22b-distilled.safetensors':          { repo_id: 'Lightricks/LTX-2.3', gated: false },
   'ltx-2.3-spatial-upscaler-x2-1.1.safetensors': { repo_id: 'Lightricks/LTX-2.3', gated: false },
   'ltx-2.3-22b-distilled-lora-384.safetensors':  { repo_id: 'Lightricks/LTX-2.3', gated: false },
-  'ltx-2.3-22b-dev-fp8.safetensors':            { repo_id: 'Lightricks/LTX-2.3', gated: false },
+  'ltx-2.3-22b-distilled-lora-384-1.1.safetensors': { repo_id: 'Lightricks/LTX-2.3', gated: false },
+  // Gemma text encoder lives in Comfy-Org/ltx-2 under split_files/text_encoders/
+  'gemma_3_12B_it_fp4_mixed.safetensors':       { repo_id: 'Comfy-Org/ltx-2', hf_path: 'split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors', gated: false },
+  'gemma_3_12B_it.safetensors':                 { repo_id: 'Comfy-Org/ltx-2', hf_path: 'split_files/text_encoders/gemma_3_12B_it.safetensors', gated: false },
+  'gemma_3_12B_it_fp8_scaled.safetensors':      { repo_id: 'Comfy-Org/ltx-2', hf_path: 'split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors', gated: false },
   'ltx-2.3-22b-dev_audio_vae.safetensors':       { repo_id: 'unsloth/LTX-2.3-GGUF', gated: false },
 };
 
@@ -32,7 +39,7 @@ interface MissingModelsModalProps {
 }
 
 export function MissingModelsModal({ 
-  missingModels, 
+  missingModels: missingModelsProp, 
   onDownload, 
   onImportAnyway, 
   onCancel,
@@ -41,6 +48,20 @@ export function MissingModelsModal({
   downloadStats = {},
   onRetrySingle
 }: MissingModelsModalProps) {
+  // Deduplicate by filename — the same file can be referenced by multiple nodes
+  // in the same workflow (e.g. an audio VAE loader and a checkpoint loader both
+  // pointing at the same .safetensors). Wrapped in useMemo so the array reference
+  // stays stable between renders; a bare .filter() would create a new array every
+  // render, which would re-fire the useEffect([missingModels]) dependency and cause
+  // an infinite setState loop.
+  const missingModels = useMemo(
+    () => missingModelsProp.filter(
+      (m, idx, arr) => arr.findIndex(x => x.filename === m.filename) === idx
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [missingModelsProp]
+  );
+
   const [modelRepos, setModelRepos] = useState<Record<string, string>>({});
   const [manualChecks, setManualChecks] = useState<Record<string, boolean>>({});
   const [isSearching, setIsSearching] = useState(true);
