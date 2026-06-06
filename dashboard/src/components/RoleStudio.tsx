@@ -50,6 +50,7 @@ export function RoleStudio() {
   // API states
   const [guilds, setGuilds] = useState<DiscordGuild[]>([]);
   const [permissions, setPermissions] = useState<Record<string, Record<string, string[]>>>({});
+  const [feedbackAdmins, setFeedbackAdmins] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<'loading' | 'online' | 'offline' | 'error'>('loading');
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,8 +143,9 @@ export function RoleStudio() {
       // 2. Fetch permission mappings
       const permRes = await fetch('http://127.0.0.1:8001/api/discord/permissions');
       if (permRes.ok) {
-        const permData: PermissionMapping = await permRes.json();
+        const permData = await permRes.json();
         setPermissions(permData.guild_permissions || {});
+        setFeedbackAdmins(permData.feedback_admins || {});
       }
 
       setStatus('online');
@@ -348,7 +350,10 @@ export function RoleStudio() {
       const res = await fetch('http://127.0.0.1:8001/api/discord/permissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guild_permissions: permissions })
+        body: JSON.stringify({ 
+          guild_permissions: permissions,
+          feedback_admins: feedbackAdmins
+        })
       });
 
       if (!res.ok) {
@@ -490,45 +495,97 @@ export function RoleStudio() {
                 const isSelected = guild.id === selectedGuildId;
                 const rulesCount = Object.values(permissions[guild.id] || {}).flat().length;
 
-                return (
-                  <button
-                    key={guild.id}
-                    onClick={() => setSelectedGuildId(guild.id)}
-                    className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between group active:scale-[0.98] ${
-                      isSelected 
-                        ? 'bg-indigo-500/10 border-indigo-500/30 text-white shadow-lg' 
-                        : 'bg-white/[0.02] border-white/5 text-slate-400 hover:border-white/15 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {guild.icon ? (
-                        <img 
-                          src={guild.icon} 
-                          alt={guild.name} 
-                          className="w-8 h-8 rounded-xl object-cover shadow"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-xs font-black">
-                          {guild.name.charAt(0)}
-                        </div>
-                      )}
-                      <div className="flex flex-col min-w-0">
-                        <span className={`text-xs font-bold truncate leading-none mb-1 ${isSelected ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>
-                          {guild.name}
-                        </span>
-                        <span className="text-[9px] text-slate-500 font-mono truncate">{guild.id}</span>
-                      </div>
-                    </div>
+                const currentValue = feedbackAdmins[guild.id] || "";
+                const isMemberOption = guildMembers.some(m => m.id === currentValue);
+                const selectValue = currentValue === "" ? "" : (isMemberOption ? currentValue : "manual");
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {rulesCount > 0 && (
-                        <span className="text-[9px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">
-                          {rulesCount}
-                        </span>
-                      )}
-                      <ChevronRight className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isSelected ? 'translate-x-0.5 text-indigo-400' : 'group-hover:translate-x-0.5 group-hover:text-slate-350'}`} />
-                    </div>
-                  </button>
+                return (
+                  <div key={guild.id} className="flex flex-col gap-2">
+                    <button
+                      onClick={() => setSelectedGuildId(guild.id)}
+                      className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between group active:scale-[0.98] ${
+                        isSelected 
+                          ? 'bg-indigo-500/10 border-indigo-500/30 text-white shadow-lg' 
+                          : 'bg-white/[0.02] border-white/5 text-slate-400 hover:border-white/15 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {guild.icon ? (
+                          <img 
+                            src={guild.icon} 
+                            alt={guild.name} 
+                            className="w-8 h-8 rounded-xl object-cover shadow"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-xs font-black">
+                            {guild.name.charAt(0)}
+                          </div>
+                        )}
+                        <div className="flex flex-col min-w-0">
+                          <span className={`text-xs font-bold truncate leading-none mb-1 ${isSelected ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>
+                            {guild.name}
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono truncate">{guild.id}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {rulesCount > 0 && (
+                          <span className="text-[9px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                            {rulesCount}
+                          </span>
+                        )}
+                        <ChevronRight className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isSelected ? 'translate-x-0.5 text-indigo-400' : 'group-hover:translate-x-0.5 group-hover:text-slate-350'}`} />
+                      </div>
+                    </button>
+
+                    {/* Expand section below if isSelected is true */}
+                    {isSelected && (
+                      <div className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2.5 mx-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <label className="text-[10px] text-slate-400 uppercase font-extrabold block">
+                          Feedback Admin
+                        </label>
+                        <select
+                          value={selectValue}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "manual") {
+                              setFeedbackAdmins(prev => ({ ...prev, [guild.id]: "manual" }));
+                            } else {
+                              setFeedbackAdmins(prev => ({ ...prev, [guild.id]: val }));
+                            }
+                          }}
+                          className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/50"
+                        >
+                          <option value="">-- Notify All Admins --</option>
+                          {guildMembers.map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.display_name} (@{m.name})
+                            </option>
+                          ))}
+                          <option value="manual">Manual ID Input...</option>
+                        </select>
+                        
+                        {(selectValue === "manual" || (currentValue !== "" && !isMemberOption)) && (
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-slate-500 uppercase font-bold">
+                              Admin Discord ID
+                            </label>
+                            <input
+                              type="text"
+                              value={currentValue === "manual" ? "" : currentValue}
+                              placeholder="e.g. 123456789012345678"
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9]/g, "");
+                                setFeedbackAdmins(prev => ({ ...prev, [guild.id]: val }));
+                              }}
+                              className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/50"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
