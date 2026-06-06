@@ -66,6 +66,16 @@ TEXT_ENCODER_CLIP_TYPES = {
     # add new architectures here — no other changes needed
 }
 
+# For DualCLIPLoader-family nodes, the slot position matters:
+#   clip_name1 = the LLM/T5 encoder  → text_encoders/
+#   clip_name2 = the CLIP-L model    → clip/
+# This map drives per-field overrides when the node type is in
+# TEXT_ENCODER_CLIP_TYPES so that the two slots are routed independently.
+DUAL_CLIP_FIELD_FOLDER: dict[str, str] = {
+    "clip_name1": "text_encoders",
+    "clip_name2": "clip",
+}
+
 
 def _clip_folder_from_type(inputs: dict) -> str:
     """
@@ -218,12 +228,25 @@ def extract_required_models(workflow: dict) -> list[dict]:
         #           CLIPLoaderGGUF, DualCLIPLoaderADV, …
         # ------------------------------------------------------------------
         if "clip" in ct_lower and "loader" in ct_lower:
+            clip_type = (inputs.get("type") or "").lower().strip()
+            use_dual_routing = (
+                clip_type in TEXT_ENCODER_CLIP_TYPES
+                and "dual" in ct_lower
+            )
             folder = _clip_folder_from_type(inputs)
             for field in ("clip_name", "clip_name1", "clip_name2",
                           "clip_name3", "clip_name4"):
                 val = inputs.get(field)
                 if isinstance(val, str) and val.strip():
-                    _emit(folder, val)
+                    # For dual-loaders (e.g. DualCLIPLoader with type=flux),
+                    # clip_name1 is a T5/LLM encoder (text_encoders/) while
+                    # clip_name2 is a traditional CLIP model (clip/).  Use
+                    # per-field routing when available; fall back to the
+                    # type-derived folder for unknown field names.
+                    if use_dual_routing and field in DUAL_CLIP_FIELD_FOLDER:
+                        _emit(DUAL_CLIP_FIELD_FOLDER[field], val)
+                    else:
+                        _emit(folder, val)
             # Don't continue yet — some dual-loaders also carry a vae_name etc.
             # Fall through to Priority 2 & 3 for other fields on the same node.
 

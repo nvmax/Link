@@ -117,6 +117,27 @@ def test_cliploader_no_type_maps_to_clip():
     assert {"folder": "clip", "filename": "clip_l.safetensors"} in result
 
 
+def test_dual_clip_flux_type_routes_per_slot():
+    """Regression: DualCLIPLoader(type=flux) must put clip_name1 in text_encoders/
+    and clip_name2 in clip/ — not both in text_encoders/."""
+    workflow = {
+        "153": {
+            "inputs": {
+                "clip_name1": "t5xxl_fp16.safetensors",
+                "clip_name2": "clip_l.safetensors",
+                "type": "flux",
+                "device": "default",
+            },
+            "class_type": "DualCLIPLoader",
+        }
+    }
+    result = extract_required_models(workflow)
+    assert {"folder": "text_encoders", "filename": "t5xxl_fp16.safetensors"} in result, \
+        "T5 encoder (clip_name1) must go to text_encoders/"
+    assert {"folder": "clip", "filename": "clip_l.safetensors"} in result, \
+        "CLIP-L (clip_name2) must go to clip/, not text_encoders/"
+
+
 def test_kleinedit_workflow():
     """Mirrors the KleinEdit.json structure: CLIPLoader(flux2) + VAELoader."""
     workflow = {

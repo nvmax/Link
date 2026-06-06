@@ -12,6 +12,7 @@ from src.core.model_extractor import extract_required_models
 from src.api import state
 from src.api.helpers import resolve_comfy_workspace
 from src.core.cache import cache
+from src.core import node_folder_cache
 
 logger = setup_logger("api_models")
 
@@ -29,6 +30,13 @@ async def check_models(request: Request) -> Dict[str, Any]:
     try:
         workflow = await request.json()
         comfy_url = Config.COMFY_URL
+
+        # Opportunistically refresh the node folder cache so that folder
+        # resolution uses ComfyUI's ground truth rather than heuristics.
+        # This is a best-effort fire-and-forget — failures are silently
+        # ignored and heuristics serve as the fallback.
+        if node_folder_cache.is_stale():
+            asyncio.create_task(node_folder_cache.refresh(comfy_url))
 
         missing = await _check_models_via_comfy_validation(workflow, comfy_url)
         if missing is not None:
@@ -101,11 +109,26 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
                 
                 if not missing_file or not isinstance(missing_file, str):
                     continue
-                
-                folder = extractor_map.get(missing_file, "")
+
+                # Priority 0: ComfyUI ground truth via object_info cache.
+                # This is the folder the node itself declares — 100% accurate
+                # when ComfyUI is online and the cache has been populated.
+                folder = node_folder_cache.get_folder(node_class, field_name)
+
+                # Priority 1: heuristic extractor map (built from workflow scan)
+                if not folder:
+                    folder = extractor_map.get(missing_file, "")
+
+                # Priority 2: field-name semantics
                 if not folder:
                     from src.core.model_extractor import _folder_from_field_name
                     folder = _folder_from_field_name(field_name) or "models"
+
+                if folder:
+                    logger.debug(
+                        f"Resolved folder for '{missing_file}' "
+                        f"({node_class}.{field_name}) → '{folder}'"
+                    )
                 missing_filenames[missing_file] = {
                     "folder": folder,
                     "filename": missing_file,

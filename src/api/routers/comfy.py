@@ -15,6 +15,7 @@ from src.api.helpers import (
     run_comfy_install_deps,
     MANUAL_NODE_MAPPING
 )
+from src.core import node_folder_cache
 
 logger = setup_logger("api_comfy")
 
@@ -241,15 +242,50 @@ async def reboot_comfy() -> dict[str, Any]:
                     try:
                         async with session.request(method, url, timeout=3) as resp:
                             if resp.status == 200:
+                                # Invalidate node folder cache — ComfyUI may have
+                                # new/updated nodes after reboot.
+                                node_folder_cache.clear()
                                 return {"status": "success", "message": f"Reboot accepted ({method} {path})"}
                     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                         logger.info(f"Reboot likely successful (connection reset/timeout): {e}")
+                        node_folder_cache.clear()
                         return {"status": "success", "message": "Reboot triggered successfully."}
             
             return {"status": "error", "message": "Could not verify reboot command was accepted."}
     except Exception as e:
         logger.error(f"Reboot handler error: {e}")
         return {"status": "error", "message": str(e)}
+
+
+@router.get("/api/comfy/node-folders")
+async def get_node_folders(refresh: bool = False) -> dict[str, Any]:
+    """
+    Returns the (class_type, field_name) → folder mapping parsed from
+    ComfyUI's /object_info endpoint.
+
+    Pass ?refresh=true to force a cache refresh from ComfyUI.
+    This is the ground-truth source used for model folder resolution;
+    inspecting it shows exactly which folder ComfyUI expects each
+    node input's model file to live in.
+    """
+    if refresh or node_folder_cache.is_stale():
+        ok = await node_folder_cache.refresh(Config.COMFY_URL)
+        if not ok and node_folder_cache.is_stale():
+            return {
+                "status": "unavailable",
+                "message": "ComfyUI is unreachable — folder cache could not be populated.",
+                "mappings": {},
+            }
+
+    mappings = node_folder_cache.all_mappings()
+    return {
+        "status": "ok",
+        "cached": not node_folder_cache.is_stale(),
+        "node_count": len(mappings),
+        "field_count": sum(len(v) for v in mappings.values()),
+        "mappings": mappings,
+    }
+
 
 @router.post("/api/comfy/setup")
 async def setup_comfyui(request: Request) -> dict[str, Any]:
