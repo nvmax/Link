@@ -114,10 +114,27 @@ function inferDiscordType(
   classType: string,
   field: string,
   objectInfo: any,
-  existingType?: string
+  existingType?: string,
+  nodeInputs?: any
 ): { type: string; choices?: any[] } {
   const classLower = (classType || '').toLowerCase();
   const fieldLower = (field || '').toLowerCase();
+
+  // Special handling for CustomCombo nodes
+  if (classLower === 'customcombo' && fieldLower === 'choice') {
+    const choices: any[] = [];
+    if (nodeInputs) {
+      Object.keys(nodeInputs).forEach(k => {
+        if (k.startsWith('option')) {
+          const val = nodeInputs[k];
+          if (val !== undefined && val !== null && val !== '') {
+            choices.push(String(val));
+          }
+        }
+      });
+    }
+    return { type: 'select', choices };
+  }
 
   // 1. Node class_type keywords (LoadAudio, LoadImage, etc.) — highest priority
   if (classLower.includes('loadaudio') || (classLower.includes('audio') && fieldLower === 'audio')) {
@@ -636,7 +653,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       if (Array.isArray(loadedSelections) && data.workflow && data.objectInfo) {
         loadedSelections = loadedSelections.map((sel: any) => {
           const nodeClassType = data.workflow?.[sel.nodeId]?.class_type || '';
-          const inferred = inferDiscordType(nodeClassType, sel.field, data.objectInfo, sel.type);
+          const nodeInputs = data.workflow?.[sel.nodeId]?.inputs || {};
+          const inferred = inferDiscordType(nodeClassType, sel.field, data.objectInfo, sel.type, nodeInputs);
           
           // Force upgrade to upload types if inferred, or use inferred if generic
           const genericTypes = ['string', 'text', 'STRING', 'number', 'NUMBER', ''];
@@ -1028,6 +1046,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         })
       });
       showToast('Workflow saved successfully!', 'success');
+      
+      // Auto-restart the bot so changes (including select choices) sync immediately on Discord
+      try {
+        await handleBotRestart();
+      } catch (_) {}
     } catch (e) {
       showToast('Failed to save workflow', 'error');
     }
@@ -1058,7 +1081,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setSelections(selections.filter(s => s !== existing));
     } else if (type !== null) {
       const classType = selectedWorkflow?.content?.[targetNodeId]?.class_type || '';
-      const { type: inferredType, choices } = inferDiscordType(classType, targetField, objectInfo);
+      const nodeInputs = selectedWorkflow?.content?.[targetNodeId]?.inputs || {};
+      const { type: inferredType, choices } = inferDiscordType(classType, targetField, objectInfo, undefined, nodeInputs);
       setSelections([...selections, {
         id: targetField,
         nodeId: targetNodeId,

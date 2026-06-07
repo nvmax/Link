@@ -559,6 +559,23 @@ export function VisualWorkflowMap() {
                                     <option value="video_upload">video_upload — video file (channel)</option>
                                     <option value="select">select — dropdown choices (modal)</option>
                                   </select>
+                                  {isSelected.type === 'select' && (
+                                    <div className="mt-2 space-y-1">
+                                      <label className="text-[7px] font-bold text-indigo-300/70 uppercase tracking-widest block">Choices (comma-separated)</label>
+                                      <input
+                                        type="text"
+                                        value={isSelected.choices ? isSelected.choices.join(', ') : ''}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          const arr = val.split(',').map(s => s.trim()).filter(Boolean);
+                                          updateSelection(selections.indexOf(isSelected), { choices: arr });
+                                        }}
+                                        placeholder="e.g. 5, 10, 15, 20"
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        className="w-full bg-black/60 border border-indigo-500/30 rounded-lg text-[10px] px-2 py-1 text-slate-200 outline-none focus:border-indigo-500 font-mono"
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
