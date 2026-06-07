@@ -139,37 +139,69 @@ class QueueManager:
             logger.warning(f"Failed to update queue position message: {e}")
 
     async def _stuck_job_monitor(self):
-        """Periodically scans the active job and fails it if it has been running for > 15 minutes."""
+        """Periodically scans the active job, resolves it if finished in ComfyUI, or times it out after 15m."""
         while True:
             try:
-                await asyncio.sleep(60)
+                await asyncio.sleep(15)
+                
+                # Copy active job info under lock
+                active = None
                 async with self.lock:
-                    if self.active_job and self.active_job["started_at"]:
-                        elapsed = (datetime.utcnow() - self.active_job["started_at"]).total_seconds()
-                        if elapsed > 900:  # 15 minutes
-                            logger.warning(f"Job {self.active_job['job_id']} has been running for {elapsed}s. Timing out...")
-                            
-                            # Mark as FAILED in database
+                    if self.active_job:
+                        active = {
+                            "job_id": self.active_job["job_id"],
+                            "prompt_id": self.active_job.get("prompt_id"),
+                            "started_at": self.active_job["started_at"],
+                            "channel": self.active_job.get("channel"),
+                            "message_id": self.active_job.get("message_id")
+                        }
+                
+                if not active:
+                    continue
+                
+                # 1. First, check if prompt has already finished in ComfyUI history
+                prompt_id = active.get("prompt_id")
+                if prompt_id:
+                    try:
+                        history = await self.bot.api_client.get_history(prompt_id)
+                        if history and prompt_id in history:
+                            logger.info(f"Stuck job monitor: prompt {prompt_id} found in ComfyUI history. Manually triggering completion handler.")
+                            from src.bot.results import ResultHandler
+                            res_handler = ResultHandler(self.bot)
+                            await res_handler.handle_execution_done(prompt_id)
+                            continue
+                    except Exception as e:
+                        logger.warning(f"Stuck job monitor: error checking history for prompt {prompt_id}: {e}")
+
+                # 2. Check 15-minute timeout for stuck jobs
+                if active["started_at"]:
+                    elapsed = (datetime.utcnow() - active["started_at"]).total_seconds()
+                    if elapsed > 900:  # 15 minutes
+                        logger.warning(f"Job {active['job_id']} has been running for {elapsed}s. Timing out...")
+                        
+                        # Mark as FAILED in database
+                        try:
+                            with db_session() as db:
+                                job = db.query(GenerationJob).filter(GenerationJob.id == active["job_id"]).first()
+                                if job and job.status == JobStatus.PROCESSING:
+                                    job.status = JobStatus.FAILED
+                        except Exception as db_err:
+                            logger.error(f"Error marking stuck job as failed in DB: {db_err}")
+
+                        # Edit Discord message
+                        channel = active["channel"]
+                        message_id = active["message_id"]
+                        if channel and message_id:
                             try:
-                                with db_session() as db:
-                                    job = db.query(GenerationJob).filter(GenerationJob.id == self.active_job["job_id"]).first()
-                                    if job and job.status == JobStatus.PROCESSING:
-                                        job.status = JobStatus.FAILED
-                            except Exception as db_err:
-                                logger.error(f"Error marking stuck job as failed in DB: {db_err}")
+                                msg = await channel.fetch_message(message_id)
+                                await msg.edit(content="❌ **Generation timed out**: The generation took too long to complete. Moving to next in queue.")
+                            except Exception:
+                                pass
 
-                            # Edit Discord message
-                            channel = self.active_job["channel"]
-                            message_id = self.active_job["message_id"]
-                            if channel and message_id:
-                                try:
-                                    msg = await channel.fetch_message(message_id)
-                                    await msg.edit(content="❌ **Generation timed out**: The generation took too long to complete. Moving to next in queue.")
-                                except Exception:
-                                    pass
-
-                            # Force next job
-                            self.active_job = None
-                            asyncio.create_task(self.process_next())
+                        # Force next job in queue
+                        async with self.lock:
+                            if self.active_job and self.active_job["job_id"] == active["job_id"]:
+                                self.active_job = None
+                                asyncio.create_task(self.process_next())
             except Exception as monitor_err:
                 logger.error(f"Error in stuck job monitor loop: {monitor_err}")
