@@ -32,32 +32,24 @@ async def check_models(request: Request) -> Dict[str, Any]:
         comfy_url = Config.COMFY_URL
 
         # Opportunistically refresh the node folder cache so that folder
-        # resolution uses ComfyUI's ground truth rather than heuristics.
-        # This is a best-effort fire-and-forget — failures are silently
-        # ignored and heuristics serve as the fallback.
+        # Resolution uses ComfyUI's ground truth rather than heuristics.
+        # We await this with a timeout so the cache is populated before we extract
+        # required models, falling back gracefully if ComfyUI is slow or offline.
         if node_folder_cache.is_stale():
-            asyncio.create_task(node_folder_cache.refresh(comfy_url))
+            try:
+                await asyncio.wait_for(node_folder_cache.refresh(comfy_url), timeout=3.0)
+            except Exception as e:
+                logger.warning(f"Best-effort node folder cache refresh failed or timed out: {e}")
 
         missing = await _check_models_via_comfy_validation(workflow, comfy_url)
         if missing is not None:
             logger.info(f"Model check (ComfyUI validation): {len(missing)} missing")
             return {"required": missing, "missing": [m for m in missing if not m["installed"]]}
 
-        logger.warning("ComfyUI unreachable for model check — falling back to heuristic extractor")
-        required = extract_required_models(workflow)
-        if not required:
-            return {"required": [], "missing": []}
-
-        comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
-        result = []
-        for item in required:
-            disk_path = os.path.join(comfy_workspace or "", "models", item["folder"], item["filename"])
-            is_installed = bool(comfy_workspace and os.path.isfile(disk_path))
-            result.append({**item, "installed": is_installed})
-
-        missing_list = [r for r in result if not r["installed"]]
-        logger.info(f"Model check (fallback): {len(required)} required, {len(missing_list)} missing")
-        return {"required": result, "missing": missing_list}
+        raise HTTPException(
+            status_code=503,
+            detail="ComfyUI is unreachable. Please start ComfyUI before importing or checking workflows."
+        )
 
     except Exception as e:
         logger.error(f"Model check error: {e}", exc_info=True)
@@ -201,14 +193,30 @@ async def search_models(request: Request) -> Dict[str, Any]:
                                     for hit in hits[:5]:
                                         repo_name = hit.get("name")
                                         if not repo_name: continue
-                                        check_url = f"https://huggingface.co/{repo_name}/resolve/main/{filename}"
+                                        
+                                        repo_api_url = f"https://huggingface.co/api/models/{repo_name}"
                                         try:
-                                            async with session.head(check_url, timeout=3, allow_redirects=True) as check_resp:
-                                                if check_resp.status == 200:
-                                                    found_repo = repo_name
-                                                    break
+                                            async with session.get(repo_api_url, timeout=4) as resp_api:
+                                                if resp_api.status == 200:
+                                                    model_info = await resp_api.json()
+                                                    siblings = model_info.get("siblings", [])
+                                                    matches = [s.get("rfilename") for s in siblings if s.get("rfilename") == filename or s.get("rfilename", "").endswith(f"/{filename}")]
+                                                    if matches:
+                                                        found_repo = repo_name
+                                                        break
                                         except Exception:
                                             pass
+                                            
+                                        # Fallback to direct check if API call fails
+                                        if not found_repo:
+                                            check_url = f"https://huggingface.co/{repo_name}/resolve/main/{filename}"
+                                            try:
+                                                async with session.head(check_url, timeout=3, allow_redirects=True) as check_resp:
+                                                    if check_resp.status == 200:
+                                                        found_repo = repo_name
+                                                        break
+                                            except Exception:
+                                                pass
                             elif resp.status == 429:
                                 logger.warning(f"Exact search hit HuggingFace 429 rate limit for {filename}")
                     except Exception as e:
@@ -385,6 +393,8 @@ async def download_model(request: Request) -> Any:
 
         if repo_id and repo_id.startswith("http"):
             url = repo_id
+            if "huggingface.co" in url and "/blob/" in url:
+                url = url.replace("/blob/", "/resolve/", 1)
         else:
             if not repo_id:
                 raise HTTPException(status_code=400, detail="Missing repo_id or direct url")

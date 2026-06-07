@@ -730,7 +730,7 @@
       },
       "lora_1": {
         "on": true,
-        "lora": "LTX-2.3-danceV2.comfy.safetensors",
+        "lora": "",
         "strength": 1
       },
       "➕ Add Lora": "",

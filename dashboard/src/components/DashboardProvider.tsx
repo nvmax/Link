@@ -932,9 +932,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           setPendingImport(null);
         }
       }
+      setMissingModels([]);
     }
-    
-    setMissingModels([]);
   };
 
   const handleRetrySingleModel = async (model: any) => {

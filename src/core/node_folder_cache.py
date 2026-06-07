@@ -50,7 +50,7 @@ _refresh_lock = asyncio.Lock()    # prevent thundering herd on first call
 # Parser
 # ---------------------------------------------------------------------------
 
-def _parse_object_info(info: dict) -> dict[str, dict[str, str]]:
+def _parse_object_info(info: dict, comfy_path: Optional[str] = None) -> dict[str, dict[str, str]]:
     """
     Parse the raw /object_info JSON into a nested dict:
         {class_type_lower: {field_name_lower: folder}}
@@ -96,7 +96,7 @@ def _parse_object_info(info: dict) -> dict[str, dict[str, str]]:
                 if not isinstance(field_def, (list, tuple)) or len(field_def) == 0:
                     continue
 
-                folder = _extract_folder_from_field_def(field_def)
+                folder = _extract_folder_from_field_def(field_def, comfy_path)
                 if folder:
                     fields[fl] = folder
 
@@ -107,7 +107,7 @@ def _parse_object_info(info: dict) -> dict[str, dict[str, str]]:
     return result
 
 
-def _extract_folder_from_field_def(field_def: list) -> Optional[str]:
+def _extract_folder_from_field_def(field_def: list, comfy_path: Optional[str] = None) -> Optional[str]:
     """
     Extract the folder name from a single field definition tuple.
 
@@ -132,10 +132,25 @@ def _extract_folder_from_field_def(field_def: list) -> Optional[str]:
         if folder and isinstance(folder, str):
             return folder.strip()
 
-    # Format B — no metadata.  We can still infer for simple type strings.
-    # ComfyUI type strings like "MODEL", "VAE", "CLIP" don't carry folder info,
-    # but for COMBO inputs (lists of filenames) we cannot know the folder without
-    # the metadata key.
+    # Format B — no metadata. If the first element is a list of choices (combo),
+    # we dynamically check if any of these files already exist on the user's disk
+    # in any standard ComfyUI models sub-folder.
+    if isinstance(first, list) and comfy_path:
+        import os
+        from src.api.helpers import resolve_comfy_workspace
+        comfy_workspace = resolve_comfy_workspace(comfy_path)
+        if comfy_workspace:
+            models_dir = os.path.join(comfy_workspace, "models")
+            if os.path.isdir(models_dir):
+                # Priority list of folders to search (most common first)
+                subfolders = ["checkpoints", "clip", "vae", "text_encoders", "unet", "loras", "controlnet", "upscale_models"]
+                for sf in subfolders:
+                    sf_path = os.path.join(models_dir, sf)
+                    if os.path.isdir(sf_path):
+                        for opt in first:
+                            if isinstance(opt, str) and opt.strip() and os.path.isfile(os.path.join(sf_path, opt)):
+                                return sf
+
     return None
 
 
@@ -166,7 +181,8 @@ async def refresh(comfy_url: str) -> bool:
                         return False
                     raw = await resp.json(content_type=None)
 
-            new_map = _parse_object_info(raw)
+            from src.core.config import Config
+            new_map = _parse_object_info(raw, Config.COMFY_PATH)
             _folder_map = new_map
             _fetched_at = time.monotonic()
             logger.info(

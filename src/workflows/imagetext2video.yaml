@@ -11,6 +11,10 @@ mapping:
     - '276'
     - inputs
     - text
+  PowerLoraLoaderHeaderWidget:
+    - '327'
+    - inputs
+    - PowerLoraLoaderHeaderWidget
 inputs:
   - id: image
     type: image_upload
@@ -19,6 +23,10 @@ inputs:
   - id: text
     type: text
     label: text
+    required: true
+  - id: PowerLoraLoaderHeaderWidget
+    type: select
+    label: PowerLoraLoaderHeaderWidget
     required: true
 discord:
   command: imagetext2video
@@ -34,6 +42,12 @@ discord:
       field: text
       type: text
       label: text
+      required: true
+    - id: PowerLoraLoaderHeaderWidget
+      nodeId: '327'
+      field: PowerLoraLoaderHeaderWidget
+      type: select
+      label: PowerLoraLoaderHeaderWidget
       required: true
   ui:
     layout_version: v2
@@ -68,7 +82,8 @@ discord:
         label: Delete
         style: danger
     positions: {}
-  loras: {}
+  loras:
+    '327': ltxvlora.json
 ai_prompt:
   enabled: false
   category: image

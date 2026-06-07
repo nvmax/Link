@@ -136,6 +136,29 @@ class TestParseObjectInfo:
         assert "dualcliploadergguf" in result
         assert "clip_name1" in result["dualcliploadergguf"]
 
+    def test_dynamic_folder_detection(self, tmp_path):
+        """Verify dynamic detection of folders by checking existing files on disk."""
+        # Setup a mock comfy workspace structure
+        comfy_workspace = tmp_path / "ComfyUI"
+        models_dir = comfy_workspace / "models"
+        clip_dir = models_dir / "clip"
+        clip_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create a dummy file in models/clip/
+        dummy_file = clip_dir / "some_installed_clip.safetensors"
+        dummy_file.write_text("dummy content")
+
+        info = _make_object_info(DualCLIPLoader={
+            "required": {
+                # Format B: Choices list with no metadata dict
+                "clip_name1": [["missing_file.safetensors", "some_installed_clip.safetensors"]]
+            }
+        })
+
+        result = node_folder_cache._parse_object_info(info, comfy_path=str(comfy_workspace))
+        assert result["dualcliploader"]["clip_name1"] == "clip"
+
+
 
 # ---------------------------------------------------------------------------
 # Cache API tests

@@ -88,8 +88,8 @@ def test_checkpoint_loader():
     assert {"folder": "checkpoints", "filename": "v1-5-pruned.safetensors"} in result
 
 
-def test_cliploader_flux2_type_maps_to_text_encoders():
-    """CLIPLoader with type='flux2' should go to text_encoders/, not clip/."""
+def test_cliploader_flux2_type_maps_to_clip():
+    """CLIPLoader with type='flux2' should go to clip/ in standard ComfyUI."""
     workflow = {
         "75:71": {
             "inputs": {
@@ -101,8 +101,7 @@ def test_cliploader_flux2_type_maps_to_text_encoders():
         }
     }
     result = extract_required_models(workflow)
-    assert {"folder": "text_encoders", "filename": "qwen_3_8b_fp8mixed.safetensors"} in result
-    assert not any(r["folder"] == "clip" for r in result), "flux2 CLIPLoader should NOT map to clip/"
+    assert {"folder": "clip", "filename": "qwen_3_8b_fp8mixed.safetensors"} in result
 
 
 def test_cliploader_no_type_maps_to_clip():
@@ -117,9 +116,8 @@ def test_cliploader_no_type_maps_to_clip():
     assert {"folder": "clip", "filename": "clip_l.safetensors"} in result
 
 
-def test_dual_clip_flux_type_routes_per_slot():
-    """Regression: DualCLIPLoader(type=flux) must put clip_name1 in text_encoders/
-    and clip_name2 in clip/ — not both in text_encoders/."""
+def test_dual_clip_flux_type_routes_to_clip():
+    """Regression: DualCLIPLoader(type=flux) must put both clip_name1 and clip_name2 in clip/."""
     workflow = {
         "153": {
             "inputs": {
@@ -132,10 +130,10 @@ def test_dual_clip_flux_type_routes_per_slot():
         }
     }
     result = extract_required_models(workflow)
-    assert {"folder": "text_encoders", "filename": "t5xxl_fp16.safetensors"} in result, \
-        "T5 encoder (clip_name1) must go to text_encoders/"
+    assert {"folder": "clip", "filename": "t5xxl_fp16.safetensors"} in result, \
+        "T5 encoder (clip_name1) must go to clip/"
     assert {"folder": "clip", "filename": "clip_l.safetensors"} in result, \
-        "CLIP-L (clip_name2) must go to clip/, not text_encoders/"
+        "CLIP-L (clip_name2) must go to clip/"
 
 
 def test_kleinedit_workflow():
@@ -157,5 +155,23 @@ def test_kleinedit_workflow():
     result = extract_required_models(workflow)
     folders = {r["folder"]: r["filename"] for r in result}
     assert folders["unet"] == "flux-2-klein-base-9b-fp8.safetensors"
-    assert folders["text_encoders"] == "qwen_3_8b_fp8mixed.safetensors", "Qwen model must go to text_encoders/"
+    assert folders["clip"] == "qwen_3_8b_fp8mixed.safetensors", "Qwen model must go to clip/"
     assert folders["vae"] == "full_encoder_small_decoder.safetensors"
+
+
+def test_extracts_uses_node_folder_cache(monkeypatch):
+    """Verifies that extract_required_models prioritizes node_folder_cache ground truth."""
+    from src.core import node_folder_cache
+    monkeypatch.setattr(node_folder_cache, "_folder_map", {
+        "customloader": {
+            "model_field": "custom_models_folder"
+        }
+    })
+    workflow = {
+        "1": {
+            "inputs": {"model_field": "my_special_model.safetensors"},
+            "class_type": "CustomLoader"
+        }
+    }
+    result = extract_required_models(workflow)
+    assert {"folder": "custom_models_folder", "filename": "my_special_model.safetensors"} in result

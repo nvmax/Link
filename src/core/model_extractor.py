@@ -67,12 +67,9 @@ TEXT_ENCODER_CLIP_TYPES = {
 }
 
 # For DualCLIPLoader-family nodes, the slot position matters:
-#   clip_name1 = the LLM/T5 encoder  → text_encoders/
-#   clip_name2 = the CLIP-L model    → clip/
-# This map drives per-field overrides when the node type is in
-# TEXT_ENCODER_CLIP_TYPES so that the two slots are routed independently.
+# In standard ComfyUI, both slot inputs route to clip/.
 DUAL_CLIP_FIELD_FOLDER: dict[str, str] = {
-    "clip_name1": "text_encoders",
+    "clip_name1": "clip",
     "clip_name2": "clip",
 }
 
@@ -81,13 +78,8 @@ def _clip_folder_from_type(inputs: dict) -> str:
     """
     Returns the correct ComfyUI models sub-folder for any CLIP-family loader.
 
-    ComfyUI stores LLM-based text encoders (Qwen, T5, Gemma …) in
-    models/text_encoders/ and traditional CLIP models in models/clip/.
-    The node's 'type' input field distinguishes them.
+    Standard ComfyUI stores loaders (like CLIPLoader) under models/clip/
     """
-    clip_type = (inputs.get("type") or "").lower().strip()
-    if clip_type in TEXT_ENCODER_CLIP_TYPES:
-        return "text_encoders"
     return "clip"
 
 
@@ -222,6 +214,17 @@ def extract_required_models(workflow: dict) -> list[dict]:
         ct_lower = class_type.lower()
         inputs: dict = node.get("inputs") or {}
 
+        # Check node folder cache (ground truth from ComfyUI /object_info) first.
+        # If found, we use it directly and skip heuristics for this field.
+        cached_fields = set()
+        for field, val in inputs.items():
+            if isinstance(val, str) and val.strip():
+                from src.core import node_folder_cache
+                folder = node_folder_cache.get_folder(class_type, field)
+                if folder:
+                    _emit(folder, val)
+                    cached_fields.add(field)
+
         # ------------------------------------------------------------------
         # Priority 1 – Any CLIP-family loader: folder determined by 'type'
         # Matches:  CLIPLoader, DualCLIPLoader, DualCLIPLoaderGGUF,
@@ -236,6 +239,8 @@ def extract_required_models(workflow: dict) -> list[dict]:
             folder = _clip_folder_from_type(inputs)
             for field in ("clip_name", "clip_name1", "clip_name2",
                           "clip_name3", "clip_name4"):
+                if field in cached_fields:
+                    continue
                 val = inputs.get(field)
                 if isinstance(val, str) and val.strip():
                     # For dual-loaders (e.g. DualCLIPLoader with type=flux),
@@ -254,6 +259,8 @@ def extract_required_models(workflow: dict) -> list[dict]:
         # Priority 2 – Field-name semantics (independent of class_type)
         # ------------------------------------------------------------------
         for field, val in inputs.items():
+            if field in cached_fields:
+                continue
             if not isinstance(val, str) or not val.strip():
                 continue
             fl = field.lower()

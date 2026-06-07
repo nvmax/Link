@@ -48,7 +48,7 @@ app.add_middleware(
 async def rate_limit_middleware(request: Request, call_next):
     client_ip = request.client.host if request.client else "127.0.0.1"
     path = request.url.path
-    if path in RATE_LIMITS:
+    if path in RATE_LIMITS and request.method != "OPTIONS":
         limit, period = RATE_LIMITS[path]
         now = time.time()
         
