@@ -8,7 +8,7 @@ from src.core.config import Config
 from src.core.logger import setup_logger
 from src.api import state
 from src.database.session import get_db
-from src.database.models import ServerLimit, UserBan
+from src.database.models import ServerLimit, UserBan, UserAgreement
 
 logger = setup_logger("api_discord")
 
@@ -312,4 +312,72 @@ async def lift_user_ban(guild_id: str, user_id: str, db: Session = Depends(get_d
         return {"status": "success", "message": f"Ban lifted for user {user_id}."}
     except Exception as e:
         logger.error(f"Error lifting user ban: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/discord/guild/{guild_id}/tos-agreements")
+async def get_tos_agreements(guild_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    if not state.bot_instance:
+        raise HTTPException(status_code=503, detail="Bot not initialized")
+    
+    guild = None
+    try:
+        guild = state.bot_instance.get_guild(int(guild_id))
+    except Exception:
+        pass
+
+    # Get all agreements from database
+    agreements = db.query(UserAgreement).all()
+
+    results = []
+    for ag in agreements:
+        user_id_int = int(ag.user_id)
+        username = f"User {ag.user_id}"
+        display_name = f"User {ag.user_id}"
+        avatar_url = None
+        
+        user = None
+        if guild:
+            try:
+                user = guild.get_member(user_id_int)
+            except Exception:
+                pass
+                
+        if not user:
+            try:
+                user = state.bot_instance.get_user(user_id_int)
+            except Exception:
+                pass
+                
+        if not user:
+            try:
+                user = await state.bot_instance.fetch_user(user_id_int)
+            except Exception:
+                pass
+                
+        if user:
+            username = user.name
+            display_name = user.display_name
+            avatar_url = str(user.avatar.url) if user.avatar else None
+            
+        results.append({
+            "user_id": ag.user_id,
+            "username": username,
+            "display_name": display_name,
+            "avatar": avatar_url,
+            "agreed": ag.agreed,
+            "agreed_at": ag.agreed_at.isoformat() if ag.agreed_at else None
+        })
+
+    return {"agreements": results}
+
+@router.delete("/api/discord/tos-agreements/{user_id}")
+async def delete_tos_agreement(user_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    try:
+        deleted = db.query(UserAgreement).filter(UserAgreement.user_id == user_id).delete()
+        db.commit()
+        if deleted == 0:
+            raise HTTPException(status_code=404, detail="Agreement not found")
+        return {"status": "success", "message": f"Agreement deleted for user {user_id}"}
+    except Exception as e:
+        logger.error(f"Error deleting user TOS agreement: {e}")
         raise HTTPException(status_code=500, detail=str(e))

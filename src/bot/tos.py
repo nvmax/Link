@@ -36,16 +36,25 @@ class TOSAgreementView(discord.ui.View):
 
     @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger, emoji="❌")
     async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(
-            content="❌ You declined the Terms of Service. Generation cancelled.",
-            embed=None,
-            view=None
-        )
+        try:
+            with db_session() as db:
+                agreement = UserAgreement(user_id=self.user_id, agreed=False)
+                db.merge(agreement)
+                db.commit()
+            await interaction.response.edit_message(
+                content="❌ **Terms of Service Declined**: You have declined the Terms of Service. You are now restricted from running generations.",
+                embed=None,
+                view=None
+            )
+        except Exception as e:
+            logger.error(f"Error saving terms of service disagreement: {e}")
+            await interaction.response.send_message("❌ Failed to save your disagreement.", ephemeral=True)
 
 async def check_tos_agreement(interaction: discord.Interaction) -> bool:
     """
     Checks if Terms of Service agreement is required and if the user has agreed to it.
     If required and not agreed, sends an ephemeral message with the terms and returns False.
+    If explicitly disagreed, blocks access immediately and returns False.
     Otherwise returns True.
     """
     if not interaction.guild:
@@ -67,18 +76,25 @@ async def check_tos_agreement(interaction: discord.Interaction) -> bool:
     if not tos_required:
         return True
 
-    # Check if the user has agreed
-    has_agreed = False
+    # Check if the user has agreed or declined
+    has_agreed = None  # None = not registered, True = agreed, False = declined
     try:
         with db_session() as db:
             agreement = db.query(UserAgreement).filter(UserAgreement.user_id == user_id).first()
-            if agreement and agreement.agreed:
-                has_agreed = True
+            if agreement:
+                has_agreed = agreement.agreed
     except Exception as e:
         logger.error(f"Failed to check user agreement: {e}")
 
-    if has_agreed:
+    if has_agreed is True:
         return True
+        
+    if has_agreed is False:
+        await interaction.response.send_message(
+            "❌ **Access Denied**: You explicitly declined the Terms of Service. Generations are restricted for your account.",
+            ephemeral=True
+        )
+        return False
 
     # Prompt the user to agree
     embed = discord.Embed(

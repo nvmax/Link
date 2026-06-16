@@ -66,7 +66,7 @@ export function RoleStudio() {
   const [workflowSearch, setWorkflowSearch] = useState('');
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'permissions' | 'limits' | 'bans'>('permissions');
+  const [activeTab, setActiveTab] = useState<'permissions' | 'limits' | 'bans' | 'tos'>('permissions');
   
   // Server limits state
   const [limitsData, setLimitsData] = useState({
@@ -87,6 +87,10 @@ export function RoleStudio() {
   const [banReason, setBanReason] = useState<string>('');
   const [isApplyingBan, setIsApplyingBan] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
+
+  // TOS Agreements State
+  const [tosAgreements, setTosAgreements] = useState<any[]>([]);
+  const [isLoadingTos, setIsLoadingTos] = useState(false);
 
   const fetchLimitsAndBans = useCallback(async (guildId: string) => {
     try {
@@ -116,6 +120,40 @@ export function RoleStudio() {
       console.error("Error fetching limits and channels:", err);
     }
   }, []);
+
+  const fetchTosAgreements = useCallback(async (guildId: string) => {
+    setIsLoadingTos(true);
+    try {
+      const res = await fetch(`http://127.0.0.1:8001/api/discord/guild/${guildId}/tos-agreements`);
+      if (res.ok) {
+        const data = await res.json();
+        setTosAgreements(data.agreements || []);
+      }
+    } catch (err) {
+      console.error("Error fetching TOS agreements:", err);
+    } finally {
+      setIsLoadingTos(false);
+    }
+  }, []);
+
+  const handleDeleteAgreement = async (userId: string) => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8001/api/discord/tos-agreements/${userId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showToast('TOS agreement deleted successfully! User can now accept again.', 'success');
+        if (selectedGuildId) {
+          fetchTosAgreements(selectedGuildId);
+        }
+      } else {
+        throw new Error("Failed to delete agreement");
+      }
+    } catch (err) {
+      console.error("Delete agreement error:", err);
+      showToast('Failed to delete TOS agreement.', 'error');
+    }
+  };
 
   // Fetch guilds & existing permissions mappings
   const fetchData = useCallback(async (showNotification = false) => {
@@ -172,8 +210,11 @@ export function RoleStudio() {
   useEffect(() => {
     if (selectedGuildId) {
       fetchLimitsAndBans(selectedGuildId);
+      if (activeTab === 'tos') {
+        fetchTosAgreements(selectedGuildId);
+      }
     }
-  }, [selectedGuildId, fetchLimitsAndBans]);
+  }, [selectedGuildId, activeTab, fetchLimitsAndBans, fetchTosAgreements]);
 
   const handleSaveLimits = async () => {
     if (!selectedGuildId) return;
@@ -273,6 +314,7 @@ export function RoleStudio() {
       showToast('Failed to lift restriction.', 'error');
     }
   };
+
 
   // Find currently selected guild
   const selectedGuild = useMemo(() => {
@@ -390,6 +432,16 @@ export function RoleStudio() {
       return nameMatch || commandMatch || descMatch;
     });
   }, [workflows, workflowSearch]);
+
+  // Filtered TOS Agreements based on search query
+  const filteredTosAgreements = useMemo(() => {
+    return tosAgreements.filter(ag => {
+      const nameMatch = (ag.username || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const dispMatch = (ag.display_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const idMatch = (ag.user_id || '').includes(searchQuery);
+      return nameMatch || dispMatch || idMatch;
+    });
+  }, [tosAgreements, searchQuery]);
 
   // Count active restrictions in the current server
   const restrictedWorkflowsCount = useMemo(() => {
@@ -773,6 +825,17 @@ export function RoleStudio() {
                 <Ban className="w-3.5 h-3.5" />
                 <span>Ban & Restriction</span>
               </button>
+              <button
+                onClick={() => setActiveTab('tos')}
+                className={`flex items-center gap-2 pb-1 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+                  activeTab === 'tos'
+                    ? 'text-indigo-400 border-indigo-400'
+                    : 'text-slate-500 border-transparent hover:text-slate-350'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>TOS Agreements</span>
+              </button>
             </div>
 
             {/* TAB CONTENT: Permissions */}
@@ -989,23 +1052,6 @@ export function RoleStudio() {
                     <span className="text-[9px] text-slate-500 leading-relaxed font-semibold">Max generations a user can run in a 24-hour period. Set to 0 to disable.</span>
                   </div>
 
-                  <div className="flex flex-col gap-2 pt-2">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id="terms_of_service_required"
-                        checked={limitsData.terms_of_service_required || false}
-                        onChange={(e) => setLimitsData({...limitsData, terms_of_service_required: e.target.checked})}
-                        className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-indigo-500/50 cursor-pointer"
-                      />
-                      <label htmlFor="terms_of_service_required" className="text-[11px] font-bold text-slate-400 uppercase tracking-wider cursor-pointer select-none">
-                        Require Terms of Service Agreement
-                      </label>
-                    </div>
-                    <span className="text-[9px] text-slate-500 leading-relaxed font-semibold">
-                      When enabled, users must agree to the Terms of Service before their first generation on this server.
-                    </span>
-                  </div>
 
                   <button
                     onClick={handleSaveLimits}
@@ -1195,6 +1241,160 @@ export function RoleStudio() {
                       })
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: TOS Agreements */}
+            {activeTab === 'tos' && selectedGuild && (
+              <div className="flex flex-col gap-4 animate-in fade-in duration-300 flex-1 min-h-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+                  <div>
+                    <h4 className="font-extrabold text-white text-md">TOS Agreements</h4>
+                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">
+                      Monitor server members who have agreed or declined the Terms of Service. Reset a record to let a user accept again.
+                    </p>
+                  </div>
+
+                  {/* Search filter input */}
+                  <div className="relative max-w-xs w-full">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search member by name or ID..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-black/40 border border-white/5 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500/50 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* TOS Configuration Card */}
+                <div className="p-4 rounded-2xl border bg-indigo-500/[0.02] border-indigo-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                      <span className="text-xs font-bold text-slate-200">Require Terms of Service Agreement</span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 leading-relaxed font-semibold">
+                      When enabled, users must agree to the Terms of Service before their first generation on this server.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      onClick={async () => {
+                        const updatedVal = !limitsData.terms_of_service_required;
+                        // Optimistically set UI state
+                        setLimitsData(prev => ({ ...prev, terms_of_service_required: updatedVal }));
+                        setIsSavingLimits(true);
+                        try {
+                          const res = await fetch(`http://127.0.0.1:8001/api/discord/guild/${selectedGuildId}/limits`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              rate_limit_per_minute: limitsData.rate_limit_per_minute,
+                              rate_limit_per_hour: limitsData.rate_limit_per_hour,
+                              quota_per_day: limitsData.quota_per_day,
+                              tos_required: updatedVal
+                            })
+                          });
+                          if (res.ok) {
+                            showToast(`TOS requirement successfully ${updatedVal ? 'enabled' : 'disabled'}!`, 'success');
+                          } else {
+                            throw new Error("Failed to update limits");
+                          }
+                        } catch (err) {
+                          console.error("Save limits error:", err);
+                          // Revert UI state on failure
+                          setLimitsData(prev => ({ ...prev, terms_of_service_required: !updatedVal }));
+                          showToast('Failed to update TOS requirement.', 'error');
+                        } finally {
+                          setIsSavingLimits(false);
+                        }
+                      }}
+                      disabled={isSavingLimits}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-0 ${
+                        limitsData.terms_of_service_required ? 'bg-indigo-500' : 'bg-slate-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          limitsData.terms_of_service_required ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                  {isLoadingTos ? (
+                    <div className="py-20 flex flex-col items-center justify-center gap-3">
+                      <RefreshCw className="w-6 h-6 text-indigo-500 animate-spin" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Syncing TOS agreements...</span>
+                    </div>
+                  ) : filteredTosAgreements.length === 0 ? (
+                    <div className="py-20 flex flex-col items-center justify-center opacity-40 gap-2 border border-dashed border-white/5 rounded-2xl">
+                      <ShieldAlert className="w-6 h-6 text-slate-600" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        {searchQuery ? 'No matching members found' : 'No TOS records found for this server'}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                      {filteredTosAgreements.map((agreement) => (
+                        <div
+                          key={agreement.user_id}
+                          className="p-4 rounded-2xl border bg-white/[0.01] transition-all flex items-center justify-between gap-4 border-white/5 hover:border-white/10"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {agreement.avatar ? (
+                              <img
+                                src={agreement.avatar}
+                                alt={agreement.display_name}
+                                className="w-10 h-10 rounded-xl object-cover border border-white/5 shadow"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-xs font-black shrink-0">
+                                {(agreement.display_name || agreement.username || 'U').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex flex-col min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-200 truncate">
+                                  {agreement.display_name || agreement.username}
+                                </span>
+                                {agreement.username && (
+                                  <span className="text-[9px] text-slate-500 truncate">@{agreement.username}</span>
+                                )}
+                              </div>
+                              <span className="text-[9px] text-slate-600 font-mono mt-0.5">ID: {agreement.user_id}</span>
+                              <span className="text-[9px] text-slate-500 font-semibold mt-1">
+                                Action Date: {agreement.agreed_at ? new Date(agreement.agreed_at).toLocaleString() : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${
+                              agreement.agreed
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            }`}>
+                              {agreement.agreed ? 'Accepted' : 'Declined'}
+                            </span>
+                            
+                            <button
+                              onClick={() => handleDeleteAgreement(agreement.user_id)}
+                              className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-350 border border-rose-500/15 transition-all shrink-0 active:scale-95"
+                              title="Reset TOS Agreement"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
