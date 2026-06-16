@@ -51,9 +51,12 @@ export function RoleStudio() {
   const [guilds, setGuilds] = useState<DiscordGuild[]>([]);
   const [permissions, setPermissions] = useState<Record<string, Record<string, string[]>>>({});
   const [feedbackAdmins, setFeedbackAdmins] = useState<Record<string, string>>({});
+  const [feedbackChannels, setFeedbackChannels] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<'loading' | 'online' | 'offline' | 'error'>('loading');
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [guildChannels, setGuildChannels] = useState<any[]>([]);
+  const [channelSelectMode, setChannelSelectMode] = useState<Record<string, 'dm' | 'select' | 'manual'>>({});
 
   // UI Selection states
   const [selectedGuildId, setSelectedGuildId] = useState<string | null>(null);
@@ -69,7 +72,8 @@ export function RoleStudio() {
   const [limitsData, setLimitsData] = useState({
     rate_limit_per_minute: 0,
     rate_limit_per_hour: 0,
-    quota_per_day: 0
+    quota_per_day: 0,
+    terms_of_service_required: false
   });
   const [isSavingLimits, setIsSavingLimits] = useState(false);
   
@@ -92,7 +96,8 @@ export function RoleStudio() {
         setLimitsData({
           rate_limit_per_minute: data.rate_limit_per_minute || 0,
           rate_limit_per_hour: data.rate_limit_per_hour || 0,
-          quota_per_day: data.quota_per_day || 0
+          quota_per_day: data.quota_per_day || 0,
+          terms_of_service_required: data.tos_required || false
         });
       }
       
@@ -102,13 +107,13 @@ export function RoleStudio() {
         setBansList(data.bans || []);
       }
       
-      const membersRes = await fetch(`http://127.0.0.1:8001/api/discord/guild/${guildId}/members`);
-      if (membersRes.ok) {
-        const data = await membersRes.json();
-        setGuildMembers(data.members || []);
+      const channelsRes = await fetch(`http://127.0.0.1:8001/api/discord/guild/${guildId}/channels`);
+      if (channelsRes.ok) {
+        const data = await channelsRes.json();
+        setGuildChannels(data.channels || []);
       }
     } catch (err) {
-      console.error("Error fetching limits and bans:", err);
+      console.error("Error fetching limits and channels:", err);
     }
   }, []);
 
@@ -146,6 +151,7 @@ export function RoleStudio() {
         const permData = await permRes.json();
         setPermissions(permData.guild_permissions || {});
         setFeedbackAdmins(permData.feedback_admins || {});
+        setFeedbackChannels(permData.feedback_channels || {});
       }
 
       setStatus('online');
@@ -176,7 +182,12 @@ export function RoleStudio() {
       const res = await fetch(`http://127.0.0.1:8001/api/discord/guild/${selectedGuildId}/limits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(limitsData)
+        body: JSON.stringify({
+          rate_limit_per_minute: limitsData.rate_limit_per_minute,
+          rate_limit_per_hour: limitsData.rate_limit_per_hour,
+          quota_per_day: limitsData.quota_per_day,
+          tos_required: limitsData.terms_of_service_required
+        })
       });
       if (res.ok) {
         showToast('Rate limits and quotas updated successfully!', 'success');
@@ -352,7 +363,8 @@ export function RoleStudio() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           guild_permissions: permissions,
-          feedback_admins: feedbackAdmins
+          feedback_admins: feedbackAdmins,
+          feedback_channels: feedbackChannels
         })
       });
 
@@ -542,47 +554,109 @@ export function RoleStudio() {
                     {/* Expand section below if isSelected is true */}
                     {isSelected && (
                       <div className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2.5 mx-1 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <label className="text-[10px] text-slate-400 uppercase font-extrabold block">
-                          Feedback Admin
-                        </label>
-                        <select
-                          value={selectValue}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "manual") {
-                              setFeedbackAdmins(prev => ({ ...prev, [guild.id]: "manual" }));
-                            } else {
+                        <div>
+                          <label className="text-[10px] text-slate-400 uppercase font-extrabold block mb-1">
+                            Admin Channel Report
+                          </label>
+                          {(() => {
+                            const savedVal = feedbackChannels[guild.id] || "";
+                            const isChanOption = guildChannels.some(c => c.id === savedVal);
+                            const currentMode = channelSelectMode[guild.id] || (
+                              savedVal === "" 
+                                ? "dm" 
+                                : (savedVal === "manual" || (guildChannels.length > 0 && !isChanOption)
+                                    ? "manual" 
+                                    : "select")
+                            );
+                            
+                            return (
+                              <>
+                                <select
+                                  value={currentMode}
+                                  onChange={(e) => {
+                                    const val = e.target.value as 'dm' | 'select' | 'manual';
+                                    setChannelSelectMode(prev => ({ ...prev, [guild.id]: val }));
+                                    if (val === "dm") {
+                                      setFeedbackChannels(prev => ({ ...prev, [guild.id]: "" }));
+                                    } else if (val === "select") {
+                                      const defaultChan = guildChannels[0]?.id || "";
+                                      setFeedbackChannels(prev => ({ ...prev, [guild.id]: defaultChan }));
+                                    } else {
+                                      setFeedbackChannels(prev => ({ ...prev, [guild.id]: "manual" }));
+                                    }
+                                  }}
+                                  className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/50 mb-2"
+                                >
+                                  <option value="dm">DM Admin / Owner Only</option>
+                                  <option value="select">Post to Server Channel</option>
+                                  <option value="manual">Post to Manual Channel ID</option>
+                                </select>
+
+                                {/* Render select dropdown if in select mode */}
+                                {currentMode === "select" && (
+                                  <div className="mt-1">
+                                    <label className="text-[9px] text-slate-500 uppercase font-bold block mb-1">
+                                      Select Server Channel
+                                    </label>
+                                    <select
+                                      value={savedVal}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFeedbackChannels(prev => ({ ...prev, [guild.id]: val }));
+                                      }}
+                                      className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/50"
+                                    >
+                                      {guildChannels.length === 0 ? (
+                                        <option value="">No channels found / Loading...</option>
+                                      ) : (
+                                        guildChannels.map(c => (
+                                          <option key={c.id} value={c.id}>
+                                            #{c.name}
+                                          </option>
+                                        ))
+                                      )}
+                                    </select>
+                                  </div>
+                                )}
+
+                                {/* Render manual input if manual is selected */}
+                                {currentMode === "manual" && (
+                                  <div className="mt-1">
+                                    <label className="text-[9px] text-slate-500 uppercase font-bold block mb-1">
+                                      Enter Channel ID
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={savedVal === "manual" ? "" : savedVal}
+                                      placeholder="e.g. 987654321098765432"
+                                      onChange={(e) => {
+                                        const val = e.target.value.replace(/[^0-9]/g, "");
+                                        setFeedbackChannels(prev => ({ ...prev, [guild.id]: val }));
+                                      }}
+                                      className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/50"
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-slate-400 uppercase font-extrabold block mb-1">
+                            Direct Admin ID (Fallback)
+                          </label>
+                          <input
+                            type="text"
+                            value={feedbackAdmins[guild.id] || ""}
+                            placeholder="e.g. 123456789012345678"
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^0-9]/g, "");
                               setFeedbackAdmins(prev => ({ ...prev, [guild.id]: val }));
-                            }
-                          }}
-                          className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/50"
-                        >
-                          <option value="">-- Notify All Admins --</option>
-                          {guildMembers.map(m => (
-                            <option key={m.id} value={m.id}>
-                              {m.display_name} (@{m.name})
-                            </option>
-                          ))}
-                          <option value="manual">Manual ID Input...</option>
-                        </select>
-                        
-                        {(selectValue === "manual" || (currentValue !== "" && !isMemberOption)) && (
-                          <div className="space-y-1">
-                            <label className="text-[9px] text-slate-500 uppercase font-bold">
-                              Admin Discord ID
-                            </label>
-                            <input
-                              type="text"
-                              value={currentValue === "manual" ? "" : currentValue}
-                              placeholder="e.g. 123456789012345678"
-                              onChange={(e) => {
-                                const val = e.target.value.replace(/[^0-9]/g, "");
-                                setFeedbackAdmins(prev => ({ ...prev, [guild.id]: val }));
-                              }}
-                              className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/50"
-                            />
-                          </div>
-                        )}
+                            }}
+                            className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/50"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -913,6 +987,24 @@ export function RoleStudio() {
                       className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500/50 outline-none transition-all"
                     />
                     <span className="text-[9px] text-slate-500 leading-relaxed font-semibold">Max generations a user can run in a 24-hour period. Set to 0 to disable.</span>
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-2">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="terms_of_service_required"
+                        checked={limitsData.terms_of_service_required || false}
+                        onChange={(e) => setLimitsData({...limitsData, terms_of_service_required: e.target.checked})}
+                        className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-indigo-500/50 cursor-pointer"
+                      />
+                      <label htmlFor="terms_of_service_required" className="text-[11px] font-bold text-slate-400 uppercase tracking-wider cursor-pointer select-none">
+                        Require Terms of Service Agreement
+                      </label>
+                    </div>
+                    <span className="text-[9px] text-slate-500 leading-relaxed font-semibold">
+                      When enabled, users must agree to the Terms of Service before their first generation on this server.
+                    </span>
                   </div>
 
                   <button

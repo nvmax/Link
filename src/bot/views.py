@@ -60,6 +60,16 @@ async def handle_smart_action(interaction: discord.Interaction):
     custom_id = interaction.data.get("custom_id", "")
     if not custom_id.startswith("link_"):
         return
+        
+    # Check Terms of Service agreement if this is a generation-related action
+    if (custom_id.startswith("link_chain_") or 
+        custom_id.startswith("link_selector_") or 
+        custom_id.startswith("link_gen_redo") or 
+        custom_id.startswith("link_gen_options") or 
+        custom_id.startswith("link_action_")):
+        from src.bot.tos import check_tos_agreement
+        if not await check_tos_agreement(interaction):
+            return
     
     # Get Job ID
     job_id = None

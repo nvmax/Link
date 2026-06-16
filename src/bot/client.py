@@ -19,7 +19,7 @@ class LinkBot(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.guild_messages = True
-        intents.members = True
+        intents.members = False
         super().__init__(command_prefix="!", intents=intents)
         self.workflow_registry = None
         self.api_client = None
@@ -110,6 +110,11 @@ class LinkBot(commands.Bot):
                                 except Exception as reply_err:
                                     logger.error(f"Failed to send permissions block message: {reply_err}")
                                 return
+
+                    # Runtime Terms of Service check
+                    from src.bot.tos import check_tos_agreement
+                    if not await check_tos_agreement(interaction):
+                        return
 
                     # Pre-check: does this workflow need a LoRA picker?
                     # If so, defer as ephemeral so the picker is only visible to the user.

@@ -13,58 +13,7 @@ class Utility(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def setup_persistence(self, ctx):
-        """Registers the persistent GenerationView manually if needed."""
-        from src.bot.views import GenerationView
-        self.bot.add_view(GenerationView())
-        await ctx.send("✅ Persistent GenerationView registered.")
-
-    @commands.command()
-    async def last_job(self, ctx):
-        """Show your last generation job ID."""
-        job_id = None
-        job_status = None
-        with db_session() as db:
-            job = db.query(GenerationJob).filter(GenerationJob.user_id == str(ctx.author.id)).order_by(GenerationJob.created_at.desc()).first()
-            if job:
-                job_id = job.id
-                job_status = job.status.value
-
-        if job_id:
-            await ctx.send(f"Your last Job ID: `{job_id}` (Status: {job_status})")
-        else:
-            await ctx.send("You haven't run any jobs yet.")
-
-    @commands.command()
-    async def help(self, ctx: commands.Context, command: str = None):
-        """Show this help message or give help for a specific command."""
-        if command:
-            command_obj = self.bot.get_command(command)
-            if command_obj:
-                embed = discord.Embed(title=f"Command: {command_obj.name}", description=command_obj.help or "No description provided.", color=0x3498db)
-                embed.add_field(name="Usage", value=f"`{ctx.prefix}{command_obj.qualified_name} {command_obj.signature}`")
-                await ctx.send(embed=embed)
-            else:
-                await ctx.send(f"Command `{command}` not found.")
-        else:
-            embed = discord.Embed(title="Help", description="List of available commands:", color=0x3498db)
-            
-            cogs_dict = {}
-            for cmd in self.bot.commands:
-                if cmd.hidden:
-                    continue
-                cog_name = cmd.cog.qualified_name if cmd.cog else "General"
-                if cog_name not in cogs_dict:
-                    cogs_dict[cog_name] = []
-                cogs_dict[cog_name].append(cmd)
-            
-            for cog_name, commands_list in cogs_dict.items():
-                cmds_str = ", ".join([f"`{c.name}`" for c in commands_list])
-                embed.add_field(name=cog_name, value=cmds_str, inline=False)
-                
-            await ctx.send(embed=embed)
+    # Removed prefix commands to conform to Discord requirements and avoid privileged intents.
 
     @app_commands.command(name="feedback", description="Submit a bug, feature request, or feedback")
     async def feedback(self, interaction: discord.Interaction):
@@ -169,11 +118,13 @@ class FeedbackModal(discord.ui.Modal):
         
         permissions_path = os.path.join(Config.DATA_DIR, "permissions.json")
         feedback_admins = {}
+        feedback_channels = {}
         if os.path.exists(permissions_path):
             try:
                 with open(permissions_path, "r", encoding="utf-8") as f:
                     permissions_data = json.load(f)
                     feedback_admins = permissions_data.get("feedback_admins", {})
+                    feedback_channels = permissions_data.get("feedback_channels", {})
             except Exception as e:
                 logger.error(f"Error reading permissions.json: {e}")
 
@@ -182,39 +133,54 @@ class FeedbackModal(discord.ui.Modal):
             await interaction.edit_original_response(content="❌ **Error**: Guild not found.")
             return
 
-        target_admin_id = feedback_admins.get(str(guild_id))
-        admins = []
+        # Try to resolve target channel first
+        target_channel_id = feedback_channels.get(str(guild_id))
+        target_channel = None
+        if target_channel_id:
+            try:
+                target_channel = guild.get_channel(int(target_channel_id))
+                if not target_channel:
+                    target_channel = await guild.fetch_channel(int(target_channel_id))
+            except Exception as e:
+                logger.warning(f"Could not resolve feedback channel {target_channel_id}: {e}")
 
+        destinations = []
+        if target_channel:
+            destinations.append(target_channel)
+
+        # Also append configured admin ID if specified
+        target_admin_id = feedback_admins.get(str(guild_id))
         if target_admin_id:
             try:
                 admin_member = guild.get_member(int(target_admin_id))
                 if not admin_member:
                     admin_member = await guild.fetch_member(int(target_admin_id))
                 if admin_member:
-                    admins.append(admin_member)
+                    destinations.append(admin_member)
             except Exception as e:
                 logger.warning(f"Could not resolve feedback admin member {target_admin_id}: {e}")
                 
-            if not admins:
+            if not any(isinstance(d, (discord.Member, discord.User)) for d in destinations):
                 try:
                     admin_user = await self.bot.fetch_user(int(target_admin_id))
                     if admin_user:
-                        admins.append(admin_user)
+                        destinations.append(admin_user)
                 except Exception as e:
                     logger.error(f"Could not resolve feedback admin user {target_admin_id}: {e}")
         
-        if not admins:
-            if not guild.chunked:
+        # Absolute fallback to guild owner (requires no intents) if nothing else was resolved
+        if not destinations:
+            owner = guild.owner
+            if not owner and guild.owner_id:
                 try:
-                    await asyncio.wait_for(guild.chunk_members(), timeout=5.0)
-                except Exception as e:
-                    logger.warning(f"Could not chunk guild members: {e}")
-            for m in guild.members:
-                if m.guild_permissions.administrator and not m.bot:
-                    admins.append(m)
+                    owner = await guild.fetch_member(guild.owner_id)
+                except Exception:
+                    pass
+            if owner:
+                destinations.append(owner)
 
-        if not admins:
-            await interaction.edit_original_response(content="❌ **Error**: No administrator found to notify.")
+        if not destinations:
+            await interaction.edit_original_response(content="❌ **Error**: No administrator or target channel found to notify.")
             return
 
         from discord.ui import LayoutView, Container, TextDisplay, MediaGallery, Separator
@@ -265,54 +231,55 @@ class FeedbackModal(discord.ui.Modal):
         fallback_embed.add_field(name="Server", value=f"**{guild_name}** (ID: `{guild_id}`)")
 
         success_count = 0
-        for admin in admins:
+        for dest in destinations:
             try:
                 # Create fresh discord.File objects from memory bytes for each send attempt
-                admin_files = []
+                files_to_send = []
                 if files_data:
                     for file_bytes, filename in files_data:
-                        admin_files.append(discord.File(io.BytesIO(file_bytes), filename=filename))
+                        files_to_send.append(discord.File(io.BytesIO(file_bytes), filename=filename))
 
                 try:
-                    await admin.send(content=None, view=view, files=admin_files)
+                    await dest.send(content=None, view=view, files=files_to_send)
                 except Exception as e:
-                    logger.warning(f"Failed to send V2 layout feedback to admin {admin.id}: {e}. Trying fallback embed...")
-                    for f in admin_files:
+                    logger.warning(f"Failed to send V2 layout feedback to destination {dest}: {e}. Trying fallback embed...")
+                    for f in files_to_send:
                         try:
                             f.close()
                         except Exception:
                             pass
                     
-                    admin_files_fallback = []
+                    files_to_send_fallback = []
                     if files_data:
                         for file_bytes, filename in files_data:
-                            admin_files_fallback.append(discord.File(io.BytesIO(file_bytes), filename=filename))
+                            files_to_send_fallback.append(discord.File(io.BytesIO(file_bytes), filename=filename))
                     try:
-                        await admin.send(embed=fallback_embed, files=admin_files_fallback)
+                        await dest.send(embed=fallback_embed, files=files_to_send_fallback)
                         success_count += 1
                     finally:
-                        for f in admin_files_fallback:
+                        for f in files_to_send_fallback:
                             try:
                                 f.close()
                             except Exception:
                                 pass
                 else:
                     success_count += 1
-                    for f in admin_files:
+                    for f in files_to_send:
                         try:
                             f.close()
                         except Exception:
                             pass
             except Exception as e:
-                logger.error(f"Could not send feedback DM to admin {admin.id}: {e}")
+                logger.error(f"Could not send feedback to destination {dest}: {e}")
 
         if success_count > 0:
-            await interaction.edit_original_response(content="✅ **Feedback sent successfully!** Thank you for your feedback.")
+            if target_channel:
+                await interaction.edit_original_response(content="✅ **Feedback sent successfully!** It has been posted to the server's feedback channel.")
+            else:
+                await interaction.edit_original_response(content="✅ **Feedback sent successfully!** Thank you for your feedback.")
         else:
-            await interaction.edit_original_response(content="❌ **Error**: Failed to deliver feedback to any administrator DMs (they may have DMs disabled).")
+            await interaction.edit_original_response(content="❌ **Error**: Failed to deliver feedback (DMs may be disabled or invalid channel permissions).")
 
 
 async def setup(bot):
-    if bot.get_command('help'):
-        bot.remove_command('help')
     await bot.add_cog(Utility(bot))

@@ -20,10 +20,18 @@ def init_db():
             try:
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
+                # Migrate jobs table
                 cursor.execute("PRAGMA table_info(jobs);")
                 columns = [col[1] for col in cursor.fetchall()]
                 if "guild_id" not in columns:
                     cursor.execute("ALTER TABLE jobs ADD COLUMN guild_id VARCHAR;")
+                    conn.commit()
+                
+                # Migrate server_limits table
+                cursor.execute("PRAGMA table_info(server_limits);")
+                columns = [col[1] for col in cursor.fetchall()]
+                if "tos_required" not in columns:
+                    cursor.execute("ALTER TABLE server_limits ADD COLUMN tos_required BOOLEAN DEFAULT 0;")
                     conn.commit()
                 conn.close()
             except Exception:

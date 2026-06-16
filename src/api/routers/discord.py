@@ -153,6 +153,31 @@ async def get_guild_members(guild_id: int) -> Dict[str, Any]:
             
     return {"members": members}
 
+@router.get("/api/discord/guild/{guild_id}/channels")
+async def get_guild_channels(guild_id: int) -> Dict[str, Any]:
+    if not state.bot_instance:
+        raise HTTPException(status_code=503, detail="Bot not initialized")
+    
+    guild = state.bot_instance.get_guild(guild_id)
+    if not guild:
+        try:
+            guild = await state.bot_instance.fetch_guild(guild_id)
+        except Exception:
+            raise HTTPException(status_code=404, detail="Guild not found in Discord client")
+            
+    channels = []
+    try:
+        # Filter for text channels only
+        for channel in guild.text_channels:
+            channels.append({
+                "id": str(channel.id),
+                "name": channel.name
+            })
+    except Exception as e:
+        logger.error(f"Error fetching text channels for guild {guild_id}: {e}")
+        
+    return {"channels": channels}
+
 @router.get("/api/discord/guild/{guild_id}/limits")
 async def get_server_limits(guild_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
@@ -162,13 +187,15 @@ async def get_server_limits(guild_id: str, db: Session = Depends(get_db)) -> Dic
             "guild_id": guild_id,
             "rate_limit_per_minute": 0,
             "rate_limit_per_hour": 0,
-            "quota_per_day": 0
+            "quota_per_day": 0,
+            "tos_required": False
         }
     return {
         "guild_id": limits.guild_id,
         "rate_limit_per_minute": limits.rate_limit_per_minute,
         "rate_limit_per_hour": limits.rate_limit_per_hour,
-        "quota_per_day": limits.quota_per_day
+        "quota_per_day": limits.quota_per_day,
+        "tos_required": bool(limits.tos_required)
     }
 
 @router.post("/api/discord/guild/{guild_id}/limits")
@@ -178,6 +205,7 @@ async def save_server_limits(guild_id: str, request: Request, db: Session = Depe
         rate_limit_per_minute = int(body.get("rate_limit_per_minute", 0))
         rate_limit_per_hour = int(body.get("rate_limit_per_hour", 0))
         quota_per_day = int(body.get("quota_per_day", 0))
+        tos_required = bool(body.get("tos_required", False))
         
         limits = db.query(ServerLimit).filter(ServerLimit.guild_id == guild_id).first()
         if not limits:
@@ -187,6 +215,7 @@ async def save_server_limits(guild_id: str, request: Request, db: Session = Depe
         limits.rate_limit_per_minute = rate_limit_per_minute
         limits.rate_limit_per_hour = rate_limit_per_hour
         limits.quota_per_day = quota_per_day
+        limits.tos_required = tos_required
         db.commit()
         return {"status": "success"}
     except Exception as e:

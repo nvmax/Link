@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, JSON, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, JSON, DateTime, ForeignKey, Enum, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -58,6 +58,7 @@ class ServerLimit(Base):
     rate_limit_per_minute = Column(Integer, default=0)  # 0 means disabled
     rate_limit_per_hour = Column(Integer, default=0)
     quota_per_day = Column(Integer, default=0)
+    tos_required = Column(Boolean, default=False)
 
 class UserBan(Base):
     __tablename__ = "user_bans"
@@ -72,3 +73,10 @@ class UserBan(Base):
     duration_seconds = Column(Integer, nullable=True)  # Null for permanent
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)  # Null for permanent
+
+class UserAgreement(Base):
+    __tablename__ = "user_agreements"
+    
+    user_id = Column(String, primary_key=True)
+    agreed = Column(Boolean, default=True)
+    agreed_at = Column(DateTime, default=datetime.utcnow)

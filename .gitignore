@@ -37,7 +37,7 @@ out/
 .agent
 
 .worktrees/
-docs/
+docs/plans/
 .gitignore
 remote_nodes.txt
 installed_nodes.txt
