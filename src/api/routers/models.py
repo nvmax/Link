@@ -43,6 +43,8 @@ async def check_models(request: Request) -> Dict[str, Any]:
 
         missing = await _check_models_via_comfy_validation(workflow, comfy_url)
         if missing is not None:
+            if isinstance(missing, dict) and "error" in missing:
+                return missing
             logger.info(f"Model check (ComfyUI validation): {len(missing)} missing")
             return {"required": missing, "missing": [m for m in missing if not m["installed"]]}
 
@@ -55,7 +57,35 @@ async def check_models(request: Request) -> Dict[str, Any]:
         logger.error(f"Model check error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> list[dict] | None:
+async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> Union[list[dict], dict, None]:
+    import shutil
+    comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
+    if comfy_workspace:
+        comfy_input_dir = os.path.join(comfy_workspace, "input")
+        os.makedirs(comfy_input_dir, exist_ok=True)
+        default_image_dest = os.path.join(comfy_input_dir, "banner.png")
+        if not os.path.exists(default_image_dest):
+            default_image_src = os.path.join(Config.BASE_DIR, "assets", "banner.png")
+            if os.path.exists(default_image_src):
+                try:
+                    shutil.copy(default_image_src, default_image_dest)
+                    logger.info("Copied default image banner.png to ComfyUI input directory.")
+                except Exception as e:
+                    logger.warning(f"Failed to copy default banner image: {e}")
+
+        # Redirect missing images in LoadImage nodes to banner.png
+        for node_id, node in workflow.items():
+            if not isinstance(node, dict):
+                continue
+            if node.get("class_type") == "LoadImage":
+                inputs = node.get("inputs", {})
+                image_val = inputs.get("image")
+                if isinstance(image_val, str) and image_val:
+                    img_path = os.path.join(comfy_input_dir, image_val)
+                    if not os.path.exists(img_path):
+                        logger.info(f"Image '{image_val}' not found in ComfyUI input. Redirecting node {node_id} to default banner.png.")
+                        inputs["image"] = "banner.png"
+
     import uuid
     validation_client_id = str(uuid.uuid4())
     payload = {"prompt": workflow, "client_id": validation_client_id}
@@ -69,6 +99,11 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
             ) as resp:
                 data = await resp.json()
 
+        if "error" in data:
+            error_info = data["error"]
+            logger.warning(f"ComfyUI validation error: {error_info}")
+            return {"error": error_info.get("message", "ComfyUI validation failed.")}
+
         node_errors: dict = data.get("node_errors", {})
         prompt_id: str | None = data.get("prompt_id")
 
@@ -81,6 +116,26 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
                         timeout=aiohttp.ClientTimeout(total=5)
                     )
                 logger.info(f"Model check: all models present (queued {prompt_id} cancelled)")
+                
+                # Double-check queue status and send interrupt if prompt is still active/running
+                await asyncio.sleep(1.0)
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(f"{comfy_url}/queue") as q_resp:
+                            if q_resp.status == 200:
+                                queue_data = await q_resp.json()
+                                running = queue_data.get("queue_running", [])
+                                pending = queue_data.get("queue_pending", [])
+                                is_active = False
+                                for p in running + pending:
+                                    if len(p) >= 2 and p[1] == prompt_id:
+                                        is_active = True
+                                        break
+                                if is_active:
+                                    logger.info(f"Model check: prompt {prompt_id} is active/running. Interrupting.")
+                                    await session.post(f"{comfy_url}/interrupt")
+                except Exception as e:
+                    logger.warning(f"Failed to check queue or interrupt prompt {prompt_id}: {e}")
             except Exception:
                 pass
             return []

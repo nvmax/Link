@@ -31,8 +31,8 @@ export function MissingNodesModal({
         
         <div className="bg-slate-950 rounded-xl p-4 mb-8 max-h-48 overflow-y-auto border border-slate-800 scrollbar-thin scrollbar-thumb-slate-800">
           <div className="text-[10px] uppercase font-bold text-slate-500 mb-2 tracking-widest">Required Classes:</div>
-          {missingNodes.map(node => (
-            <div key={node} className="text-indigo-400 font-mono text-xs mb-1 last:mb-0 flex items-center gap-2">
+          {missingNodes.filter(Boolean).map((node, index) => (
+            <div key={`${node}-${index}`} className="text-indigo-400 font-mono text-xs mb-1 last:mb-0 flex items-center gap-2">
               <span className="w-1 h-1 bg-indigo-500 rounded-full"></span>
               {node}
             </div>

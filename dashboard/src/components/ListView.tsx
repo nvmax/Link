@@ -33,7 +33,7 @@ export function ListView() {
         const hasVisibleInputs = Object.values(node.inputs).some(val => !Array.isArray(val));
         if (!hasVisibleInputs) return null;
         
-        const isLoraNode = node.class_type.toLowerCase().includes('lora');
+        const isLoraNode = node.class_type?.toLowerCase().includes('lora') || false;
 
         return (
           <div key={id} className="bg-black/20 border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all group">

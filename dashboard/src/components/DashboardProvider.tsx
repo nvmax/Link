@@ -608,8 +608,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       // user resolves them (install / download) we simply display the workflow
       // that is already loaded — no re-import needed.
       if (data.workflow && data.objectInfo) {
-        const nodeTypes = new Set(Object.values(data.workflow).map((n: any) => n.class_type));
-        const missing = Array.from(nodeTypes).filter(type => !data.objectInfo[type]) as string[];
+        const nodeTypes = new Set(Object.values(data.workflow || {}).map((n: any) => n?.class_type).filter(Boolean));
+        const missing = Array.from(nodeTypes).filter(type => type && !data.objectInfo[type]) as string[];
         if (missing.length > 0) {
           console.log('[loadWorkflow] Missing nodes detected:', missing);
           setMissingNodes(missing);
@@ -631,6 +631,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             });
             if (modelCheckRes.ok) {
               const modelData = await modelCheckRes.json();
+              if (modelData.error) {
+                showToast(`ComfyUI Validation Error: ${modelData.error}`, 'error');
+                return;
+              }
               const missingMods = modelData.missing || [];
               if (missingMods.length > 0) {
                 console.log('[loadWorkflow] Missing models detected:', missingMods);
@@ -774,6 +778,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       });
       if (modelCheckRes.ok) {
          const modelData = await modelCheckRes.json();
+         if (modelData.error) {
+           showToast(`ComfyUI Validation Error: ${modelData.error}`, 'error');
+           return false;
+         }
          const missingMods = modelData.missing || [];
          if (missingMods.length > 0) {
            console.log('Missing models detected:', missingMods);
@@ -794,8 +802,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       // 1. Discovery Phase: Check for missing nodes before importing
       if (!force) {
         if (objectInfo) {
-          const nodeTypes = new Set(Object.values(workflow).map((n: any) => n.class_type));
-          const missing = Array.from(nodeTypes).filter(type => !objectInfo[type]) as string[];
+          const nodeTypes = new Set(Object.values(workflow || {}).map((n: any) => n?.class_type).filter(Boolean));
+          const missing = Array.from(nodeTypes).filter(type => type && !objectInfo[type]) as string[];
           
           if (missing.length > 0) {
             console.log('Missing nodes detected:', missing);

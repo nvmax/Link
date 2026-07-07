@@ -337,7 +337,7 @@ export function VisualWorkflowMap() {
            </svg>
            <div className="relative z-10 w-full h-full pointer-events-none">
              {Object.keys(workflow).map(id => {
-               const isLoraNode = workflow[id].class_type.toLowerCase().includes('lora');
+               const isLoraNode = workflow[id].class_type?.toLowerCase().includes('lora') || false;
                const pos = nodeCoords[id] || { x: 0, y: 0 };
                const isReachable = reachableNodes.has(id);
                const hasSelection = selections.some(s => s.nodeId === id);

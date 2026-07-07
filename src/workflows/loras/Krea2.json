@@ -19,6 +19,16 @@
       "category": "Krea2",
       "description": "Style of World of warcraft",
       "is_active": true
+    },
+    {
+      "file": "krea2_Enhancer.safetensors",
+      "name": "Krea2 Enhancer",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "",
+      "category": "Krea2",
+      "description": "Designed to improve image quality across any style, including realistic, cinematic, anime, illustration, fantasy, product, portrait, and stylized images. It helps add cleaner detail, sharper textures, better lighting, and a more polished final look while keeping your original prompt style intact.",
+      "is_active": true
     }
   ]
 }
