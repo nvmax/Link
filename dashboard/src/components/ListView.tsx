@@ -73,8 +73,17 @@ export function ListView() {
                 
                 const nodeInfo = objectInfo?.[node.class_type];
                 const inputInfo = nodeInfo?.input?.required?.[key] || nodeInfo?.input?.optional?.[key];
-                const isDropdown = Array.isArray(inputInfo) && Array.isArray(inputInfo[0]);
-                const options = isDropdown ? inputInfo[0] : [];
+                const isDropdown = Array.isArray(inputInfo) && (
+                  Array.isArray(inputInfo[0]) || 
+                  (inputInfo[1] && typeof inputInfo[1] === 'object' && Array.isArray(inputInfo[1].options))
+                );
+                const rawOptions = isDropdown ? (Array.isArray(inputInfo[0]) ? inputInfo[0] : inputInfo[1].options) : [];
+                const options = rawOptions.map((opt: any) => {
+                  if (opt && typeof opt === 'object') {
+                    return String(opt.key !== undefined ? opt.key : (opt.value !== undefined ? opt.value : (opt.name !== undefined ? opt.name : JSON.stringify(opt))));
+                  }
+                  return String(opt);
+                });
 
                 return (
                   <div key={key} className={`flex flex-col p-4 rounded-2xl border transition-all ${isSelected ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-white/5 border-white/5 hover:bg-white/[0.07]'}`}>
@@ -108,6 +117,9 @@ export function ListView() {
                               const ii = inputInfo;
                               if (!ii) return 'unknown';
                               if (Array.isArray(ii[0])) return `ENUM (${ii[0].length} options)`;
+                              if (ii[1] && typeof ii[1] === 'object' && Array.isArray(ii[1].options)) {
+                                return `ENUM (${ii[1].options.length} options)`;
+                              }
                               if (typeof ii[0] === 'string') return ii[0];
                               return 'unknown';
                             })()}

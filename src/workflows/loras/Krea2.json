@@ -1,0 +1,24 @@
+{
+  "available_loras": [
+    {
+      "file": "krea2_darkbrush.safetensors",
+      "name": "Krea2 Darkbrush",
+      "weight": 1,
+      "add_prompt": "monochrome ink wash style",
+      "url": "https://huggingface.co/krea/Krea-2-LoRA-darkbrush",
+      "category": "Krea2",
+      "description": "Dark Brush style / comic ",
+      "is_active": true
+    },
+    {
+      "file": "Krea2_WoW_K2.safetensors",
+      "name": "Krea2 WoW K2",
+      "weight": 0.85,
+      "add_prompt": "world of warcraft",
+      "url": "https://civitai.com/models/693378/world-of-warcraft?modelVersionId=3085927",
+      "category": "Krea2",
+      "description": "Style of World of warcraft",
+      "is_active": true
+    }
+  ]
+}

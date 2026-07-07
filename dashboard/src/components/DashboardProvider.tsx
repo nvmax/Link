@@ -105,6 +105,17 @@ interface DashboardContextType {
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
+// Helper to safely extract string values from option/choices arrays
+function normalizeChoices(choices: any[]): string[] {
+  if (!Array.isArray(choices)) return [];
+  return choices.map(opt => {
+    if (opt && typeof opt === 'object') {
+      return String(opt.key !== undefined ? opt.key : (opt.value !== undefined ? opt.value : (opt.name !== undefined ? opt.name : JSON.stringify(opt))));
+    }
+    return String(opt);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Universal type inference — the SINGLE source of truth for Discord input types.
 // Used by both the Architect (when toggling inputs) and loadWorkflow
@@ -161,8 +172,13 @@ function inferDiscordType(
   // 3. ComfyUI objectInfo — enum/choices array → select
   const nodeInfo = objectInfo?.[classType];
   const inputInfo = nodeInfo?.input?.required?.[field] || nodeInfo?.input?.optional?.[field];
-  if (Array.isArray(inputInfo) && Array.isArray(inputInfo[0])) {
-    return { type: 'select', choices: inputInfo[0] };
+  if (Array.isArray(inputInfo)) {
+    if (Array.isArray(inputInfo[0])) {
+      return { type: 'select', choices: normalizeChoices(inputInfo[0]) };
+    }
+    if (inputInfo[1] && typeof inputInfo[1] === 'object' && Array.isArray(inputInfo[1].options)) {
+      return { type: 'select', choices: normalizeChoices(inputInfo[1].options) };
+    }
   }
 
   // 4. ComfyUI objectInfo — Number types (INT, FLOAT) → number
@@ -651,7 +667,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       // any old/wrong types (e.g. 'string' for audio) are corrected immediately
       // when the user opens the workflow in the Architect.
       if (Array.isArray(loadedSelections) && data.workflow && data.objectInfo) {
-        loadedSelections = loadedSelections.map((sel: any) => {
+        const loraSels = data.manifest?.discord?.loras || {};
+        const updatedSelections = await Promise.all(loadedSelections.map(async (sel: any) => {
           const nodeClassType = data.workflow?.[sel.nodeId]?.class_type || '';
           const nodeInputs = data.workflow?.[sel.nodeId]?.inputs || {};
           const inferred = inferDiscordType(nodeClassType, sel.field, data.objectInfo, sel.type, nodeInputs);
@@ -663,12 +680,33 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           
           const normalizedType = (isGeneric || isUpload) ? inferred.type : sel.type;
           
+          let choices = normalizedType === 'select' ? (sel.choices || inferred.choices) : undefined;
+          
+          // If this is a select input mapped to an assigned LoRA list, override choices from the LoRA list file
+          const assignedLora = loraSels[sel.nodeId];
+          const loraFileName = typeof assignedLora === 'string' ? assignedLora : (assignedLora?.list || '');
+          if (normalizedType === 'select' && loraFileName && (sel.field === 'lora_name' || sel.id === 'lora_name')) {
+            try {
+              const res = await fetch('/api/loras', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'load', filename: loraFileName })
+              });
+              const loraData = await res.json();
+              const list = loraData.data?.available_loras || [];
+              choices = list.filter((l: any) => l.is_active !== false).map((l: any) => l.file);
+            } catch (err) {
+              console.error('Failed to load lora choices from file:', err);
+            }
+          }
+          
           return {
             ...sel,
             type: normalizedType,
-            choices: normalizedType === 'select' ? (sel.choices || inferred.choices) : undefined
+            choices
           };
-        });
+        }));
+        loadedSelections = updatedSelections;
       }
       setSelections(loadedSelections || []);
       const fallbackName = wf.name.replace(/\.json$/i, '').toLowerCase();
@@ -988,7 +1026,47 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const rootMapping: any = {};
       const rootInputs: any[] = [];
       
-      selections.forEach((sel) => {
+      // Resolve choices (including assigned LoRA list overrides) asynchronously
+      const resolvedSelections = await Promise.all(selections.map(async (sel) => {
+        if (sel.type !== 'select') return sel;
+
+        const assignedLora = loraSelections[sel.nodeId];
+        const loraFileName = typeof assignedLora === 'string' ? assignedLora : (assignedLora?.list || '');
+        if (loraFileName && (sel.field === 'lora_name' || sel.id === 'lora_name')) {
+          try {
+            const res = await fetch('/api/loras', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'load', filename: loraFileName })
+            });
+            const loraData = await res.json();
+            const list = loraData.data?.available_loras || [];
+            const choices = list.filter((l: any) => l.is_active !== false).map((l: any) => l.file);
+            return { ...sel, choices };
+          } catch (err) {
+            console.error('Failed to load lora choices from file:', err);
+          }
+        }
+
+        if (sel.choices && sel.choices.length > 0) {
+          return sel;
+        }
+
+        // Fallback to ComfyUI objectInfo choices
+        const nodeInfo = objectInfo?.[selectedWorkflow?.content?.[sel.nodeId]?.class_type];
+        const inputInfo = nodeInfo?.input?.required?.[sel.field] || nodeInfo?.input?.optional?.[sel.field];
+        let choices: string[] = [];
+        if (Array.isArray(inputInfo)) {
+          if (Array.isArray(inputInfo[0])) {
+            choices = normalizeChoices(inputInfo[0]);
+          } else if (inputInfo[1] && typeof inputInfo[1] === 'object' && Array.isArray(inputInfo[1].options)) {
+            choices = normalizeChoices(inputInfo[1].options);
+          }
+        }
+        return { ...sel, choices };
+      }));
+
+      resolvedSelections.forEach((sel) => {
         const inputId = sel.id || `${sel.field}_${sel.nodeId}`.replace(/[^a-zA-Z0-9_]/g, '');
         rootMapping[inputId] = [sel.nodeId, "inputs", sel.field];
         
@@ -1000,15 +1078,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         };
         
         if (sel.type === 'select') {
-           if (sel.choices) {
-               inputObj.choices = sel.choices;
-           } else {
-               const nodeInfo = objectInfo?.[selectedWorkflow?.content?.[sel.nodeId]?.class_type];
-               const inputInfo = nodeInfo?.input?.required?.[sel.field] || nodeInfo?.input?.optional?.[sel.field];
-               if (Array.isArray(inputInfo) && Array.isArray(inputInfo[0])) {
-                   inputObj.choices = inputInfo[0];
-               }
-           }
+          inputObj.choices = sel.choices;
         }
         rootInputs.push(inputObj);
       });
@@ -1024,7 +1094,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         inputs: rootInputs,
         discord: {
           command: customCommandName || selectedWorkflow.name.replace(/\.json$/i, '').toLowerCase(),
-          inputs: selections.map(s => {
+          inputs: resolvedSelections.map(s => {
             const { choices, ...rest } = s;
             return s.type === 'select' ? s : rest;
           }),
