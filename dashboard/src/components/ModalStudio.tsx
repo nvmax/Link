@@ -74,7 +74,7 @@ export function ModalStudio() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] text-slate-500 uppercase font-bold">Media Position (Grid Alignment)</label>
                       <select 
@@ -98,6 +98,19 @@ export function ModalStudio() {
                         <option value={1}>1 Column Stack</option>
                         <option value={2}>2 Columns Split</option>
                       </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold">Show Footer</label>
+                      <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 h-[34px]">
+                        <button 
+                          onClick={() => setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, show_footer: true } })}
+                          className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.v2_layout?.show_footer !== false ? 'bg-indigo-500 text-white' : 'text-slate-500'}`}
+                        >ON</button>
+                        <button 
+                          onClick={() => setUiConfig({ ...uiConfig, v2_layout: { ...uiConfig.v2_layout, show_footer: false } })}
+                          className={`flex-1 rounded-lg text-[8px] font-black transition-all ${uiConfig.v2_layout?.show_footer === false ? 'bg-rose-500 text-white' : 'text-slate-500'}`}
+                        >OFF</button>
+                      </div>
                     </div>
                   </div>
               </div>
@@ -491,6 +504,7 @@ export function ModalStudio() {
                           {(() => {
                             const showMetadata = uiConfig.v2_layout?.show_metadata || [];
                             const promptInMeta = showMetadata.includes('prompt');
+                            const gridCols = uiConfig.v2_layout?.grid_columns ?? 2;
 
                             const mediaBlock = (
                               <div className="aspect-square bg-black/20 rounded-lg border border-white/5 flex flex-col items-center justify-center text-slate-500 text-[8px] font-bold p-2 text-center select-none">
@@ -507,7 +521,7 @@ export function ModalStudio() {
                                     <span className="text-[9px] text-slate-200 block italic leading-tight truncate">a detailed photograph of magma core workstation...</span>
                                   </div>
                                 )}
-                                <div className="grid grid-cols-1 gap-1.5">
+                                <div className={`grid gap-1.5 ${gridCols == 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                                   {showMetadata.filter((m: string) => m !== 'prompt').map((m: string) => {
                                     const metaMap: any = {
                                       seed: { label: 'Seed', icon: '🎲' },
@@ -529,14 +543,14 @@ export function ModalStudio() {
                             );
 
                             const pos = uiConfig.v2_layout?.media_position || 'left';
-                            if (pos === 'left') {
+                            if (gridCols == 2 && pos === 'left') {
                               return (
                                 <div className="grid grid-cols-2 gap-3 items-start">
                                   {mediaBlock}
                                   {metaBlock}
                                 </div>
                               );
-                            } else if (pos === 'right') {
+                            } else if (gridCols == 2 && pos === 'right') {
                               return (
                                 <div className="grid grid-cols-2 gap-3 items-start">
                                   {metaBlock}
@@ -560,9 +574,11 @@ export function ModalStudio() {
                             }
                           })()}
 
-                          <div className="pt-2 border-t border-white/5 text-[8px] text-slate-500 font-medium italic">
-                            Link | Profile: Standard | Job ID: v2-job-id-preview
-                          </div>
+                          {uiConfig.v2_layout?.show_footer !== false && (
+                            <div className="pt-2 border-t border-white/5 text-[8px] text-slate-500 font-medium italic">
+                              Link | Profile: Standard | Job ID: v2-job-id-preview
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

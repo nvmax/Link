@@ -96,6 +96,7 @@ discord:
         - ratio
         - lora
       show_footer: false
+      show_author: true
     v2_layout:
       title_template: '{user}''s Generation'
       color: '#5865F2'
@@ -104,9 +105,10 @@ discord:
       media_position: top
       show_metadata:
         - prompt
-        - seed
         - model
         - ratio
+        - lora
+      show_footer: false
     buttons:
       - type: regenerate
         label: Regenerate
@@ -127,6 +129,7 @@ discord:
           - LTXVIA2V
           - videosegment
           - KleinEdit
+          - Krea2-Edit-Image
     positions:
       '8':
         x: 3100

@@ -47,3 +47,8 @@ installed_nodes.txt
 .antigravity
 recent_nodes.txt
 scratch/
+CONVENTIONS.md
+AGENTS.md
+CLAUDE.md
+.clinerules
+.cursor

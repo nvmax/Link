@@ -4,14 +4,45 @@ import React from 'react';
 import { Network, Puzzle, Settings, Save, X, FolderSearch, RefreshCw, RotateCcw, ShieldCheck, History, Zap, CheckCircle2, AlertCircle, Check, Activity, PackagePlus, Loader2 } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
+const autoDetectProvider = (value: string): string | null => {
+  const clean = value.trim();
+  if (clean.startsWith('sk-ant-')) return 'ANTHROPIC_API_KEY';
+  if (clean.startsWith('AIzaSy')) return 'GEMINI_API_KEY';
+  if (clean.startsWith('xai-')) return 'GROK_API_KEY';
+  if (clean.startsWith('sk-') || clean.startsWith('sk-proj-')) return 'OPENAI_API_KEY';
+  return null;
+};
+
 export function MissionControl() {
-  const { config, setConfig, saveConfig, workflows, loraFiles, handleReboot, handleBotRestart, showToast } = useDashboard();
+  const { config, setConfig, saveConfig, workflows, loraFiles, handleReboot, handleBotRestart, showToast, aiConfig } = useDashboard();
 
   const handleConfigChange = (key: string, value: string) => {
     setConfig({ ...config, [key]: value });
   };
 
   const [selectedAiKeyProvider, setSelectedAiKeyProvider] = React.useState('OPENAI_API_KEY');
+
+  React.useEffect(() => {
+    if (aiConfig?.active_provider) {
+      const active = aiConfig.active_provider.toUpperCase();
+      const providerKey = `${active}_API_KEY`;
+      const validKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GROK_API_KEY'];
+      if (validKeys.includes(providerKey)) {
+        setSelectedAiKeyProvider(providerKey);
+        return;
+      }
+    }
+    
+    if (config) {
+      if (config.GEMINI_API_KEY && !config.OPENAI_API_KEY) {
+        setSelectedAiKeyProvider('GEMINI_API_KEY');
+      } else if (config.ANTHROPIC_API_KEY && !config.OPENAI_API_KEY && !config.GEMINI_API_KEY) {
+        setSelectedAiKeyProvider('ANTHROPIC_API_KEY');
+      } else if (config.GROK_API_KEY && !config.OPENAI_API_KEY && !config.GEMINI_API_KEY && !config.ANTHROPIC_API_KEY) {
+        setSelectedAiKeyProvider('GROK_API_KEY');
+      }
+    }
+  }, [config, aiConfig]);
   const [newGuildId, setNewGuildId] = React.useState('');
   const [newChannelId, setNewChannelId] = React.useState('');
   const [managerType, setManagerType] = React.useState<'--enable-manager-legacy-ui' | '--enable-manager'>('--enable-manager');
@@ -298,7 +329,19 @@ export function MissionControl() {
               <input 
                 type="password" 
                 value={config[selectedAiKeyProvider] || ''} 
-                onChange={(e) => handleConfigChange(selectedAiKeyProvider, e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const detected = autoDetectProvider(val);
+                  if (detected && detected !== selectedAiKeyProvider) {
+                    setSelectedAiKeyProvider(detected);
+                    const updatedConfig = { ...config };
+                    delete updatedConfig[selectedAiKeyProvider];
+                    updatedConfig[detected] = val;
+                    setConfig(updatedConfig);
+                  } else {
+                    handleConfigChange(selectedAiKeyProvider, val);
+                  }
+                }}
                 placeholder={`Enter ${selectedAiKeyProvider.replace('_', ' ')}...`}
                 className="w-full bg-black/40 border border-indigo-500/10 rounded-xl px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500/50 outline-none transition-all placeholder:text-white/10 shadow-inner" 
               />

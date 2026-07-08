@@ -220,6 +220,11 @@ class ResultHandler:
                             
                             view = LayoutView()
                             
+                            # Grab existing items to retain their callbacks
+                            from src.bot.views import GenerationView
+                            gen_view = GenerationView()
+                            existing_items = {item.custom_id: item for item in gen_view.children if hasattr(item, 'custom_id')}
+                            
                             buttons = []
                             existing_ids = set()
                             for btn_cfg in ui_cfg.get("buttons", []):
@@ -267,25 +272,37 @@ class ResultHandler:
                                         existing_ids.add(custom_id)
                                         
                                 elif btn_type == "delete":
-                                    custom_id = f"link_gen_delete_{job_data['id']}"
-                                    if custom_id not in existing_ids:
-                                        btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
-                                        buttons.append(btn)
-                                        existing_ids.add(custom_id)
+                                    if "link_gen_delete" not in existing_ids:
+                                        btn = existing_items.get("link_gen_delete")
+                                        if btn:
+                                            btn.label = label
+                                            btn.style = style
+                                            btn.emoji = emoji
+                                            btn.custom_id = f"link_gen_delete_{job_data['id']}"
+                                            buttons.append(btn)
+                                            existing_ids.add("link_gen_delete")
                                             
                                 elif btn_type == "regenerate":
-                                    custom_id = f"link_gen_redo_{job_data['id']}"
-                                    if custom_id not in existing_ids:
-                                        btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
-                                        buttons.append(btn)
-                                        existing_ids.add(custom_id)
+                                    if "link_gen_redo" not in existing_ids:
+                                        btn = existing_items.get("link_gen_redo")
+                                        if btn:
+                                            btn.label = label
+                                            btn.style = style
+                                            btn.emoji = emoji
+                                            btn.custom_id = f"link_gen_redo_{job_data['id']}"
+                                            buttons.append(btn)
+                                            existing_ids.add("link_gen_redo")
                                             
                                 elif btn_type == "options":
-                                    custom_id = f"link_gen_options_{job_data['id']}"
-                                    if custom_id not in existing_ids:
-                                        btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
-                                        buttons.append(btn)
-                                        existing_ids.add(custom_id)
+                                    if "link_gen_options" not in existing_ids:
+                                        btn = existing_items.get("link_gen_options")
+                                        if btn:
+                                            btn.label = label
+                                            btn.style = style
+                                            btn.emoji = emoji
+                                            btn.custom_id = f"link_gen_options_{job_data['id']}"
+                                            buttons.append(btn)
+                                            existing_ids.add("link_gen_options")
                                         
                             # 3. Build Result Container (V2 Layout)
                             v2_cfg = ui_cfg.get("v2_layout", {})
@@ -375,7 +392,21 @@ class ResultHandler:
                                     
                                     meta_lines.append(f"{emoji} **{label}:** {val}")
                                 
-                                meta_text = "\n".join(meta_lines) if meta_lines else ""
+                                try:
+                                    grid_columns = int(v2_cfg.get("grid_columns", 2))
+                                except (ValueError, TypeError):
+                                    grid_columns = 2
+                                    
+                                if grid_columns == 2:
+                                    paired_lines = []
+                                    for i in range(0, len(meta_lines), 2):
+                                        if i + 1 < len(meta_lines):
+                                            paired_lines.append(f"{meta_lines[i]}   **|**   {meta_lines[i+1]}")
+                                        else:
+                                            paired_lines.append(meta_lines[i])
+                                    meta_text = "\n".join(paired_lines) if paired_lines else ""
+                                else:
+                                    meta_text = "\n".join(meta_lines) if meta_lines else ""
 
                             prompt_display = TextDisplay(f"📝 **Prompt:**\n{prompt_val}") if prompt_val else None
                             meta_display = TextDisplay(meta_text) if meta_text else None
@@ -388,8 +419,12 @@ class ResultHandler:
                                 footer_display = TextDisplay(f"_*Link | Profile: {profile} | Job ID: {job_id}*_")
 
                             media_position = v2_cfg.get("media_position", "left")
+                            try:
+                                grid_columns = int(v2_cfg.get("grid_columns", 2))
+                            except (ValueError, TypeError):
+                                grid_columns = 2
 
-                            if media_position in ["left", "right"] and files_to_upload and len(files_to_upload) == 1:
+                            if grid_columns == 2 and media_position in ["left", "right"] and files_to_upload and len(files_to_upload) == 1:
                                 first_file = files_to_upload[0]
                                 thumbnail = Thumbnail(media=f"attachment://{first_file.filename}")
                                 
