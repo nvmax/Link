@@ -99,13 +99,15 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
             ) as resp:
                 data = await resp.json()
 
-        if "error" in data:
-            error_info = data["error"]
-            logger.warning(f"ComfyUI validation error: {error_info}")
-            return {"error": error_info.get("message", "ComfyUI validation failed.")}
-
         node_errors: dict = data.get("node_errors", {})
         prompt_id: str | None = data.get("prompt_id")
+        has_top_level_error = "error" in data
+
+        if has_top_level_error and not node_errors:
+            error_info = data["error"]
+            err_msg = error_info.get("message") if isinstance(error_info, dict) else str(error_info)
+            logger.warning(f"ComfyUI validation error: {error_info}")
+            return {"error": err_msg or "ComfyUI validation failed."}
 
         if prompt_id and not node_errors:
             try:
@@ -202,6 +204,12 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
             if fname not in seen_filenames:
                 seen_filenames.add(fname)
                 result.append(info)
+
+        if not missing_filenames and has_top_level_error:
+            error_info = data["error"]
+            err_msg = error_info.get("message") if isinstance(error_info, dict) else str(error_info)
+            logger.warning(f"ComfyUI validation error (no missing models found): {error_info}")
+            return {"error": err_msg or "ComfyUI validation failed."}
 
         return result
 
