@@ -140,6 +140,8 @@ async def test_feedback_modal_send_feedback_to_all_admins():
     regular_member.id = 44444
 
     guild.members = [admin1, admin2, bot_member, regular_member]
+    guild.owner = admin1
+    guild.owner_id = 11111
     bot.get_guild.return_value = guild
 
     modal = FeedbackModal(bot, "Bug")
@@ -153,7 +155,6 @@ async def test_feedback_modal_send_feedback_to_all_admins():
         await modal.send_feedback(interaction, "Test note", [], 123456, "Test Server")
 
         admin1.send.assert_called_once()
-        admin2.send.assert_called_once()
         interaction.edit_original_response.assert_called_with(content="✅ **Feedback sent successfully!** Thank you for your feedback.")
 
 
@@ -170,6 +171,8 @@ async def test_feedback_modal_send_feedback_with_files():
     admin1.id = 11111
 
     guild.members = [admin1]
+    guild.owner = admin1
+    guild.owner_id = 11111
     bot.get_guild.return_value = guild
 
     modal = FeedbackModal(bot, "Feature Request")

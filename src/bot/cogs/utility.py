@@ -183,44 +183,12 @@ class FeedbackModal(discord.ui.Modal):
             await interaction.edit_original_response(content="❌ **Error**: No administrator or target channel found to notify.")
             return
 
-        from discord.ui import LayoutView, Container, TextDisplay, MediaGallery, Separator
-        from discord import MediaGalleryItem
-
-        view = LayoutView()
         color_map = {
             "Bug": 0xda373c,
             "Feature Request": 0xf1c40f,
             "Other": 0x4e5058,
         }
         accent_color = color_map.get(self.category, 0x5865F2)
-
-        title = TextDisplay(f"### 📥 New Feedback Received ({self.category})")
-        sender = TextDisplay(f"👤 **Submitted by:** <@{interaction.user.id}> (ID: `{interaction.user.id}`)\n🖥️ **Server:** **{guild_name}** (ID: `{guild_id}`)")
-        note_display = TextDisplay(f"📝 **Details:**\n{note}")
-
-        section_children = [title, sender, note_display]
-
-        gallery_items = []
-        file_components = []
-        if files_data:
-            for file_bytes, filename in files_data:
-                ext = filename.rsplit('.', 1)[-1].lower()
-                if ext in ["png", "jpg", "jpeg", "gif", "webp"]:
-                    gallery_items.append(MediaGalleryItem(media=f"attachment://{filename}"))
-                else:
-                    file_components.append(discord.ui.File(media=f"attachment://{filename}"))
-
-        if file_components:
-            section_children.append(Separator())
-            for fc in file_components:
-                section_children.append(fc)
-
-        if gallery_items:
-            section_children.append(Separator())
-            section_children.append(MediaGallery(*gallery_items))
-
-        container = Container(*section_children, accent_color=accent_color)
-        view.add_item(container)
 
         fallback_embed = discord.Embed(
             title=f"📥 New Feedback Received ({self.category})",
@@ -229,6 +197,44 @@ class FeedbackModal(discord.ui.Modal):
         )
         fallback_embed.add_field(name="Submitted by", value=f"<@{interaction.user.id}> (ID: `{interaction.user.id}`)")
         fallback_embed.add_field(name="Server", value=f"**{guild_name}** (ID: `{guild_id}`)")
+
+        use_v2 = False
+        try:
+            from discord.ui import LayoutView, Container, TextDisplay, MediaGallery, Separator
+            from discord import MediaGalleryItem
+            use_v2 = True
+        except ImportError:
+            pass
+
+        if use_v2:
+            view = LayoutView()
+            title = TextDisplay(f"### 📥 New Feedback Received ({self.category})")
+            sender = TextDisplay(f"👤 **Submitted by:** <@{interaction.user.id}> (ID: `{interaction.user.id}`)\n🖥️ **Server:** **{guild_name}** (ID: `{guild_id}`)")
+            note_display = TextDisplay(f"📝 **Details:**\n{note}")
+
+            section_children = [title, sender, note_display]
+
+            gallery_items = []
+            file_components = []
+            if files_data:
+                for file_bytes, filename in files_data:
+                    ext = filename.rsplit('.', 1)[-1].lower()
+                    if ext in ["png", "jpg", "jpeg", "gif", "webp"]:
+                        gallery_items.append(MediaGalleryItem(media=f"attachment://{filename}"))
+                    else:
+                        file_components.append(discord.ui.File(media=f"attachment://{filename}"))
+
+            if file_components:
+                section_children.append(Separator())
+                for fc in file_components:
+                    section_children.append(fc)
+
+            if gallery_items:
+                section_children.append(Separator())
+                section_children.append(MediaGallery(*gallery_items))
+
+            container = Container(*section_children, accent_color=accent_color)
+            view.add_item(container)
 
         success_count = 0
         for dest in destinations:
@@ -240,9 +246,13 @@ class FeedbackModal(discord.ui.Modal):
                         files_to_send.append(discord.File(io.BytesIO(file_bytes), filename=filename))
 
                 try:
-                    await dest.send(content=None, view=view, files=files_to_send)
+                    if use_v2:
+                        await dest.send(content=None, view=view, files=files_to_send)
+                    else:
+                        await dest.send(embed=fallback_embed, files=files_to_send)
+                    success_count += 1
                 except Exception as e:
-                    logger.warning(f"Failed to send V2 layout feedback to destination {dest}: {e}. Trying fallback embed...")
+                    logger.warning(f"Failed to send feedback to destination {dest}: {e}. Trying fallback embed...")
                     for f in files_to_send:
                         try:
                             f.close()
