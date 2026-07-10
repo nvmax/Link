@@ -146,7 +146,7 @@
   },
   "30:15": {
     "inputs": {
-      "lora_name": "Krea2_WoW_K2.safetensors",
+      "lora_name": "",
       "strength_model": 0.85,
       "model": [
         "30:10",

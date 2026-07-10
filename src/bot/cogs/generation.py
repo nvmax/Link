@@ -962,7 +962,26 @@ class GenerationCog(commands.Cog):
     def _apply_lora_injection(self, template: dict, values: dict):
         selected_lora = values.get('__selected_lora__')
         if not selected_lora:
+            # Disable any "Enable LoRA?" boolean switches in the workflow when skipped
+            for node_id, node_data in template.items():
+                title = node_data.get('_meta', {}).get('title', '').lower()
+                class_type = node_data.get('class_type', '').lower()
+                if class_type == 'primitiveboolean' and 'lora' in title:
+                    inputs = node_data.get('inputs', {})
+                    if 'value' in inputs:
+                        inputs['value'] = False
+                        logger.info(f"Automatically disabled LoRA switch node {node_id} ('{node_data.get('_meta', {}).get('title')}') because no LoRA was selected")
             return
+
+        # Ensure any "Enable LoRA?" boolean switches are enabled since a LoRA is selected
+        for node_id, node_data in template.items():
+            title = node_data.get('_meta', {}).get('title', '').lower()
+            class_type = node_data.get('class_type', '').lower()
+            if class_type == 'primitiveboolean' and 'lora' in title:
+                inputs = node_data.get('inputs', {})
+                if 'value' in inputs:
+                    inputs['value'] = True
+                    logger.info(f"Automatically enabled LoRA switch node {node_id} ('{node_data.get('_meta', {}).get('title')}') because a LoRA was selected")
 
         lora_file = selected_lora.get('file')
         lora_weight = float(selected_lora.get('weight', 1.0))
