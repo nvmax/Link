@@ -19,12 +19,15 @@
 - **Node Health**: Monitors and checks for updates to installed nodes, and allows for selective updates.
 - **Time Machine**: Captures snapshots for comfyui workspace, when nodes are updated and or changed, allows for roll back to a previous stable node install.
 - **Auto Node Installation**:LINK automatically installs missing nodes for your workflows when you upload them to the dashboard.
-   - if the node name remains default by the node developer.
+   - If the node name remains default by the node developer.
+   - IF a node is not automatically found for installation, user can specify the github repo to download and install the node. 
 - **Auto Download and install Models**: Automatically scans Hugging Face for models, downlods them and installs them to your comfyui workspace.
    - If not found you can copy a link to download or if not found on Hugging Face for some reason you can post the repo short link example: `Lightricks/LTX-2.3`
    - Advanced nodes like Florence2 must be manually added to the custom_nodes folder. 
 - **Bot-Level Queue System**: Thread-Safe QueueManager with asynchronous locking, postition messages are updated live in discord.
 - **Server Limits, Quota's & Bans**: Per server settings to control usage of Link, allowing per 30m/1h/12h/24h/7d/forever bans, Limits for rate limits per minute, per hour and per day. 
+- **Mapping Node Names**: Allows you to map node names to custom names that will be displayed in discord. example: `value` user name is changed to `prompt` in discord. 
+
 
 
 ### 🎨 Visual Architect
