@@ -29,6 +29,166 @@
       "category": "Krea2",
       "description": "Designed to improve image quality across any style, including realistic, cinematic, anime, illustration, fantasy, product, portrait, and stylized images. It helps add cleaner detail, sharper textures, better lighting, and a more polished final look while keeping your original prompt style intact.",
       "is_active": true
+    },
+    {
+      "file": "Krea_2_zidiusArt_Melancholy.safetensors",
+      "name": "Krea 2 ZidiusArt Melancholy",
+      "weight": 1,
+      "add_prompt": "zidiusArt",
+      "url": "https://civitai.com/models/2747740/krea2-melancholy?modelVersionId=3090890",
+      "category": "Krea2",
+      "description": "This LoRA is designed to produce melancholic, cinematic imagery with a strong focus on realism, atmosphere, and emotional restraint. It emphasizes carefully composed scenes, subdued color palettes, and controlled cinematic lighting. The overall look aims for a grounded, highly realistic appearance, often featuring a very shallow depth of field and pronounced background blur, while still allowing images to feel contemplative and emotionally charged.",
+      "is_active": true
+    },
+    {
+      "file": "ultra_real_krea2_v1.safetensors",
+      "name": "Ultra Real Krea2 V1",
+      "weight": 1,
+      "add_prompt": "high-quality",
+      "url": "https://civitai.com/models/2462105/ultrareal-krea2-klein9b?modelVersionId=3091374",
+      "category": "Realism",
+      "description": "high-qulality SFW and NSFW 4K images so it can handle both. Besides making images more detailed it also reduces asian face bias",
+      "is_active": true
+    },
+    {
+      "file": "krea-detail-enhancer-exp.safetensors",
+      "name": "Krea Detail Enhancer Exp",
+      "weight": 1,
+      "add_prompt": "enhance this image",
+      "url": "https://civitai.com/models/2756809/krea-2-detail-enhancer-or-edit-lora?modelVersionId=3102079",
+      "category": "Realism",
+      "description": "Detail enhancer",
+      "is_active": true
+    },
+    {
+      "file": "CYPERPUNK_KREA_2.safetensors",
+      "name": "CYPERPUNK KREA 2",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/2628831/cyberpunk-realism-anima-krea-2?modelVersionId=3082737",
+      "category": "Cyberpunk",
+      "description": "This should create some cyperpunk style for ANIMA",
+      "is_active": true
+    },
+    {
+      "file": "friendlysketch_paintstyle.safetensors",
+      "name": "Friendlysketch Paintstyle",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/2756662/friendly-sketch-krea2?modelVersionId=3101894",
+      "category": "Sketch / Illistration",
+      "description": "Apply a friendly, bright, warm style to your Krea 2 illustrations.",
+      "is_active": true
+    },
+    {
+      "file": "softwatercolor.safetensors",
+      "name": "Softwatercolor",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/2726235/krea-2-official-loras?modelVersionId=3064426",
+      "category": "Sketch / Illistration",
+      "description": "Water Colors, kidsdrawing, neondrip, dotmatrix, darkbrush, rainywindow, vintagetarot, sunsetblur, retroanime",
+      "is_active": true
+    },
+    {
+      "file": "Minimal Sketch Krea.safetensors",
+      "name": "Minimal Sketch Krea",
+      "weight": 1,
+      "add_prompt": "Minimal Sketch Style",
+      "url": "https://civitai.com/models/959300/estys-minimalistic-sketch-style?modelVersionId=3081216",
+      "category": "Sketch / Illistration",
+      "description": "This LoRA is designed to bring the unique charm of expressive sketches and textured doodles into your generations.",
+      "is_active": true
+    },
+    {
+      "file": "grainscape_krea2.safetensors",
+      "name": "Grainscape Krea2",
+      "weight": 0.85,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/1332651/grainscape-ultrareal?modelVersionId=3104076",
+      "category": "Realism",
+      "description": "Forget soulless, digital perfection - this LoRA drags your Flux generations straight through a box of expired Kodak Tri-X and leaves them beautifully battered. Grainy, noisy, and full of life, this model captures the raw, textured magic of analog film photography. ",
+      "is_active": true
+    },
+    {
+      "file": "KREA_MIDJ_1.safetensors",
+      "name": "KREA MIDJ 1",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/2751419/krea2midjourney?modelVersionId=3095398",
+      "category": "Midjourney",
+      "description": "Midjourney Style ",
+      "is_active": true
+    },
+    {
+      "file": "RebelReal_(Krea-2).safetensors",
+      "name": "RebelReal (Krea 2)",
+      "weight": 0.7,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/2181922/rebelreal-lora-collection?modelVersionId=3088042",
+      "category": "Creative",
+      "description": "Aesthetic Booster And Image Enhancer. Also provides a slight dynamic lighting change to each image as well",
+      "is_active": true
+    },
+    {
+      "file": "Krea2_FantasyRealism.safetensors",
+      "name": "Krea2 FantasyRealism",
+      "weight": 1,
+      "add_prompt": "",
+      "url": "https://civitai.com/models/2732631/krea2fantasyrealism?modelVersionId=3072304",
+      "category": "Creative",
+      "description": "Designed to help achieve a more detailed fantasy realism style with richer textures, cinematic lighting, realistic materials, and polished fantasy details. Great for characters, creatures, armor, environments, magical scenes, and epic fantasy artwork.",
+      "is_active": true
+    },
+    {
+      "file": "krmj_epoch_4.safetensors",
+      "name": "Krmj Epoch 4",
+      "weight": 1,
+      "add_prompt": "krmj",
+      "url": "https://civitai.com/models/2285566/midjourney-style?modelVersionId=3089747",
+      "category": "Midjourney",
+      "description": "Midjourney Fantasy Style",
+      "is_active": true
+    },
+    {
+      "file": "ghibli_style_krea2.safetensors",
+      "name": "Ghibli Style Krea2",
+      "weight": 1.3,
+      "add_prompt": "Studio Ghibli style",
+      "url": "https://civitai.com/models/523485/ghibli-style-kikis-delivery-service?modelVersionId=3084641",
+      "category": "Ghibli Style",
+      "description": "Studio Ghibli style for all your characters.",
+      "is_active": true
+    },
+    {
+      "file": "zjourneykreav1.safetensors",
+      "name": "Zjourneykreav1",
+      "weight": 0.85,
+      "add_prompt": "zjourney",
+      "url": "https://civitai.com/models/2686999/zjourney-fantasy-realism-refiner-ideogram-4krea-2?modelVersionId=3094755",
+      "category": "Fantasy",
+      "description": "Focused on further grounding Fantasy outputs in photographic \"realism\".",
+      "is_active": true
+    },
+    {
+      "file": "Handpainted Miniatures Krea.safetensors",
+      "name": "Handpainted Miniatures Krea",
+      "weight": 1,
+      "add_prompt": "Handpainted Miniature",
+      "url": "https://civitai.com/models/685433/handpainted-miniature?modelVersionId=3084509",
+      "category": "Games",
+      "description": "A lora trained on a various photos of Painted Miniatures.",
+      "is_active": true
+    },
+    {
+      "file": "Kratos_GOW.safetensors",
+      "name": "Kratos GOW",
+      "weight": 1,
+      "add_prompt": "kr4t0s",
+      "url": "https://civitai.com/models/2755909/kratos-god-of-war?modelVersionId=3100971",
+      "category": "Games",
+      "description": "KRATOS THE OG GOD OF WAR ",
+      "is_active": true
     }
   ]
 }

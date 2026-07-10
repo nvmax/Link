@@ -130,10 +130,14 @@ class ResultHandler:
                 logger.warning(f"No job found for prompt_id {prompt_id}")
                 return
             
-            if job.status == JobStatus.COMPLETED or job.status == JobStatus.FAILED:
+            if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
                 logger.info(f"Job {job.id} already processed ({job.status}), skipping redundant signal.")
                 return
             
+            # Mark COMPLETED immediately to block concurrent/delayed progress updates
+            job.status = JobStatus.COMPLETED
+            db.commit()
+
             job_data = {
                 "id": job.id,
                 "status": job.status,
@@ -497,7 +501,7 @@ class ResultHandler:
                                         view.add_item(action_row)
 
                                 try:
-                                    await msg.edit(content=None, embed=None, attachments=files_to_upload, view=view)
+                                    await msg.edit(content="", embed=None, attachments=files_to_upload, view=view)
                                 except Exception as e:
                                     logger.warning(f"Failed to edit message with V2 layout: {e}. Falling back to fresh message...")
                                     try:
@@ -680,7 +684,7 @@ class ResultHandler:
                                     view.add_item(btn)
 
                                 try:
-                                    await msg.edit(content=None, embed=embed, attachments=files_to_upload, view=view)
+                                    await msg.edit(content="", embed=embed, attachments=files_to_upload, view=view)
                                 except Exception as e:
                                     logger.warning(f"Failed to edit message with V2 fallback embed: {e}. Falling back to fresh message...")
                                     try:
@@ -881,13 +885,13 @@ class ResultHandler:
                                     embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
 
                             try:
-                                await msg.edit(content=None, embed=embed, attachments=files_to_upload, view=view)
+                                await msg.edit(content="", embed=embed, attachments=files_to_upload, view=view)
                             except Exception as e:
                                 logger.warning(f"Failed to edit message with files: {e}. Falling back to fresh message...")
                                 try:
                                     try: await msg.delete()
                                     except Exception: pass
-                                    await channel.send(content=None, embed=embed, files=files_to_upload, view=view)
+                                    await channel.send(content="", embed=embed, files=files_to_upload, view=view)
                                 except Exception as e2:
                                     logger.error(f"Critical failure delivering generation result: {e2}")
                                     await channel.send(files=files_to_upload)
@@ -992,6 +996,8 @@ class ResultHandler:
             job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
             if not job or not job.discord_message_id or not job.channel_id:
                 return
+            if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                return
 
             # Resolve ID to Type
             node_type = self._resolve_node_name(job, node_info)
@@ -1042,6 +1048,8 @@ class ResultHandler:
         with db_session() as db:
             job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
             if job and job.discord_message_id and job.channel_id:
+                if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                    return
                 resolved_node_type = self._resolve_node_name(job, node_type)
                 job_data = {
                     "id": job.id,

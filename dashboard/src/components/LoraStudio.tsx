@@ -8,6 +8,7 @@ export function LoraStudio() {
   const { 
     loraFiles, 
     editingLoraFile, 
+    setEditingLoraFile,
     loadLoraFile, 
     saveLoraFile, 
     updateLoraField, 
@@ -171,9 +172,33 @@ export function LoraStudio() {
                     <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">
                       {selectedCategory ? `${editingLoraFile.name} › ${selectedCategory}` : 'Select a Category'}
                     </span>
-                    <h3 className="text-lg font-black text-white">
-                      {selectedCategory || editingLoraFile.name}
-                    </h3>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-black text-white">
+                        {selectedCategory || editingLoraFile.name}
+                      </h3>
+                      {selectedCategory && (
+                        <button 
+                          onClick={() => {
+                            const newName = prompt("Rename this category/folder to:", selectedCategory);
+                            if (newName && newName.trim() !== selectedCategory) {
+                              const trimmed = newName.trim();
+                              const newContent = editingLoraFile.content.map((lora: any) => {
+                                if ((lora.category || 'Uncategorized') === selectedCategory) {
+                                  return { ...lora, category: trimmed };
+                                }
+                                return lora;
+                              });
+                              setEditingLoraFile({ ...editingLoraFile, content: newContent });
+                              setSelectedCategory(trimmed);
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 hover:text-amber-400 text-slate-400 text-[10px] font-bold tracking-wider uppercase transition-all border border-white/5"
+                          title="Rename Folder / Category"
+                        >
+                          Rename Folder
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -378,12 +403,26 @@ export function LoraStudio() {
                                   <Tag className="w-3 h-3" />
                                   <label className="text-[9px] uppercase font-bold tracking-widest">Category</label>
                                 </div>
-                                <input 
-                                  value={lora.category || ''} 
-                                  onChange={(e) => updateLoraField(idx, 'category', e.target.value)} 
-                                  className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-slate-300 focus:border-amber-500/50 outline-none transition-all duration-300 focus:bg-amber-500/5" 
-                                  placeholder="Style, Character, etc."
-                                />
+                                <select 
+                                  value={lora.category || 'Uncategorized'} 
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '__new__') {
+                                      const newCat = prompt("Enter new category name:");
+                                      if (newCat && newCat.trim()) {
+                                        updateLoraField(idx, 'category', newCat.trim());
+                                      }
+                                    } else {
+                                      updateLoraField(idx, 'category', val === 'Uncategorized' ? '' : val);
+                                    }
+                                  }} 
+                                  className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs text-slate-300 focus:border-amber-500/50 outline-none transition-all duration-300 focus:bg-amber-500/5"
+                                >
+                                  {categories.map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                  <option value="__new__">+ New Category...</option>
+                                </select>
                               </div>
                               <div className="space-y-1.5">
                                 <div className="flex items-center gap-1.5 text-slate-500">
