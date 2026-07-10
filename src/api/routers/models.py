@@ -230,11 +230,38 @@ async def search_models(request: Request) -> Dict[str, Any]:
         filenames = body.get("filenames", [])
         
         results = {}
+
+        # ------------------------------------------------------------------
+        # Build a URL registry from all lora JSON files so we can resolve
+        # filenames to known HuggingFace or CivitAI download sources.
+        # ------------------------------------------------------------------
+        lora_url_registry: dict[str, str] = {}
+        try:
+            loras_dir = Config.LORAS_DIR
+            import json as _json
+            for lf in os.listdir(loras_dir):
+                if not lf.endswith(".json"):
+                    continue
+                try:
+                    with open(os.path.join(loras_dir, lf), "r", encoding="utf-8") as fh:
+                        lora_data = _json.load(fh)
+                    for entry in lora_data.get("available_loras", []):
+                        fname = entry.get("file", "")
+                        url = entry.get("url", "")
+                        if fname and url:
+                            lora_url_registry[fname] = url
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning(f"Could not build lora URL registry: {e}")
+
         preseeded_by_family = {
             "ltx": {"Comfy-Org/ltx-2", "Kijai/LTX2.3_comfy", "Lightricks/LTX-2.3", "Lightricks/LTX-2.3-fp8"},
             "flux": {"black-forest-labs/FLUX.1-dev", "black-forest-labs/FLUX.1-schnell", "Kijai/flux-fp8", "comfyanonymous/flux_flux8_repack"},
             "wan": {"Kijai/Wan2.1_comfy", "Comfy-Org/Wan2.1-ComfyUI", "comfyanonymous/wan2.1_repack"},
-            "sd": {"stabilityai/stable-diffusion-3.5-large", "Comfy-Org/stable-diffusion-3.5-fp8", "stabilityai/stable-diffusion-xl-base-1.0", "runwayml/stable-diffusion-v1-5"}
+            "sd": {"stabilityai/stable-diffusion-3.5-large", "Comfy-Org/stable-diffusion-3.5-fp8", "stabilityai/stable-diffusion-xl-base-1.0", "runwayml/stable-diffusion-v1-5"},
+            "krea": {"Comfy-Org/Krea-2", "krea/Krea-2-LoRA-darkbrush", "krea/krea-2"},
+            "qwen": {"Comfy-Org/Qwen3-VL", "Qwen/Qwen3-VL", "Comfy-Org/Krea-2"},
         }
         
         headers = {
@@ -243,7 +270,51 @@ async def search_models(request: Request) -> Dict[str, Any]:
         
         async with aiohttp.ClientSession(headers=headers) as session:
             for filename in filenames:
-                async def fetch_and_resolve_hf_repo():
+                # Bust any previously-cached None result so we always
+                # do a real search for models that weren't found last time.
+                cache_key = f"hf_search_{filename}"
+                if cache.delete(cache_key):
+                    logger.info(f"Evicted stale None cache entry for '{filename}'")
+
+                async def fetch_and_resolve_hf_repo(filename=filename):
+                    # ----------------------------------------------------------
+                    # Step 0: Check the lora registry for a known URL.
+                    # If the URL is a direct HuggingFace link, use it; if it's
+                    # CivitAI (or any other direct link), return it as-is so the
+                    # download endpoint can handle it.
+                    # ----------------------------------------------------------
+                    known_url = lora_url_registry.get(filename, "")
+                    if known_url:
+                        if "huggingface.co/" in known_url:
+                            # Extract repo_id from HF URL (e.g. https://huggingface.co/krea/Krea-2-LoRA-darkbrush)
+                            parts = known_url.rstrip("/").split("huggingface.co/")
+                            if len(parts) == 2:
+                                repo_candidate = parts[1].split("/blob/")[0].split("/resolve/")[0]
+                                # Verify the file actually exists in that repo
+                                repo_api_url = f"https://huggingface.co/api/models/{repo_candidate}"
+                                try:
+                                    async with session.get(repo_api_url, timeout=5) as resp_api:
+                                        if resp_api.status == 200:
+                                            model_info = await resp_api.json()
+                                            siblings = model_info.get("siblings", [])
+                                            matches = [s.get("rfilename") for s in siblings
+                                                       if s.get("rfilename") == filename
+                                                       or (s.get("rfilename") or "").endswith(f"/{filename}")]
+                                            if matches:
+                                                logger.info(f"Resolved '{filename}' via lora registry → HF repo '{repo_candidate}'")
+                                                return repo_candidate
+                                except Exception:
+                                    pass
+                        else:
+                            # Non-HF URL (CivitAI, etc.) — return as direct download URL.
+                            # The frontend passes it to repo_id which the download endpoint
+                            # treats as a direct URL when it starts with 'http'.
+                            logger.info(f"Resolved '{filename}' via lora registry → direct URL '{known_url}'")
+                            return known_url
+
+                    # ----------------------------------------------------------
+                    # Step 1: Exact full-text search on HuggingFace.
+                    # ----------------------------------------------------------
                     exact_url = f"https://huggingface.co/api/search/full-text?q={urllib.parse.quote(filename)}&type=model"
                     found_repo = None
                     try:
@@ -253,7 +324,7 @@ async def search_models(request: Request) -> Dict[str, Any]:
                                 hits = data.get("hits", [])
                                 if hits:
                                     hits.sort(key=lambda x: x.get("likes", 0), reverse=True)
-                                    for hit in hits[:5]:
+                                    for hit in hits[:10]:
                                         repo_name = hit.get("name")
                                         if not repo_name: continue
                                         
@@ -288,6 +359,9 @@ async def search_models(request: Request) -> Dict[str, Any]:
                     if found_repo:
                         return found_repo
 
+                    # ----------------------------------------------------------
+                    # Step 2: Relaxed keyword search + family-preseeded candidates.
+                    # ----------------------------------------------------------
                     logger.info(f"Exact search failed or rate-limited for {filename}. Running relaxed dynamic HuggingFace search...")
                     stem = filename.rsplit('.', 1)[0]
                     tokens = re.split(r'[-_]', stem)
@@ -301,6 +375,8 @@ async def search_models(request: Request) -> Dict[str, Any]:
                     if len(tokens) >= 3:
                         queries.append(f"{tokens[0]} {tokens[1]} {tokens[2]}")
                     queries.append(stem.replace('_', ' ').replace('-', ' '))
+                    # Also try the full stem as a single query
+                    queries.append(stem)
                     
                     filename_lower = filename.lower()
                     family = "other"
@@ -312,6 +388,10 @@ async def search_models(request: Request) -> Dict[str, Any]:
                         family = "wan"
                     elif "stable-diffusion" in filename_lower or "sd" in filename_lower or "sdxl" in filename_lower:
                         family = "sd"
+                    elif "krea" in filename_lower or "krea2" in filename_lower:
+                        family = "krea"
+                    elif "qwen" in filename_lower:
+                        family = "qwen"
                     
                     family_repos = preseeded_by_family.get(family, set())
                     candidate_repos = set(family_repos)
@@ -366,6 +446,10 @@ async def search_models(request: Request) -> Dict[str, Any]:
                             score += 20
                         elif "stabilityai" in repo_lower:
                             score += 20
+                        elif "krea" in repo_lower:
+                            score += 20
+                        elif "qwen" in repo_lower:
+                            score += 15
                         
                         if repo_name in keyword_repos:
                             score += 15
@@ -378,6 +462,20 @@ async def search_models(request: Request) -> Dict[str, Any]:
                     sorted_candidates = sorted(list(candidate_repos), key=get_repo_priority, reverse=True)
                     sem = asyncio.Semaphore(5)
                     
+                    # Subpaths to probe within each candidate repo
+                    subpaths_to_probe = [
+                        filename,
+                        f"diffusion_models/{filename}",
+                        f"text_encoders/{filename}",
+                        f"unet/{filename}",
+                        f"vae/{filename}",
+                        f"loras/{filename}",
+                        f"clip/{filename}",
+                        f"checkpoints/{filename}",
+                        f"split_files/diffusion_models/{filename}",
+                        f"split_files/text_encoders/{filename}",
+                    ]
+
                     async def check_candidate(repo_id):
                         async with sem:
                             repo_api_url = f"https://huggingface.co/api/models/{repo_id}"
@@ -392,15 +490,7 @@ async def search_models(request: Request) -> Dict[str, Any]:
                             except Exception:
                                 pass
                                 
-                            subpaths = [
-                                f"{filename}",
-                                f"diffusion_models/{filename}",
-                                f"text_encoders/{filename}",
-                                f"unet/{filename}",
-                                f"vae/{filename}",
-                                f"loras/{filename}"
-                            ]
-                            for subpath in subpaths:
+                            for subpath in subpaths_to_probe:
                                 check_url = f"https://huggingface.co/{repo_id}/resolve/main/{subpath}"
                                 try:
                                     async with session.head(check_url, timeout=3, allow_redirects=True) as resp:
@@ -410,7 +500,8 @@ async def search_models(request: Request) -> Dict[str, Any]:
                                     pass
                             return None
 
-                    tasks = [check_candidate(rid) for rid in sorted_candidates[:5]]
+                    # Check top 15 candidates (was 5 — shallow depth caused misses)
+                    tasks = [check_candidate(rid) for rid in sorted_candidates[:15]]
                     completed_results = await asyncio.gather(*tasks)
                     
                     for res in completed_results:
@@ -418,11 +509,10 @@ async def search_models(request: Request) -> Dict[str, Any]:
                             return res
                     return None
 
-                async def fetch_with_semaphore():
+                async def fetch_with_semaphore(filename=filename):
                     async with hf_search_semaphore:
-                        return await fetch_and_resolve_hf_repo()
+                        return await fetch_and_resolve_hf_repo(filename=filename)
 
-                # Leverage CacheManager for search queries with 1-day (86400s) TTL
                 resolved_repo = await cache.get_or_set(
                     f"hf_search_{filename}", 
                     fetch_with_semaphore, 
@@ -434,6 +524,13 @@ async def search_models(request: Request) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Search models error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/models/cache/clear")
+async def clear_model_cache() -> Dict[str, Any]:
+    """Flush the in-memory HuggingFace search cache so models are re-searched on next import."""
+    cache.clear()
+    logger.info("Model search cache cleared via API.")
+    return {"status": "ok", "message": "Model search cache cleared."}
 
 @router.post("/api/models/download")
 async def download_model(request: Request) -> Any:

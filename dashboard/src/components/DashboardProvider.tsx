@@ -67,8 +67,10 @@ interface DashboardContextType {
   setNodeCoords: (coords: Record<string, { x: number, y: number }> | ((prev: any) => any)) => void;
   missingNodes: string[];
   setMissingNodes: (nodes: string[]) => void;
+  unknownNodes: string[];
+  setUnknownNodes: (nodes: string[]) => void;
   isInstalling: boolean;
-  handleNodeInstall: () => Promise<void>;
+  handleNodeInstall: (nodeRepos?: Record<string, string>) => Promise<void>;
   pendingImport: { name: string, workflow: any } | null;
   setPendingImport: (imp: { name: string, workflow: any } | null) => void;
   pendingLoad: boolean;
@@ -430,6 +432,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [nodeCoords, setNodeCoords] = useState<Record<string, { x: number, y: number }>>({});
   
   const [missingNodes, setMissingNodes] = useState<string[]>([]);
+  // unknownNodes: subset of missingNodes that cm_cli couldn't resolve — user must supply a repo URL
+  const [unknownNodes, setUnknownNodes] = useState<string[]>([]);
   const [pendingImport, setPendingImport] = useState<{ name: string, workflow: any } | null>(null);
   const [pendingLoad, setPendingLoad] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
@@ -882,32 +886,44 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleNodeInstall = async () => {
+  const handleNodeInstall = async (nodeRepos?: Record<string, string>) => {
     if (!pendingImport) return;
     setIsInstalling(true);
     try {
-      // Use the Python backend (port 8001) for the heavy lifting
       const res = await fetch('http://127.0.0.1:8001/api/comfy/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow: pendingImport.workflow,
-          missing_nodes: missingNodes
-        })
+          missing_nodes: missingNodes,
+          // node_repos: { ClassName: 'https://github.com/...' } — supplied by user
+          ...(nodeRepos && Object.keys(nodeRepos).length > 0 ? { node_repos: nodeRepos } : {}),
+        }),
       });
-      
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Installation failed');
 
-      showToast("Nodes installed successfully. Sending reboot signal to ComfyUI...", 'success');
+      // ── Backend found nodes it can't resolve: show repo-input UI ──────────
+      if (data.status === 'needs_repos') {
+        setUnknownNodes(data.unknown_nodes || []);
+        showToast(
+          `${data.unknown_nodes?.length ?? 'Some'} node(s) are not in ComfyUI-Manager's registry. Please provide their GitHub repo URLs below.`,
+          'info'
+        );
+        return; // stay on the modal — don't reboot or dismiss
+      }
+
+      // ── Success path ──────────────────────────────────────────────────────
+      setUnknownNodes([]);
+      showToast('Nodes installed successfully. Sending reboot signal to ComfyUI...', 'success');
       await handleReboot();
-      
-      // Re-fetch object info from the Next.js API (which fetches from ComfyUI)
-      // This ensures the Architect sees the new nodes.
+
+      // Re-fetch object info so the Architect sees the new nodes.
       const refreshRes = await fetch('/api/workflows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'load', jsonPath: '' }) // Generic load to trigger object_info refresh
+        body: JSON.stringify({ action: 'load', jsonPath: '' }),
       });
       const refreshData = await refreshRes.json();
       if (refreshData.objectInfo) {
@@ -915,22 +931,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (pendingLoad) {
-        // Triggered from loadWorkflow (pre-bundled workflow) — workflow is already
-        // displayed; just check models then close the modal without re-importing.
         const modelsOk = await checkModelsBeforeImport(pendingImport.name, pendingImport.workflow);
         if (modelsOk) {
           setPendingImport(null);
           setPendingLoad(false);
         }
       } else {
-        // Triggered from importWorkflow — finalize the import.
         const modelsOk = await checkModelsBeforeImport(pendingImport.name, pendingImport.workflow);
         if (modelsOk) {
           await executeImport(pendingImport.name, pendingImport.workflow);
           setPendingImport(null);
         }
       }
-      
+
       setMissingNodes([]);
     } catch (e: any) {
       console.error('Node installation error:', e);
@@ -1336,6 +1349,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     objectInfo, updateWorkflowInput,
     nodeCoords, setNodeCoords,
     missingNodes, setMissingNodes,
+    unknownNodes, setUnknownNodes,
     isInstalling, handleNodeInstall,
     pendingImport, setPendingImport,
     pendingLoad, setPendingLoad,

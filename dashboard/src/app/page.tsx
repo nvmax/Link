@@ -21,6 +21,8 @@ function DashboardContent() {
     saveWorkflow,
     missingNodes,
     setMissingNodes,
+    unknownNodes,
+    setUnknownNodes,
     handleNodeInstall,
     isInstalling,
     pendingImport,
@@ -121,23 +123,26 @@ function DashboardContent() {
         {missingNodes.length > 0 && (
           <MissingNodesModal 
             missingNodes={missingNodes}
+            unknownNodes={unknownNodes}
             onInstall={handleNodeInstall}
             onImportAnyway={async () => {
               if (pendingImport) {
                 const { name, workflow } = pendingImport;
                 setMissingNodes([]);
+                setUnknownNodes([]);
                 setPendingImport(null);
                 setPendingLoad(false);
                 if (!pendingLoad) {
-                  // Only re-import if this was triggered from importWorkflow
                   await importWorkflow(name, workflow, true);
                 }
               } else {
                 setMissingNodes([]);
+                setUnknownNodes([]);
               }
             }}
             onCancel={() => {
               setMissingNodes([]);
+              setUnknownNodes([]);
               setPendingImport(null);
               setPendingLoad(false);
             }}

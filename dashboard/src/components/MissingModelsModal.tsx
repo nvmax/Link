@@ -65,13 +65,13 @@ export function MissingModelsModal({
   const [modelRepos, setModelRepos] = useState<Record<string, string>>({});
   const [manualChecks, setManualChecks] = useState<Record<string, boolean>>({});
   const [isSearching, setIsSearching] = useState(true);
-  const [foundStatus, setFoundStatus] = useState<Record<string, 'found' | 'not_found'>>({});
+  const [foundStatus, setFoundStatus] = useState<Record<string, 'found' | 'found_direct' | 'not_found'>>({});
 
   useEffect(() => {
     const runSearch = async () => {
       setIsSearching(true);
       const initialRepos: Record<string, string> = {};
-      const status: Record<string, 'found' | 'not_found'> = {};
+      const status: Record<string, 'found' | 'found_direct' | 'not_found'> = {};
       const toSearch: string[] = [];
 
       missingModels.forEach(m => {
@@ -95,8 +95,11 @@ export function MissingModelsModal({
             const results = data.results || {};
             toSearch.forEach(filename => {
               if (results[filename]) {
-                initialRepos[filename] = results[filename];
-                status[filename] = 'found';
+                const val: string = results[filename];
+                initialRepos[filename] = val;
+                // If the resolved value is a full URL (CivitAI, direct link) mark
+                // it as found_direct so the UI can show an appropriate badge.
+                status[filename] = val.startsWith('http') ? 'found_direct' : 'found';
               } else {
                 initialRepos[filename] = '';
                 status[filename] = 'not_found';
@@ -128,6 +131,64 @@ export function MissingModelsModal({
       manuallyResolved: manualChecks[m.filename] || false
     }));
     onDownload(payload);
+  };
+
+  const handleRescan = async () => {
+    try {
+      await fetch('http://127.0.0.1:8001/api/models/cache/clear', { method: 'POST' });
+    } catch (e) {
+      console.warn('Cache clear failed (backend may be offline):', e);
+    }
+    // Reset local state and re-run search
+    setModelRepos({});
+    setFoundStatus({});
+    setManualChecks({});
+    setIsSearching(true);
+    // Re-trigger useEffect by forcing a re-run via a timestamp trick is not needed
+    // — we manually call runSearch equivalent inline:
+    const runRescan = async () => {
+      const initialRepos: Record<string, string> = {};
+      const status: Record<string, 'found' | 'found_direct' | 'not_found'> = {};
+      const toSearch: string[] = [];
+      missingModels.forEach(m => {
+        if (KNOWN_MODEL_REPOS[m.filename]) {
+          initialRepos[m.filename] = KNOWN_MODEL_REPOS[m.filename].repo_id;
+          status[m.filename] = 'found';
+        } else {
+          toSearch.push(m.filename);
+        }
+      });
+      if (toSearch.length > 0) {
+        try {
+          const res = await fetch('http://127.0.0.1:8001/api/models/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filenames: toSearch })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const results = data.results || {};
+            toSearch.forEach(filename => {
+              if (results[filename]) {
+                const val: string = results[filename];
+                initialRepos[filename] = val;
+                status[filename] = val.startsWith('http') ? 'found_direct' : 'found';
+              } else {
+                initialRepos[filename] = '';
+                status[filename] = 'not_found';
+              }
+            });
+          }
+        } catch (e) {
+          console.error('Re-scan search failed:', e);
+          toSearch.forEach(filename => { initialRepos[filename] = ''; status[filename] = 'not_found'; });
+        }
+      }
+      setModelRepos(initialRepos);
+      setFoundStatus(status);
+      setIsSearching(false);
+    };
+    runRescan();
   };
 
   const handleRetry = (m: any) => {
@@ -163,7 +224,7 @@ export function MissingModelsModal({
           <h2 className="text-2xl font-black text-white mb-2">Missing Model Files</h2>
           <p className="text-slate-400 mb-6 text-sm leading-relaxed">
             This workflow requires model files that are not present in your ComfyUI models folder. 
-            Provide a HuggingFace repository to auto-download them, or download them manually.
+            Auto-search resolves models from HuggingFace or registered direct download URLs (CivitAI, etc.).
           </p>
         </div>
         
@@ -176,7 +237,9 @@ export function MissingModelsModal({
           <div className="flex-1 overflow-y-auto min-h-0 pr-2 custom-scrollbar space-y-4 mb-6">
             {missingModels.map(model => {
               const status = downloadProgress[model.filename];
-              const isManualMode = foundStatus[model.filename] === 'not_found' && !modelRepos[model.filename];
+              const searchResult = foundStatus[model.filename];
+              const isManualMode = searchResult === 'not_found' && !modelRepos[model.filename];
+              const isDirectUrl = searchResult === 'found_direct';
               const isGated = status === 'gated' || KNOWN_MODEL_REPOS[model.filename]?.gated;
 
             return (
@@ -194,6 +257,13 @@ export function MissingModelsModal({
                       <span className="px-2 py-0.5 rounded-md bg-white/10 text-[10px] uppercase font-bold tracking-widest text-slate-400">
                         {model.folder}
                       </span>
+                      {/* Source badge */}
+                      {!status && searchResult === 'found' && (
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-[10px] font-bold text-emerald-400 tracking-wide">HuggingFace</span>
+                      )}
+                      {!status && isDirectUrl && (
+                        <span className="px-2 py-0.5 rounded-md bg-violet-500/20 text-[10px] font-bold text-violet-300 tracking-wide">Direct URL</span>
+                      )}
                     </div>
                   </div>
                   
@@ -225,11 +295,13 @@ export function MissingModelsModal({
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="HuggingFace Repo ID or Direct Download URL"
+                        placeholder={isDirectUrl ? 'Direct download URL (auto-populated)' : 'HuggingFace Repo ID or Direct Download URL'}
                         value={modelRepos[model.filename] || ''}
                         onChange={(e) => setModelRepos(prev => ({ ...prev, [model.filename]: e.target.value }))}
                         disabled={isDownloading || status === 'gated'}
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
+                        className={`w-full bg-black/40 border rounded-xl px-4 py-2.5 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-slate-600 disabled:opacity-50 ${
+                          isDirectUrl ? 'border-violet-500/30 text-violet-200' : 'border-white/10'
+                        }`}
                       />
                       
                       {status === 'downloading' && downloadStats[model.filename] && (
@@ -351,6 +423,15 @@ export function MissingModelsModal({
               className="flex-1 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-slate-300 text-sm font-bold rounded-xl transition-all border border-white/5"
             >
               Import Anyway
+            </button>
+            <button
+              onClick={handleRescan}
+              disabled={isDownloading || isSearching}
+              className="px-4 py-3 border border-white/10 hover:bg-white/5 disabled:opacity-50 text-slate-400 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+              title="Clear cache and re-scan HuggingFace"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSearching ? 'animate-spin' : ''}`} />
+              Re-scan
             </button>
             <button 
               onClick={onCancel}

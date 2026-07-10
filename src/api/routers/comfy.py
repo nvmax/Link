@@ -27,10 +27,13 @@ async def restore_nodes(request: Request) -> dict[str, Any]:
         body = await request.json()
         workflow_data = body
         missing_nodes_override = []
-        
+        node_repos: dict[str, str] = {}
+
         if isinstance(body, dict) and ("workflow" in body or "missing_nodes" in body):
             workflow_data = body.get("workflow", {})
             missing_nodes_override = body.get("missing_nodes", [])
+            # node_repos: {ClassName: "https://github.com/..."} supplied by user
+            node_repos = body.get("node_repos", {})
 
         if not workflow_data and not missing_nodes_override:
             return {"status": "skipped", "message": "No workflow or missing nodes provided"}
@@ -41,7 +44,7 @@ async def restore_nodes(request: Request) -> dict[str, Any]:
 
         resolved_path = resolve_comfy_workspace(comfy_path)
         logger.info(f"Auto-resolved ComfyUI workspace to: {resolved_path}")
-        
+
         if resolved_path:
             init_file = os.path.join(resolved_path, "comfy", "__init__.py")
             if not os.path.exists(init_file):
@@ -49,45 +52,63 @@ async def restore_nodes(request: Request) -> dict[str, Any]:
                     os.makedirs(os.path.dirname(init_file), exist_ok=True)
                     with open(init_file, 'w') as f:
                         pass
-                except Exception: pass
+                except Exception:
+                    pass
 
         installed_any = False
         dummy_webui = {"nodes": [], "links": []}
-        
+
         if missing_nodes_override:
             logger.info(f"Using {len(missing_nodes_override)} explicit missing nodes to construct dependency dummy...")
             for i, class_name in enumerate(missing_nodes_override):
-                dummy_webui["nodes"].append({"id": i, "type": class_name, "pos": [0,0]})
+                dummy_webui["nodes"].append({"id": i, "type": class_name, "pos": [0, 0]})
         elif workflow_data:
             logger.info("Scanning workflow API dict to construct dependency dummy...")
             for node_id, node_info in workflow_data.items():
                 if isinstance(node_info, dict) and "class_type" in node_info:
-                    dummy_webui["nodes"].append({"id": node_id, "type": node_info["class_type"], "pos": [0,0]})
-        
+                    dummy_webui["nodes"].append({"id": node_id, "type": node_info["class_type"], "pos": [0, 0]})
+
         if dummy_webui["nodes"]:
             with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode='w', encoding='utf-8') as tf:
                 json.dump(dummy_webui, tf)
                 temp_path = tf.name
 
             try:
-                success = await run_comfy_install_deps(resolved_path, temp_path)
+                success, unknown_nodes = await run_comfy_install_deps(
+                    resolved_path, temp_path, extra_repos=node_repos or None
+                )
                 if success:
                     installed_any = True
+                elif unknown_nodes:
+                    # Some nodes couldn't be resolved — ask the user to provide repos
+                    logger.warning(f"Unknown nodes require user-supplied repos: {unknown_nodes}")
+                    return {
+                        "status": "needs_repos",
+                        "unknown_nodes": unknown_nodes,
+                        "message": (
+                            "Some nodes are not in ComfyUI-Manager's registry. "
+                            "Please provide the GitHub repo URL for each one."
+                        ),
+                    }
+                # success=False, unknown_nodes=[] means cm_cli itself failed
             finally:
                 if os.path.exists(temp_path):
-                    try: os.unlink(temp_path)
-                    except Exception: pass
+                    try:
+                        os.unlink(temp_path)
+                    except Exception:
+                        pass
 
         if not installed_any:
             return {"status": "skipped", "message": "No missing nodes were found or installation could not be resolved."}
 
         return {
-            "status": "success", 
+            "status": "success",
             "message": "Nodes installed successfully."
         }
     except Exception as e:
         logger.error(f"Error during node restoration: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/api/comfy/nodes")
 async def get_nodes(force: bool = False) -> dict[str, Any]:
