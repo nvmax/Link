@@ -264,9 +264,24 @@ export function ModalStudio() {
                         <input 
                           value={sel.label}
                           onChange={(e) => updateSelection(idx, { label: e.target.value })}
-                          className="bg-transparent border-none text-sm font-bold text-white outline-none focus:text-indigo-400"
+                          className="bg-transparent border-none text-sm font-bold text-white outline-none focus:text-indigo-400 w-full"
+                          title="Display Label"
                         />
-                        <span className="text-[9px] text-slate-600 font-mono">Node {sel.nodeId} · {sel.field}</span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[9px] text-slate-500 font-mono">
+                          <span>Node {sel.nodeId} · {sel.field}</span>
+                          <span>|</span>
+                          <span className="font-bold text-slate-600 uppercase tracking-wide">ID:</span>
+                          <input
+                            value={sel.id || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                              updateSelection(idx, { id: val });
+                            }}
+                            placeholder={sel.field}
+                            className="bg-black/30 border border-white/5 rounded px-1.5 py-0.5 text-[9px] text-indigo-400 font-mono outline-none focus:border-indigo-500/50 max-w-[120px]"
+                            title="Discord Parameter ID"
+                          />
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-6">

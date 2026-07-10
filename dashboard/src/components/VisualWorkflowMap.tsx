@@ -507,7 +507,14 @@ export function VisualWorkflowMap() {
                           return (
                             <div key={key} className={`flex flex-col p-3 rounded-2xl border transition-all ${isSelected ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-black/20 border-white/5'}`}>
                               <div className="flex items-center justify-between mb-2">
-                                <label className={`text-[9px] uppercase font-bold ${isSelected ? 'text-indigo-400' : 'text-slate-500'}`}>{key}</label>
+                                <label className={`text-[9px] uppercase font-bold ${isSelected ? 'text-indigo-400' : 'text-slate-500'}`}>
+                                  {key}
+                                  {isSelected && (
+                                    <span className="text-[8px] text-slate-500 font-normal lowercase ml-2">
+                                      (resolves as: <span className="font-mono text-indigo-300 font-bold">{isSelected.id || isSelected.field}</span>)
+                                    </span>
+                                  )}
+                                </label>
                                 <div className="flex items-center gap-2">
                                   {isSelected && (
                                      <button
@@ -571,6 +578,36 @@ export function VisualWorkflowMap() {
                                     <option value="video_upload">video_upload — video file (channel)</option>
                                     <option value="select">select — dropdown choices (modal)</option>
                                   </select>
+                                  
+                                  <div className="mt-2 space-y-1">
+                                    <label className="text-[7px] font-bold text-indigo-300/70 uppercase tracking-widest block">Discord Parameter Name</label>
+                                    <input
+                                      type="text"
+                                      value={isSelected.id || ''}
+                                      onChange={(e) => {
+                                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                                        updateSelection(selections.indexOf(isSelected), { id: val });
+                                      }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      placeholder="e.g. prompt"
+                                      className="w-full bg-black/60 border border-indigo-500/30 rounded-lg text-[10px] px-2 py-1.5 text-slate-200 outline-none focus:border-indigo-500 font-mono"
+                                    />
+                                  </div>
+                                  
+                                  <div className="mt-2 space-y-1">
+                                    <label className="text-[7px] font-bold text-indigo-300/70 uppercase tracking-widest block">Discord Display Label</label>
+                                    <input
+                                      type="text"
+                                      value={isSelected.label || ''}
+                                      onChange={(e) => {
+                                        updateSelection(selections.indexOf(isSelected), { label: e.target.value });
+                                      }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      placeholder="e.g. Prompt Text"
+                                      className="w-full bg-black/60 border border-indigo-500/30 rounded-lg text-[10px] px-2 py-1.5 text-slate-200 outline-none focus:border-indigo-500 font-mono"
+                                    />
+                                  </div>
+
                                   {isSelected.type === 'select' && (
                                     <div className="mt-2 space-y-1">
                                       <label className="text-[7px] font-bold text-indigo-300/70 uppercase tracking-widest block">Choices (comma-separated)</label>

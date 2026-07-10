@@ -8,74 +8,78 @@ ai_prompt:
   target_input: ''
 description: Run krea2 workflow
 mapping:
-  value:
-  - '30:19'
-  - inputs
-  - value
+  prompt:
+    - '30:19'
+    - inputs
+    - value
   aspect_ratio:
-  - '49'
-  - inputs
-  - aspect_ratio
+    - '49'
+    - inputs
+    - aspect_ratio
   lora_name:
-  - '30:15'
-  - inputs
-  - lora_name
+    - '30:15'
+    - inputs
+    - lora_name
 inputs:
-- id: value
-  type: text
-  label: value
-  required: true
-- id: aspect_ratio
-  type: select
-  label: aspect_ratio
-  required: true
-  choices:
-  - 1:1 (Square)
-  - 2:3 (Portrait Photo)
-  - 3:2 (Photo)
-  - 3:4 (Portrait Standard)
-  - 4:3 (Standard)
-  - 9:16 (Portrait Widescreen)
-  - 16:9 (Widescreen)
-  - 21:9 (Ultrawide)
-- id: lora_name
-  type: select
-  label: lora_name
-  required: true
-  choices: &id001
-  - krea2_darkbrush.safetensors
-  - Krea2_WoW_K2.safetensors
-discord:
-  command: krea2
-  inputs:
-  - id: value
-    nodeId: '30:19'
-    field: value
+  - id: prompt
     type: text
-    label: value
+    label: Prompt
     required: true
   - id: aspect_ratio
-    nodeId: '49'
-    field: aspect_ratio
     type: select
     label: aspect_ratio
     required: true
     choices:
-    - 1:1 (Square)
-    - 2:3 (Portrait Photo)
-    - 3:2 (Photo)
-    - 3:4 (Portrait Standard)
-    - 4:3 (Standard)
-    - 9:16 (Portrait Widescreen)
-    - 16:9 (Widescreen)
-    - 21:9 (Ultrawide)
+      - 1:1 (Square)
+      - 2:3 (Portrait Photo)
+      - 3:2 (Photo)
+      - 3:4 (Portrait Standard)
+      - 4:3 (Standard)
+      - 9:16 (Portrait Widescreen)
+      - 16:9 (Widescreen)
+      - 21:9 (Ultrawide)
   - id: lora_name
-    nodeId: '30:15'
-    field: lora_name
     type: select
     label: lora_name
     required: true
-    choices: *id001
+    choices:
+      - krea2_darkbrush.safetensors
+      - Krea2_WoW_K2.safetensors
+      - krea2_Enhancer.safetensors
+discord:
+  command: krea2
+  inputs:
+    - id: prompt
+      nodeId: '30:19'
+      field: value
+      type: text
+      label: Prompt
+      required: true
+    - id: aspect_ratio
+      nodeId: '49'
+      field: aspect_ratio
+      type: select
+      label: aspect_ratio
+      required: true
+      choices:
+        - 1:1 (Square)
+        - 2:3 (Portrait Photo)
+        - 3:2 (Photo)
+        - 3:4 (Portrait Standard)
+        - 4:3 (Standard)
+        - 9:16 (Portrait Widescreen)
+        - 16:9 (Widescreen)
+        - 21:9 (Ultrawide)
+    - id: lora_name
+      nodeId: '30:15'
+      field: lora_name
+      type: select
+      label: lora_name
+      required: true
+      choices:
+        - krea2_darkbrush.safetensors
+        - Krea2_WoW_K2.safetensors
+        - krea2_Enhancer.safetensors
   ui:
     layout_version: v1
     embed:
@@ -83,10 +87,10 @@ discord:
       color: '#5865F2'
       use_role_color: true
       show_metadata:
-      - prompt
-      - seed
-      - model
-      - ratio
+        - prompt
+        - seed
+        - model
+        - ratio
     v2_layout:
       title_template: '{user}''s Generation'
       color: '#5865F2'
@@ -94,20 +98,20 @@ discord:
       grid_columns: 2
       media_position: left
       show_metadata:
-      - prompt
-      - seed
-      - model
-      - ratio
+        - prompt
+        - seed
+        - model
+        - ratio
     buttons:
-    - type: regenerate
-      label: Regenerate
-      style: primary
-    - type: options
-      label: Options
-      style: secondary
-    - type: delete
-      label: Delete
-      style: danger
+      - type: regenerate
+        label: Regenerate
+        style: primary
+      - type: options
+        label: Options
+        style: secondary
+      - type: delete
+        label: Delete
+        style: danger
     positions: {}
   loras:
     '30:15': Krea2.json
