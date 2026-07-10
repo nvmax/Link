@@ -216,15 +216,17 @@ export function AiStudio() {
             </div>
           </div>
 
-          <div className="bg-amber-500/5 border border-amber-500/20 p-6 rounded-3xl space-y-3">
-            <div className="flex items-center gap-2 text-amber-500">
-              <AlertCircle className="w-4 h-4" />
-              <span className="text-xs font-bold uppercase tracking-tight">API Key Required</span>
+          {['openai', 'gemini', 'anthropic', 'grok'].includes(selectedProviderId) && (
+            <div className="bg-amber-500/5 border border-amber-500/20 p-6 rounded-3xl space-y-3">
+              <div className="flex items-center gap-2 text-amber-500">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-tight">API Key Required</span>
+              </div>
+              <p className="text-[11px] text-amber-500/70 font-medium leading-relaxed">
+                Make sure to set your API keys in <strong>Mission Control</strong> under the Environment section. Standard keys like <code>OPENAI_API_KEY</code> are used for cloud providers.
+              </p>
             </div>
-            <p className="text-[11px] text-amber-500/70 font-medium leading-relaxed">
-              Make sure to set your API keys in <strong>Mission Control</strong> under the Environment section. Standard keys like <code>OPENAI_API_KEY</code> are used for cloud providers.
-            </p>
-          </div>
+          )}
         </div>
 
         {/* Right Column: Prompt Library */}

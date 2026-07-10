@@ -26,7 +26,7 @@ export function MissionControl() {
     if (aiConfig?.active_provider) {
       const active = aiConfig.active_provider.toUpperCase();
       const providerKey = `${active}_API_KEY`;
-      const validKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GROK_API_KEY'];
+      const validKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GROK_API_KEY', 'LMSTUDIO_API_KEY', 'OLLAMA_API_KEY', 'VLLM_API_KEY'];
       if (validKeys.includes(providerKey)) {
         setSelectedAiKeyProvider(providerKey);
         return;
@@ -324,27 +324,38 @@ export function MissionControl() {
                   <option value="ANTHROPIC_API_KEY">Anthropic</option>
                   <option value="GEMINI_API_KEY">Gemini</option>
                   <option value="GROK_API_KEY">Grok</option>
+                  <option value="LMSTUDIO_API_KEY">LM Studio</option>
+                  <option value="OLLAMA_API_KEY">Ollama</option>
+                  <option value="VLLM_API_KEY">vLLM</option>
                 </select>
               </div>
-              <input 
-                type="password" 
-                value={config[selectedAiKeyProvider] || ''} 
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const detected = autoDetectProvider(val);
-                  if (detected && detected !== selectedAiKeyProvider) {
-                    setSelectedAiKeyProvider(detected);
-                    const updatedConfig = { ...config };
-                    delete updatedConfig[selectedAiKeyProvider];
-                    updatedConfig[detected] = val;
-                    setConfig(updatedConfig);
-                  } else {
-                    handleConfigChange(selectedAiKeyProvider, val);
-                  }
-                }}
-                placeholder={`Enter ${selectedAiKeyProvider.replace('_', ' ')}...`}
-                className="w-full bg-black/40 border border-indigo-500/10 rounded-xl px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500/50 outline-none transition-all placeholder:text-white/10 shadow-inner" 
-              />
+              {['LMSTUDIO_API_KEY', 'OLLAMA_API_KEY', 'VLLM_API_KEY'].includes(selectedAiKeyProvider) ? (
+                <div className="w-full bg-black/40 border border-emerald-500/10 rounded-xl px-4 py-3 text-sm text-emerald-400 font-medium">
+                  {selectedAiKeyProvider === 'LMSTUDIO_API_KEY' && 'LM Studio runs locally and does not require an API key.'}
+                  {selectedAiKeyProvider === 'OLLAMA_API_KEY' && 'Ollama runs locally and does not require an API key.'}
+                  {selectedAiKeyProvider === 'VLLM_API_KEY' && 'vLLM runs locally and does not require an API key.'}
+                </div>
+              ) : (
+                <input 
+                  type="password" 
+                  value={config[selectedAiKeyProvider] || ''} 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const detected = autoDetectProvider(val);
+                    if (detected && detected !== selectedAiKeyProvider) {
+                      setSelectedAiKeyProvider(detected);
+                      const updatedConfig = { ...config };
+                      delete updatedConfig[selectedAiKeyProvider];
+                      updatedConfig[detected] = val;
+                      setConfig(updatedConfig);
+                    } else {
+                      handleConfigChange(selectedAiKeyProvider, val);
+                    }
+                  }}
+                  placeholder={`Enter ${selectedAiKeyProvider.replace('_', ' ')}...`}
+                  className="w-full bg-black/40 border border-indigo-500/10 rounded-xl px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500/50 outline-none transition-all placeholder:text-white/10 shadow-inner" 
+                />
+              )}
             </div>
           </div>
         </div>
