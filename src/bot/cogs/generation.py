@@ -1060,12 +1060,20 @@ class GenerationCog(commands.Cog):
         """Entry point for interactive inpaint requests using Discord Activity iframe."""
         logger.info(f"handle_inpaint_request for {workflow_name} by {interaction.user.display_name}")
         
+        # 0. Ensure Webserver Domain is configured
+        domain = (Config.INPAINT_SERVER_DOMAIN or "").strip()
+        if not domain:
+            msg = "⚠️ **Inpainting Disabled**: Webserver Domain is not configured in Mission Control. Please specify your domain (e.g. `yourdomain.com`) in Mission Control to enable Discord Activity inpainting."
+            if not interaction.response.is_done():
+                return await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                return await interaction.followup.send(msg, ephemeral=True)
+
         # 1. Resolve source image URL
         source_image_url = None
         user_values = user_values or {}
         prefilled = prefilled or {}
         merged = {**prefilled, **user_values}
-        domain = Config.INPAINT_SERVER_DOMAIN or "aidigitalcreations.com"
 
         def _to_inpaint_url(file_ref: str) -> str:
             """Helper to resolve a URL or local file path to an accessible HTTP URL."""

@@ -6,6 +6,7 @@ import { useDashboard } from './DashboardProvider';
 
 export function ListView() {
   const { 
+    config,
     selectedWorkflow, 
     selections, 
     toggleInput, 
@@ -18,6 +19,8 @@ export function ListView() {
     setLoraSelections,
     updateSelection
   } = useDashboard();
+
+  const isDomainConfigured = Boolean(config?.INPAINT_SERVER_DOMAIN && config.INPAINT_SERVER_DOMAIN.trim() !== '');
 
   if (!selectedWorkflow) {
     return <div className="h-full flex items-center justify-center text-slate-500">Select a workflow to view the list map.</div>;
@@ -144,7 +147,9 @@ export function ListView() {
                             <span className="text-[7px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">SELECT → modal</span>
                           )}
                           {isSelected.type === 'inpaint' && (
-                            <span className="text-[7px] px-1.5 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-400 font-bold">INPAINT → Activity</span>
+                            <span className={`text-[7px] px-1.5 py-0.5 rounded font-bold ${isDomainConfigured ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                              {isDomainConfigured ? 'INPAINT → Activity' : '⚠️ INPAINT (Requires Domain in Mission Control)'}
+                            </span>
                           )}
                         </div>
                         <select
@@ -156,7 +161,9 @@ export function ListView() {
                           <option value="image_upload">image_upload — image file (channel)</option>
                           <option value="audio_upload">audio_upload — audio file (channel)</option>
                           <option value="video_upload">video_upload — video file (channel)</option>
-                          <option value="inpaint">inpaint — interactive canvas (Activity)</option>
+                          <option value="inpaint" disabled={!isDomainConfigured}>
+                            {isDomainConfigured ? "inpaint — interactive canvas (Activity)" : "🔒 inpaint (Requires Webserver Domain in Mission Control)"}
+                          </option>
                           <option value="select">select — dropdown choices (modal)</option>
                         </select>
                         

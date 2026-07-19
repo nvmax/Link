@@ -37,8 +37,8 @@ class Config:
     API_KEY = os.getenv("API_KEY")
     
     # Inpaint Activity Settings
-    DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
-    INPAINT_SERVER_DOMAIN = os.getenv("INPAINT_SERVER_DOMAIN", "aidigitalcreations.com")
+    DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "").strip()
+    INPAINT_SERVER_DOMAIN = os.getenv("INPAINT_SERVER_DOMAIN", "").strip()
     INPAINT_SERVER_PORT = int(os.getenv("INPAINT_SERVER_PORT", "8000"))
     
     # Lockdown Settings
@@ -95,8 +95,8 @@ class Config:
         cls.ALLOWED_CHANNEL_IDS  = [int(x.strip()) for x in _channel_ids.split(",") if x.strip().isdigit()]
         cls.ALLOWED_CHANNEL_ID   = cls.ALLOWED_CHANNEL_IDS[0] if cls.ALLOWED_CHANNEL_IDS else None
 
-        cls.DISCORD_CLIENT_ID     = os.getenv("DISCORD_CLIENT_ID", "")
-        cls.INPAINT_SERVER_DOMAIN = os.getenv("INPAINT_SERVER_DOMAIN", "aidigitalcreations.com")
+        cls.DISCORD_CLIENT_ID     = os.getenv("DISCORD_CLIENT_ID", "").strip()
+        cls.INPAINT_SERVER_DOMAIN = os.getenv("INPAINT_SERVER_DOMAIN", "").strip()
         try:
             cls.INPAINT_SERVER_PORT = int(os.getenv("INPAINT_SERVER_PORT", "8000"))
         except ValueError:
