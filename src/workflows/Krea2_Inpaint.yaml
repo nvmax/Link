@@ -1,0 +1,72 @@
+workflow_name: Krea2_Inpaint
+display_name: Inpaint
+discord_command: inpaint
+ai_prompt:
+  enabled: false
+  category: image
+  prompt_id: ''
+  target_input: ''
+description: Inpaint masked areas of an image using Krea2 LanPaint
+mapping:
+  prompt:
+    - '30:19'
+    - inputs
+    - value
+  image:
+    - '200'
+    - inputs
+    - image
+inputs:
+  - id: prompt
+    type: text
+    label: Prompt
+    required: true
+  - id: image
+    type: inpaint
+    label: Inpaint Image
+    required: true
+discord:
+  command: inpaint
+  inputs:
+    - id: prompt
+      nodeId: '30:19'
+      field: value
+      type: text
+      label: Prompt
+      required: true
+    - id: image
+      nodeId: '200'
+      field: image
+      type: inpaint
+      label: Inpaint Image
+      required: true
+  ui:
+    layout_version: v1
+    embed:
+      title_template: '{user}''s Inpaint'
+      color: '#5865F2'
+      use_role_color: true
+      show_metadata:
+        - prompt
+        - seed
+    v2_layout:
+      title_template: '{user}''s Inpaint'
+      color: '#5865F2'
+      use_role_color: true
+      grid_columns: 2
+      media_position: left
+      show_metadata:
+        - prompt
+        - seed
+    buttons:
+      - type: regenerate
+        label: Regenerate
+        style: primary
+      - type: options
+        label: Options
+        style: secondary
+      - type: delete
+        label: Delete
+        style: danger
+    positions: {}
+  loras: {}

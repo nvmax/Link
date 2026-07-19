@@ -177,6 +177,66 @@ export function MissionControl() {
               </div>
           </div>
         </div>
+
+        {/* Discord Activity (Inpainting) Card */}
+        <div className="bg-[#0d0d0f] rounded-3xl border border-white/5 p-6 space-y-6 shadow-2xl md:col-span-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-fuchsia-500/20 flex items-center justify-center text-fuchsia-400">
+                <Activity className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white">Discord Activity (Interactive Inpainting)</h3>
+                <p className="text-xs text-slate-500">Configure embedded iframe settings for Discord Activities inpainting tool</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const domain = config.INPAINT_SERVER_DOMAIN || 'aidigitalcreations.com';
+                const text = `Prefix: /\nTarget: ${domain}\n\nPrefix: /api\nTarget: ${domain}`;
+                navigator.clipboard.writeText(text);
+                showToast('Copied Discord Developer Portal URL Mappings to clipboard!', 'success');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-400 text-xs font-bold transition-all border border-fuchsia-500/30 flex items-center gap-2"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Copy Dev Portal Settings
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid gap-2">
+              <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Discord Client ID</label>
+              <input 
+                type="text" 
+                placeholder="123456789012345678"
+                value={config.DISCORD_CLIENT_ID || ''} 
+                onChange={(e) => handleConfigChange('DISCORD_CLIENT_ID', e.target.value)}
+                className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-fuchsia-300 focus:border-fuchsia-500/50 outline-none transition-all placeholder:text-white/10" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Webserver Domain</label>
+              <input 
+                type="text" 
+                placeholder="aidigitalcreations.com"
+                value={config.INPAINT_SERVER_DOMAIN || 'aidigitalcreations.com'} 
+                onChange={(e) => handleConfigChange('INPAINT_SERVER_DOMAIN', e.target.value)}
+                className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-fuchsia-300 focus:border-fuchsia-500/50 outline-none transition-all" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Webserver Port</label>
+              <input 
+                type="number" 
+                placeholder="8000"
+                value={config.INPAINT_SERVER_PORT || '8000'} 
+                onChange={(e) => handleConfigChange('INPAINT_SERVER_PORT', e.target.value)}
+                className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-fuchsia-300 focus:border-fuchsia-500/50 outline-none transition-all" 
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ComfyUI Setup */}

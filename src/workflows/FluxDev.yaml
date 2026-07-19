@@ -130,6 +130,7 @@ discord:
           - videosegment
           - KleinEdit
           - Krea2-Edit-Image
+          - Krea2_Inpaint
     positions:
       '8':
         x: 3100

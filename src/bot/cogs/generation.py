@@ -145,6 +145,11 @@ class GenerationCog(commands.Cog):
             # Prioritize discord-specific inputs (from Modal Studio/Architect) over base inputs
             inputs = manifest.get("discord", {}).get("inputs", manifest.get("inputs", []))
 
+            # Check if workflow uses interactive inpainting
+            has_inpaint = any(input_cfg.get("type") == "inpaint" for input_cfg in inputs)
+            if has_inpaint:
+                return await self.handle_inpaint_request(interaction, workflow_name, workflow, manifest, user_values, prefilled)
+
             # Ensure prefilled is initialized
             if prefilled is None: prefilled = {}
             
@@ -1050,6 +1055,198 @@ class GenerationCog(commands.Cog):
                         node_data['inputs']['text'] = add_prompt
                     logger.info(f"Appended LoRA prompt to node {node_id}")
                     break
+
+    async def handle_inpaint_request(self, interaction: discord.Interaction, workflow_name: str, wf: dict, manifest: dict, user_values: dict = None, prefilled: dict = None):
+        """Entry point for interactive inpaint requests using Discord Activity iframe."""
+        logger.info(f"handle_inpaint_request for {workflow_name} by {interaction.user.display_name}")
+        
+        # 1. Resolve source image URL
+        source_image_url = None
+        user_values = user_values or {}
+        prefilled = prefilled or {}
+        merged = {**prefilled, **user_values}
+        domain = Config.INPAINT_SERVER_DOMAIN or "aidigitalcreations.com"
+
+        def _to_inpaint_url(file_ref: str) -> str:
+            """Helper to resolve a URL or local file path to an accessible HTTP URL."""
+            if not file_ref or not isinstance(file_ref, str):
+                return None
+            file_ref = file_ref.strip()
+            if file_ref.startswith('http://') or file_ref.startswith('https://'):
+                return file_ref
+            
+            filename = os.path.basename(file_ref)
+            local_path = file_ref if os.path.isabs(file_ref) else os.path.join(Config.ASSETS_DIR, filename)
+            if os.path.exists(local_path) and os.path.isfile(local_path):
+                url = f"https://{domain}/api/inpaint/asset/{filename}"
+                logger.info(f"Resolved local inpaint source asset: {local_path} -> {url}")
+                return url
+            return None
+
+        # Check if user passed an attachment or URL / file path in parameters
+        for k, v in merged.items():
+            if hasattr(v, 'url'):
+                source_image_url = v.url
+                break
+            elif isinstance(v, str) and v.strip():
+                resolved = _to_inpaint_url(v)
+                if resolved:
+                    source_image_url = resolved
+                    break
+
+        # Fallback: check interaction message attachments or embed images
+        if not source_image_url and interaction.message:
+            if interaction.message.attachments:
+                source_image_url = interaction.message.attachments[0].url
+            elif interaction.message.embeds:
+                emb = interaction.message.embeds[0]
+                if emb.image and emb.image.url:
+                    source_image_url = emb.image.url
+                elif emb.thumbnail and emb.thumbnail.url:
+                    source_image_url = emb.thumbnail.url
+
+        # Fallback: query last generated image for this user in DB
+        if not source_image_url:
+            try:
+                with db_session() as db:
+                    recent_job = db.query(GenerationJob).filter(
+                        GenerationJob.user_id == str(interaction.user.id),
+                        GenerationJob.status == JobStatus.COMPLETED
+                    ).order_by(GenerationJob.created_at.desc()).first()
+                    if recent_job:
+                        recent_asset = db.query(Asset).filter(
+                            Asset.job_id == recent_job.id,
+                            Asset.file_type.like("image%")
+                        ).order_by(Asset.created_at.desc()).first()
+                        if recent_asset and recent_asset.file_path:
+                            resolved = _to_inpaint_url(recent_asset.file_path)
+                            if resolved:
+                                source_image_url = resolved
+            except Exception as e:
+                logger.warning(f"Error querying DB for recent image in inpaint: {e}")
+
+        # If still no image found, ask user to upload an image
+        if not source_image_url:
+            prompt_msg = "📸 **Upload Required for Inpaint**: Please upload or attach the image you want to inpaint."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(prompt_msg, ephemeral=True)
+            else:
+                await interaction.followup.send(prompt_msg, ephemeral=True)
+
+            def check(m):
+                return m.author.id == interaction.user.id and m.channel.id == interaction.channel_id and m.attachments
+
+            try:
+                msg = await self.bot.wait_for('message', check=check, timeout=120.0)
+                attachment = msg.attachments[0]
+                source_image_url = attachment.url
+                try: await msg.delete()
+                except Exception: pass
+            except asyncio.TimeoutError:
+                await interaction.followup.send("⏳ Timeout waiting for image upload. Please try again.", ephemeral=True)
+                return
+
+        # 2. Create session in session_store
+        from src.inpaint.session_store import session_store
+        initial_prompt = merged.get("prompt", "")
+        session = session_store.create_session(
+            user_id=str(interaction.user.id),
+            user_name=interaction.user.display_name,
+            channel_id=str(interaction.channel_id),
+            source_image_url=source_image_url,
+            prompt=initial_prompt,
+            guild_id=str(interaction.guild_id) if interaction.guild_id else None
+        )
+
+        # 3. Build Activity Launch Embed & Button
+        domain = Config.INPAINT_SERVER_DOMAIN or "aidigitalcreations.com"
+        client_id = Config.DISCORD_CLIENT_ID or (str(self.bot.application_id) if self.bot.application_id else "")
+        
+        if client_id:
+            activity_url = f"https://{domain}/?token={session.token}&client_id={client_id}"
+        else:
+            activity_url = f"https://{domain}/?token={session.token}"
+        
+        embed = discord.Embed(
+            title="🎨 Inpaint Studio — Interactive Mask Painter",
+            description=(
+                f"**User**: {interaction.user.mention}\n\n"
+                f"Click below to launch the **Inpaint Canvas** directly inside Discord!\n\n"
+                f"1️⃣ Draw your mask over the image area to edit\n"
+                f"2️⃣ Type your prompt\n"
+                f"3️⃣ Click **Submit Inpaint**"
+            ),
+            color=discord.Color.from_rgb(99, 102, 241)
+        )
+        embed.set_thumbnail(url=source_image_url)
+        embed.set_footer(text="Powered by LINK & Discord Embedded App SDK")
+
+        view = ui.View(timeout=900)
+        view.add_item(ui.Button(
+            label="🎨 Open Inpaint Studio",
+            style=discord.ButtonStyle.link,
+            url=activity_url
+        ))
+
+        if not interaction.response.is_done():
+            reply_msg = await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            try:
+                msg_obj = await interaction.original_response()
+                session.message_id = str(msg_obj.id)
+            except Exception: pass
+        else:
+            followup_msg = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            if followup_msg:
+                session.message_id = str(followup_msg.id)
+
+    async def handle_inpaint_completion(self, session, user_values: dict, uploaded_filename: str):
+        """Called when user submits the painted mask from the inpaint web app."""
+        logger.info(f"handle_inpaint_completion for user {session.user_name} ({session.user_id})")
+        channel = self.bot.get_channel(int(session.channel_id))
+        if not channel:
+            logger.error(f"Channel {session.channel_id} not found for inpaint completion")
+            return
+
+        workflow_name = "Krea2_Inpaint"
+        wf = self.bot.workflow_registry.get_workflow(workflow_name)
+        if not wf:
+            logger.error(f"Workflow {workflow_name} not found for inpaint completion")
+            return
+
+        manifest = wf["manifest"]
+        message_id = int(session.message_id) if session.message_id else None
+
+        # Fetch or send queue notification message
+        try:
+            if message_id:
+                m = await channel.fetch_message(message_id)
+                await m.edit(content=f"🎨 **{session.user_name}** — Inpaint mask received! Queuing job...", embed=None, view=None)
+            else:
+                m = await channel.send(f"🎨 **{session.user_name}** — Inpaint mask received! Queuing job...")
+                message_id = m.id
+        except Exception as e:
+            logger.warning(f"Could not edit/send inpaint message: {e}")
+            m = await channel.send(f"🎨 **{session.user_name}** — Inpaint mask received! Queuing job...")
+            message_id = m.id
+
+        # Execute generation pipeline
+        class InpaintUser:
+            def __init__(self, uid, uname):
+                self.id = uid
+                self.display_name = uname
+                self.mention = f"<@{uid}>"
+
+        user_obj = InpaintUser(session.user_id, session.user_name)
+
+        await self._process_generation(
+            user=user_obj,
+            channel=channel,
+            workflow_name=workflow_name,
+            wf=wf,
+            manifest=manifest,
+            values=user_values,
+            message_id=message_id
+        )
 
 async def setup(bot):
     await bot.add_cog(GenerationCog(bot))

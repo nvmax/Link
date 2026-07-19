@@ -124,6 +124,10 @@ async def main():
         
         # Start Internal API server for Dashboard (port 8001)
         api_task = asyncio.create_task(start_api_server(bot, port=8001))
+
+        # Start Inpaint Activity server for Discord Activities (port 8000 default)
+        from src.inpaint.server import start_inpaint_server
+        inpaint_task = asyncio.create_task(start_inpaint_server(bot, port=Config.INPAINT_SERVER_PORT))
         
         # Start Discord Bot
         await bot.start(Config.DISCORD_TOKEN)

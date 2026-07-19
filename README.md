@@ -27,7 +27,7 @@
 - **Bot-Level Queue System**: Thread-Safe QueueManager with asynchronous locking, postition messages are updated live in discord.
 - **Server Limits, Quota's & Bans**: Per server settings to control usage of Link, allowing per 30m/1h/12h/24h/7d/forever bans, Limits for rate limits per minute, per hour and per day. 
 - **Mapping Node Names**: Allows you to map node names to custom names that will be displayed in discord. example: `value` user name is changed to `prompt` in discord. 
-
+- **Discord Activity (Interactive Inpainting)**: Draw masks directly on images inside Discord using the Embedded App SDK iframe. Integrates with the `Krea2_Inpaint` workflow for seamless inpainting without leaving Discord.
 
 
 ### 🎨 Visual Architect
@@ -73,9 +73,11 @@ Theme Stuido is where you can customize your colors of Link's Dashboard, and sha
 Join us on discord [https://discord.gg/t4WYqVb93A](https://discord.gg/t4WYqVb93A)
 
 
-## 🗂️ Full Manual
+## 🗂️ Guides & Documentation
 
-Follow this link to see the full manual for LINK: [Full Manual](./Manual.md)
+- [Full Manual](./Manual.md)
+- [Discord Activities Inpainting Setup Guide](./docs/INPAINT_SETUP.md)
+- [Cloudflare Direct Domain & SSL Setup Guide](./docs/CLOUDFLARE.md)
 
 ## 🛠️ Quick Start
 

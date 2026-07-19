@@ -565,6 +565,9 @@ export function VisualWorkflowMap() {
                                     {isSelected.type === 'select' && (
                                       <span className="text-[7px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">SELECT → modal</span>
                                     )}
+                                    {isSelected.type === 'inpaint' && (
+                                      <span className="text-[7px] px-1.5 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-400 font-bold">INPAINT → Activity</span>
+                                    )}
                                   </div>
                                   <select
                                     value={isSelected.type || 'text'}
@@ -576,6 +579,7 @@ export function VisualWorkflowMap() {
                                     <option value="image_upload">image_upload — image file (channel)</option>
                                     <option value="audio_upload">audio_upload — audio file (channel)</option>
                                     <option value="video_upload">video_upload — video file (channel)</option>
+                                    <option value="inpaint">inpaint — interactive canvas (Activity)</option>
                                     <option value="select">select — dropdown choices (modal)</option>
                                   </select>
                                   

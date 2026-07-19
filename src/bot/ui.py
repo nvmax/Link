@@ -17,9 +17,9 @@ class DynamicModal(ui.Modal):
             itype = input_cfg.get("type", "")
             fid = input_cfg.get("id", "")
             fid_lower = fid.lower()
-            # Skip all file-upload types (declared or inferred by field name)
-            FILE_UPLOAD_TYPES = ["image_upload", "audio_upload", "video_upload", "select"]
-            FILE_KEYWORDS = ["audio", "video", "image", "file", "attachment"]
+            # Skip all file-upload and inpaint types (declared or inferred by field name)
+            FILE_UPLOAD_TYPES = ["image_upload", "audio_upload", "video_upload", "inpaint", "select"]
+            FILE_KEYWORDS = ["audio", "video", "image", "file", "attachment", "inpaint"]
             if itype in FILE_UPLOAD_TYPES:
                 continue
             if any(k in fid_lower for k in FILE_KEYWORDS):
@@ -64,10 +64,10 @@ class OptionsView(ui.View):
         self.on_confirm = on_confirm
         self.workflow_name = workflow_name
 
-        # Strip LoRA and upload fields
+        # Strip LoRA, upload, and inpaint fields
         self.visible_inputs = [
             cfg for cfg in inputs
-            if cfg.get("type") not in ["image_upload", "audio_upload"]
+            if cfg.get("type") not in ["image_upload", "audio_upload", "video_upload", "inpaint"]
             and "lora" not in cfg["id"].lower()
             and "➕" not in cfg["id"]
         ]

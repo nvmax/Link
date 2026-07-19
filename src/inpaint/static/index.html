@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINK Inpaint Studio</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Discord Embedded App SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.4.0/dist/index.global.js"></script>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Header Toolbar -->
+    <header class="toolbar-header">
+      <!-- Tool selection -->
+      <div class="tool-group">
+        <span class="tool-label">Tool:</span>
+        <button id="btn-brush" class="btn active" title="Brush (Paint Mask)">🖌️ Brush</button>
+        <button id="btn-eraser" class="btn" title="Eraser (Remove Mask)">🧹 Eraser</button>
+      </div>
+
+      <!-- Brush Shape -->
+      <div class="tool-group">
+        <span class="tool-label">Shape:</span>
+        <button id="btn-shape-circle" class="btn active" title="Circle Brush">⚪ Circle</button>
+        <button id="btn-shape-square" class="btn" title="Square Brush">⏹️ Square</button>
+        <button id="btn-shape-soft" class="btn" title="Soft Feathered Brush">🌫️ Soft</button>
+      </div>
+
+      <!-- Brush Size Slider -->
+      <div class="tool-group slider-container">
+        <span class="tool-label">Size:</span>
+        <input type="range" id="size-slider" min="5" max="150" value="40">
+        <span id="size-val" class="slider-value">40px</span>
+      </div>
+
+      <!-- Brush Opacity Slider -->
+      <div class="tool-group slider-container">
+        <span class="tool-label">Opacity:</span>
+        <input type="range" id="opacity-slider" min="10" max="100" value="100">
+        <span id="opacity-val" class="slider-value">100%</span>
+      </div>
+
+      <!-- Mask Overlay Opacity Slider -->
+      <div class="tool-group slider-container">
+        <span class="tool-label">Overlay:</span>
+        <input type="range" id="overlay-slider" min="10" max="100" value="65">
+        <span id="overlay-val" class="slider-value">65%</span>
+      </div>
+
+      <!-- History & Actions -->
+      <div class="tool-group">
+        <button id="btn-undo" class="btn" title="Undo (Ctrl+Z)">↩️</button>
+        <button id="btn-redo" class="btn" title="Redo (Ctrl+Y)">↪️</button>
+        <button id="btn-toggle-mask" class="btn active" title="Toggle Mask Visibility">👁️ Mask</button>
+        <button id="btn-clear" class="btn btn-danger" title="Clear Mask">🗑️ Clear</button>
+      </div>
+    </header>
+
+    <!-- Canvas Viewport -->
+    <main id="viewport" class="viewport">
+      <div id="canvas-stack" class="canvas-stack">
+        <canvas id="bg-canvas"></canvas>
+        <canvas id="mask-canvas"></canvas>
+        <canvas id="cursor-canvas"></canvas>
+      </div>
+    </main>
+
+    <!-- Bottom Bar -->
+    <footer class="bottom-bar">
+      <input type="text" id="prompt-input" class="prompt-input" placeholder="Describe what you want to generate in the masked area..." />
+      <button id="btn-submit" class="btn btn-primary">🎨 Submit Inpaint</button>
+    </footer>
+
+    <!-- Status / Loading Overlay -->
+    <div id="status-overlay">
+      <div class="spinner"></div>
+      <div id="status-text" class="status-text">Initializing Inpaint Studio...</div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -129,9 +129,10 @@ class LinkBot(commands.Bot):
                             has_dynamic_loras = True
                     needs_lora_picker = bool(manifest_data.get('lora_list')) and has_dynamic_loras
                     needs_ai_review = manifest_data.get('ai_prompt', {}).get('enabled', False)
-                    is_ephemeral = needs_lora_picker or needs_ai_review
+                    needs_inpaint = any(input_cfg.get('type') == 'inpaint' for input_cfg in manifest_data.get('inputs', []))
+                    is_ephemeral = needs_lora_picker or needs_ai_review or needs_inpaint
 
-                    # Defer — ephemeral only if LoRA picker is needed (keeps picker private)
+                    # Defer — ephemeral if LoRA picker, AI review, or inpaint is needed (keeps interaction private)
                     try:
                         await interaction.response.defer(ephemeral=is_ephemeral)
                         logger.info(f"Interaction deferred for command {wf_name} (ephemeral={is_ephemeral})")
@@ -223,21 +224,21 @@ class LinkBot(commands.Bot):
                     logger.info(f"Skipping LoRA field '{safe_log_name}' from slash command (handled by LoRA picker)")
                     continue
 
-                # Default to str unless it's a number or upload
+                # Default to str unless it's a number or upload / inpaint
                 annotation = str
                 if param_type == "number":
                     annotation = int
-                elif param_type in ["image_upload", "audio_upload", "video_upload"]:
+                elif param_type in ["image_upload", "audio_upload", "video_upload", "inpaint"]:
                     annotation = discord.Attachment
                 
-                # Use the 'required' flag from YAML
-                is_required = input_cfg.get("required", False)
+                # Use the 'required' flag from YAML (inpaint attachments are optional in slash command)
+                is_required = input_cfg.get("required", False) if param_type != "inpaint" else False
                 
                 if is_required:
                     default = inspect.Parameter.empty
                 else:
                     default = input_cfg.get("default", None)
-                    if input_cfg.get("type") in ["image_upload", "audio_upload"]:
+                    if input_cfg.get("type") in ["image_upload", "audio_upload", "video_upload", "inpaint"]:
                         default = None
 
                 workflow_params.append(inspect.Parameter(
