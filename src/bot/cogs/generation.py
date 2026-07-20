@@ -1168,13 +1168,15 @@ class GenerationCog(commands.Cog):
 
         # 3. Build Activity Launch Embed & Button
         domain = Config.INPAINT_SERVER_DOMAIN or "aidigitalcreations.com"
-        client_id = Config.DISCORD_CLIENT_ID or (str(self.bot.application_id) if self.bot.application_id else "")
+        client_id = str(self.bot.application_id or (self.bot.user.id if self.bot.user else "")) or Config.DISCORD_CLIENT_ID
+
         
         web_url = f"https://{domain}/?token={session.token}"
         if client_id:
-            activity_url = f"https://discord.com/activities/{client_id}"
+            activity_url = f"https://{client_id}.discordsays.com/?token={session.token}"
         else:
             activity_url = web_url
+
         
         embed = discord.Embed(
             title="🎨 Inpaint Studio — Interactive Mask Painter",

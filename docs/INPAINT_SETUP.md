@@ -24,8 +24,9 @@ To enable Discord Activities for your bot:
    > [!NOTE]
    > Do **NOT** include `https://` in the Target field — Discord automatically adds the HTTPS protocol.
 
-6. Under **OAuth2 → General**:
-   - Copy your **Client ID** and save it in your `.env` file as `DISCORD_CLIENT_ID`.
+6. Under **Activities → Primary Entry Point Command**:
+   - Enable/select a **Primary Entry Point Command** (e.g. `/inpaint` or `Inpaint Studio`).
+   - *Note: Discord requires a Primary Entry Point command to be registered under Activities so that clicking activity launch links (`discord.com/activities/...`) can start the Activity overlay frame inside Discord.*
 
 7. Under **Installation**:
    - Ensure your bot has the following OAuth2 scopes enabled:
@@ -33,8 +34,11 @@ To enable Discord Activities for your bot:
      - `applications.commands`
      - `activities.read`
      - `activities.write`
+   - Re-invite the bot to your Discord server with these scopes if previously authorized without Activity scopes.
+
 
 ---
+
 
 ## 2. Network & Server Setup
 
@@ -103,22 +107,22 @@ cloudflared tunnel run link-inpaint
 Add the following to your root `.env` file:
 
 ```env
-DISCORD_CLIENT_ID=your_application_client_id
 INPAINT_SERVER_DOMAIN=aidigitalcreations.com
 INPAINT_SERVER_PORT=8000
 ```
 
-- `DISCORD_CLIENT_ID`: Your Discord application ID from the Developer Portal.
 - `INPAINT_SERVER_DOMAIN`: The domain registered in your URL Mappings.
 - `INPAINT_SERVER_PORT`: Port where the inpaint server listens locally (default `8000`).
+- *(Optional)* `DISCORD_CLIENT_ID`: Your Discord application ID. **LINK automatically retrieves this from your running bot instance**, so configuring this manually is optional.
 
 ---
 
 ## 4. Dashboard Configuration
 
 In the LINK Dashboard under **Mission Control**:
-- You can manage `DISCORD_CLIENT_ID`, `INPAINT_SERVER_DOMAIN`, and `INPAINT_SERVER_PORT`.
+- You can manage `INPAINT_SERVER_DOMAIN` and `INPAINT_SERVER_PORT`.
 - Click **Copy Dev Portal Settings** to quickly copy the exact URL Mappings to your clipboard.
+
 
 In the **Visual Architect / List View**:
 - Select the `Krea2_Inpaint` workflow (or any workflow using image masking).
@@ -144,4 +148,17 @@ In the **Visual Architect / List View**:
 6. Type what you want to see in the painted area in the prompt bar (e.g. *"a cute sleeping cat on the sofa"*).
 7. Click **🎨 Submit Inpaint**.
 8. The canvas automatically closes itself inside Discord via `discordSdk.commands.close()` and the generation runs asynchronously using your configured ComfyUI inpainting workflow!
+
+---
+
+### How Discord Launches Activities
+
+Discord uses the official Discord Activity Proxy domain format:
+```text
+https://<DISCORD_CLIENT_ID>.discordsays.com/?token=<SESSION_TOKEN>
+```
+
+When Discord opens a link matching `https://<DISCORD_CLIENT_ID>.discordsays.com`, Discord automatically routes it to your **Root Mapping** (`aidigitalcreations.com`) and opens the canvas as an embedded Activity iframe directly inside Discord.
+
+
 
