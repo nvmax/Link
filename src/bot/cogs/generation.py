@@ -1170,10 +1170,11 @@ class GenerationCog(commands.Cog):
         domain = Config.INPAINT_SERVER_DOMAIN or "aidigitalcreations.com"
         client_id = Config.DISCORD_CLIENT_ID or (str(self.bot.application_id) if self.bot.application_id else "")
         
+        web_url = f"https://{domain}/?token={session.token}"
         if client_id:
-            activity_url = f"https://{domain}/?token={session.token}&client_id={client_id}"
+            activity_url = f"https://discord.com/activities/{client_id}"
         else:
-            activity_url = f"https://{domain}/?token={session.token}"
+            activity_url = web_url
         
         embed = discord.Embed(
             title="🎨 Inpaint Studio — Interactive Mask Painter",
@@ -1195,6 +1196,14 @@ class GenerationCog(commands.Cog):
             style=discord.ButtonStyle.link,
             url=activity_url
         ))
+
+        if client_id and domain:
+            view.add_item(ui.Button(
+                label="🌐 Open in Browser",
+                style=discord.ButtonStyle.link,
+                url=web_url
+            ))
+
 
         if not interaction.response.is_done():
             reply_msg = await interaction.response.send_message(embed=embed, view=view, ephemeral=True)

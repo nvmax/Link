@@ -64,6 +64,21 @@ async def get_session(token: str):
         "channel_id": session.channel_id,
     }
 
+@app.get("/api/inpaint/session/user/{user_id}")
+async def get_session_by_user(user_id: str):
+    session = session_store.get_active_session_for_user(user_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"No active session found for user '{user_id}'.")
+    return {
+        "token": session.token,
+        "user_id": session.user_id,
+        "user_name": session.user_name,
+        "source_image_url": session.source_image_url,
+        "prompt": session.prompt,
+        "channel_id": session.channel_id,
+    }
+
+
 class SubmitInpaintRequest(BaseModel):
     token: str
     prompt: str

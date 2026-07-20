@@ -20,8 +20,11 @@
     statusOverlay.classList.add('hidden');
   }
 
-  // --- Discord SDK Handshake (Optional / Fallback for local browser testing) ---
+  // --- Discord SDK Handshake & Session Resolution ---
   let discordSdk = null;
+  let activeToken = sessionToken;
+  let sessionData = null;
+
   if (clientId && window.DiscordSDK) {
     try {
       discordSdk = new window.DiscordSDK.DiscordSDK(clientId);
@@ -32,24 +35,35 @@
     }
   }
 
-  if (!sessionToken) {
-    setStatus("Error: Invalid or missing session token.", false);
-    return;
-  }
-
   // --- Fetch Session Data ---
-  let sessionData = null;
   try {
     setStatus("Loading inpaint session...");
-    const res = await fetch(`/api/inpaint/session/${sessionToken}`);
-    if (!res.ok) {
-      throw new Error(`Session not found or expired (${res.status})`);
+    if (activeToken) {
+      const res = await fetch(`/api/inpaint/session/${activeToken}`);
+      if (!res.ok) throw new Error(`Session not found or expired (${res.status})`);
+      sessionData = await res.json();
+    } else {
+      // If launched as a Discord Activity deep-link (no URL token), fetch latest session
+      let targetUserId = null;
+      if (discordSdk && discordSdk.auth && discordSdk.auth.user) {
+        targetUserId = discordSdk.auth.user.id;
+      }
+      
+      let fetchUrl = targetUserId ? `/api/inpaint/session/user/${targetUserId}` : null;
+      if (!fetchUrl) {
+        throw new Error("Invalid or missing session token. Please re-run /inpaint in Discord.");
+      }
+      
+      const res = await fetch(fetchUrl);
+      if (!res.ok) throw new Error("No active inpaint session found. Please re-run /inpaint in Discord.");
+      sessionData = await res.json();
+      activeToken = sessionData.token;
     }
-    sessionData = await res.json();
   } catch (err) {
     setStatus(`Error: ${err.message}`, false);
     return;
   }
+
 
   // Set prompt input default
   const promptInput = document.getElementById('prompt-input');
@@ -376,7 +390,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token: sessionToken,
+          token: activeToken || sessionToken,
           prompt: promptText,
           mask_data_url: maskDataUrl
         })
@@ -387,14 +401,19 @@
         throw new Error(result.detail || "Submission failed");
       }
 
-      setStatus("🎉 Inpaint submitted successfully! Check Discord for results.", false);
+      setStatus("🎉 Inpaint submitted successfully! Closing window...", false);
 
-      // If running inside Discord Activity iframe, request close or notify
-      if (discordSdk) {
-        setTimeout(() => {
+      // Trigger close for Discord Activity overlay, iframe modal, or standalone tab
+      setTimeout(() => {
+        if (discordSdk) {
           try { discordSdk.commands.close(); } catch(e) {}
-        }, 1500);
-      }
+        } else if (window.parent && window.parent !== window) {
+          try { window.parent.postMessage({ type: 'CLOSE_INPAINT' }, '*'); } catch(e) {}
+        } else {
+          try { window.close(); } catch(e) {}
+        }
+      }, 1200);
+
     } catch (err) {
       console.error("Submit error:", err);
       setStatus(`❌ Error: ${err.message}`, false);

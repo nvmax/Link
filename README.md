@@ -27,7 +27,7 @@
 - **Bot-Level Queue System**: Thread-Safe QueueManager with asynchronous locking, postition messages are updated live in discord.
 - **Server Limits, Quota's & Bans**: Per server settings to control usage of Link, allowing per 30m/1h/12h/24h/7d/forever bans, Limits for rate limits per minute, per hour and per day. 
 - **Mapping Node Names**: Allows you to map node names to custom names that will be displayed in discord. example: `value` user name is changed to `prompt` in discord. 
-- **Discord Activity (Interactive Inpainting)**: Draw masks directly on images inside Discord using the Embedded App SDK iframe. Integrates with the `Krea2_Inpaint` workflow for seamless inpainting without leaving Discord.
+- **Discord Activity (Interactive Inpainting)**: Draw masks directly on images inside Discord using the native Embedded App SDK overlay frame. Automatically closes upon submission and seamlessly triggers your ComfyUI inpainting workflow without external browser popups.
 
 
 ### 🎨 Visual Architect

@@ -130,8 +130,10 @@ In the **Visual Architect / List View**:
 
 1. In any whitelisted Discord channel, type `/inpaint`.
 2. Optionally attach an image to the `/inpaint` command, reply to an existing image message, or run it without an attachment (the bot will pull your most recent generation or prompt for an upload).
-3. The bot sends a message with a **🎨 Open Inpaint Studio** button.
-4. Click the button — Discord opens the **Inpaint Canvas** inside the embedded iframe.
+3. The bot sends a message with:
+   - **🎨 Open Inpaint Studio**: Launches the interactive canvas directly inside Discord as a native Embedded Activity overlay iframe (no external web browser popups).
+   - **🌐 Open in Browser**: Optional fallback link to open the canvas in a standalone web tab if needed.
+4. Click **🎨 Open Inpaint Studio** — Discord launches the **Inpaint Canvas** directly inside the Discord application iframe overlay.
 5. Use the canvas tools:
    - **Brush**: Paint red over areas you want to replace.
    - **Eraser**: Remove mask areas.
@@ -141,4 +143,5 @@ In the **Visual Architect / List View**:
    - **Undo / Redo / Clear / Mask Toggle**: Full control over mask editing.
 6. Type what you want to see in the painted area in the prompt bar (e.g. *"a cute sleeping cat on the sofa"*).
 7. Click **🎨 Submit Inpaint**.
-8. The canvas automatically closes and the generation runs in Discord using the `Krea2_Inpaint` ComfyUI workflow!
+8. The canvas automatically closes itself inside Discord via `discordSdk.commands.close()` and the generation runs asynchronously using your configured ComfyUI inpainting workflow!
+
