@@ -78,6 +78,30 @@ async def get_session_by_user(user_id: str):
         "channel_id": session.channel_id,
     }
 
+@app.get("/api/inpaint/session/active/latest")
+async def get_latest_session():
+    session = session_store.get_latest_active_session()
+    if not session:
+        raise HTTPException(status_code=404, detail="No active inpaint session found. Please run /inpaint in Discord first.")
+    return {
+        "token": session.token,
+        "user_id": session.user_id,
+        "user_name": session.user_name,
+        "source_image_url": session.source_image_url,
+        "prompt": session.prompt,
+        "channel_id": session.channel_id,
+    }
+
+@app.get("/api/inpaint/config")
+async def get_inpaint_config():
+    bot = state.bot_instance
+    client_id = Config.DISCORD_CLIENT_ID or (str(bot.application_id) if bot and bot.application_id else (str(bot.user.id) if bot and bot.user else ""))
+    return {
+        "client_id": client_id,
+        "domain": Config.INPAINT_SERVER_DOMAIN
+    }
+
+
 
 class SubmitInpaintRequest(BaseModel):
     token: str

@@ -1,46 +1,13 @@
-# 🎨 Discord Activity Interactive Inpainting Setup Guide
+# 🎨 Interactive Inpainting Setup Guide
 
-LINK includes built-in support for Discord Activities powered by the **Discord Embedded App SDK**. This allows users to open an interactive image painting tool directly inside Discord's iframe to draw masks for inpainting without leaving Discord.
-
----
-
-## 1. Discord Developer Portal Setup
-
-To enable Discord Activities for your bot:
-
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
-2. Select your application / bot.
-3. Click **Activities** in the left sidebar menu.
-4. Toggle **Enable Activities** to **ON**.
-5. Under **URL Mappings**, add the following mappings:
-
-   | Prefix | Target |
-   |---|---|
-   | `/` | `yoursite.com` |
-   | `/api` | `yoursite.com` |
-
-   *(Replace `yoursite.com` with your actual domain or tunnel hostname)*
-
-   > [!NOTE]
-   > Do **NOT** include `https://` in the Target field — Discord automatically adds the HTTPS protocol.
-
-6. Under **Activities → Primary Entry Point Command**:
-   - Enable/select a **Primary Entry Point Command** (e.g. `/inpaint` or `Inpaint Studio`).
-   - *Note: Discord requires a Primary Entry Point command to be registered under Activities so that clicking activity launch links (`discord.com/activities/...`) can start the Activity overlay frame inside Discord.*
-
-7. Under **Installation**:
-   - Ensure your bot has the following OAuth2 scopes enabled:
-     - `bot`
-     - `applications.commands`
-     - `activities.read`
-     - `activities.write`
-   - Re-invite the bot to your Discord server with these scopes if previously authorized without Activity scopes.
-
+LINK includes built-in support for interactive image inpainting. This allows users to click a button in Discord to open a dedicated canvas studio in their browser, draw masks, enter prompts, and submit generations directly to ComfyUI.
 
 ---
 
+## 1. Network & Server Setup
 
-## 2. Network & Server Setup
+Your LINK inpaint server **must be reachable via a public HTTPS URL** so Discord users can access the inpaint canvas studio.
+
 
 Discord Activities load your web application inside an iframe from Discord's `discordsays.com` domain. Therefore, your LINK inpaint server **must be reachable via a public HTTPS URL**.
 

@@ -77,6 +77,17 @@ class SessionStore:
             return None
         return max(user_sessions, key=lambda s: s.created_at)
 
+    def get_latest_active_session(self) -> Optional[InpaintSession]:
+        self.cleanup_expired()
+        user_sessions = [
+            s for s in self.sessions.values()
+            if not s.expired and (time.time() - s.created_at <= self.ttl_seconds)
+        ]
+        if not user_sessions:
+            return None
+        return max(user_sessions, key=lambda s: s.created_at)
+
+
     def mark_completed(self, token: str) -> None:
         if token in self.sessions:
             self.sessions[token].expired = True
