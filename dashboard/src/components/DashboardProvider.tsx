@@ -149,6 +149,24 @@ function inferDiscordType(
     return { type: 'select', choices };
   }
 
+  // 0. If existing type is already a valid specific type, keep it (e.g. 'inpaint')
+  const validSpecificTypes = ['inpaint', 'image_upload', 'audio_upload', 'video_upload', 'select', 'number'];
+  if (existingType && validSpecificTypes.includes(existingType)) {
+    if (existingType === 'select') {
+      const nodeInfo = objectInfo?.[classType];
+      const inputInfo = nodeInfo?.input?.required?.[field] || nodeInfo?.input?.optional?.[field];
+      let choices: any[] = [];
+      if (Array.isArray(inputInfo)) {
+        if (Array.isArray(inputInfo[0])) choices = normalizeChoices(inputInfo[0]);
+        else if (inputInfo[1] && typeof inputInfo[1] === 'object' && Array.isArray(inputInfo[1].options)) {
+          choices = normalizeChoices(inputInfo[1].options);
+        }
+      }
+      return { type: 'select', choices };
+    }
+    return { type: existingType };
+  }
+
   // 1. Node class_type keywords (LoadAudio, LoadImage, etc.) — highest priority
   if (classLower.includes('loadaudio') || (classLower.includes('audio') && fieldLower === 'audio')) {
     return { type: 'audio_upload' };
@@ -186,11 +204,6 @@ function inferDiscordType(
   // 4. ComfyUI objectInfo — Number types (INT, FLOAT) → number
   if (Array.isArray(inputInfo) && (inputInfo[0] === 'INT' || inputInfo[0] === 'FLOAT' || inputInfo[0] === 'NUMBER')) {
     return { type: 'number' };
-  }
-
-  // 5. If existing type is already a valid upload type, keep it
-  if (existingType && ['image_upload', 'audio_upload', 'video_upload', 'select', 'number'].includes(existingType)) {
-    return { type: existingType };
   }
 
   // Default — free text
@@ -683,10 +696,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           
           // Force upgrade to upload types if inferred, or use inferred if generic
           const genericTypes = ['string', 'text', 'STRING', 'number', 'NUMBER', ''];
-          const isGeneric = genericTypes.includes(sel.type);
-          const isUpload = inferred.type.endsWith('_upload');
+          const isGeneric = !sel.type || genericTypes.includes(sel.type);
           
-          const normalizedType = (isGeneric || isUpload) ? inferred.type : sel.type;
+          const normalizedType = isGeneric ? inferred.type : sel.type;
           
           let choices = normalizedType === 'select' ? (sel.choices || inferred.choices) : undefined;
           
