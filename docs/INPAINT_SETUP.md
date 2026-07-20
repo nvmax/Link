@@ -134,10 +134,8 @@ In the **Visual Architect / List View**:
 
 1. In any whitelisted Discord channel, type `/inpaint`.
 2. Optionally attach an image to the `/inpaint` command, reply to an existing image message, or run it without an attachment (the bot will pull your most recent generation or prompt for an upload).
-3. The bot sends a message with:
-   - **🎨 Open Inpaint Studio**: Launches the interactive canvas directly inside Discord as a native Embedded Activity overlay iframe (no external web browser popups).
-   - **🌐 Open in Browser**: Optional fallback link to open the canvas in a standalone web tab if needed.
-4. Click **🎨 Open Inpaint Studio** — Discord launches the **Inpaint Canvas** directly inside the Discord application iframe overlay.
+3. The bot sends a message with the **🎨 Open Inpaint Studio** button.
+4. Click **🎨 Open Inpaint Studio** — the **Inpaint Canvas** opens in your browser window or in-app overlay.
 5. Use the canvas tools:
    - **Brush**: Paint red over areas you want to replace.
    - **Eraser**: Remove mask areas.
@@ -147,18 +145,8 @@ In the **Visual Architect / List View**:
    - **Undo / Redo / Clear / Mask Toggle**: Full control over mask editing.
 6. Type what you want to see in the painted area in the prompt bar (e.g. *"a cute sleeping cat on the sofa"*).
 7. Click **🎨 Submit Inpaint**.
-8. The canvas automatically closes itself inside Discord via `discordSdk.commands.close()` and the generation runs asynchronously using your configured ComfyUI inpainting workflow!
+8. The canvas automatically closes the window upon completion, and the generation runs asynchronously using your configured ComfyUI inpainting workflow!
 
----
-
-### How Discord Launches Activities
-
-Discord uses the official Discord Activity Proxy domain format:
-```text
-https://<DISCORD_CLIENT_ID>.discordsays.com/?token=<SESSION_TOKEN>
-```
-
-When Discord opens a link matching `https://<DISCORD_CLIENT_ID>.discordsays.com`, Discord automatically routes it to your **Root Mapping** (`aidigitalcreations.com`) and opens the canvas as an embedded Activity iframe directly inside Discord.
 
 
 
