@@ -10,124 +10,99 @@
 </head>
 <body>
   <div id="app-container">
-    <!-- Main Workspace (Left Canvas Viewport + Right Sidebar Panel) -->
-    <div class="main-workspace">
-      <!-- Left Canvas Viewport -->
-      <main id="viewport" class="viewport">
-        <div id="canvas-stack" class="canvas-stack">
-          <canvas id="bg-canvas"></canvas>
-          <canvas id="mask-canvas"></canvas>
-          <canvas id="grid-canvas"></canvas>
-          <canvas id="cursor-canvas"></canvas>
-        </div>
-      </main>
+    <!-- Compact Top Header Toolbar -->
+    <header class="toolbar-header">
+      <!-- Tool selection -->
+      <div class="tool-group">
+        <span class="tool-label">Tool:</span>
+        <button id="btn-brush" class="btn active" title="Brush (Paint Mask)">🖌️ Brush</button>
+        <button id="btn-eraser" class="btn" title="Eraser (Remove Mask)">🧹 Eraser</button>
+        <button id="btn-lasso" class="btn" title="Lasso (Freehand Polygon)">🎯 Lasso</button>
+        <button id="btn-wand" class="btn" title="Magic Wand (Content-Aware Region Fill)">🪄 Wand</button>
+        <button id="btn-grid-fill" class="btn" title="Grid Fill (Click Grid Cell to Fill)">🪟 Grid</button>
+        <button id="btn-pan" class="btn" title="Pan (Drag Viewport)">✋ Pan</button>
+      </div>
 
-      <!-- Right Sidebar Panel -->
-      <aside class="sidebar-panel">
-        <div class="sidebar-title">🎨 Inpaint Studio</div>
+      <!-- Brush Shape -->
+      <div class="tool-group" id="shape-group">
+        <span class="tool-label">Shape:</span>
+        <button id="btn-shape-circle" class="btn active" title="Circle Brush">⚪</button>
+        <button id="btn-shape-square" class="btn" title="Square Brush">⏹️</button>
+        <button id="btn-shape-soft" class="btn" title="Soft Feathered Brush">🌫️</button>
+      </div>
 
-        <!-- Tool Selection -->
-        <div class="sidebar-group">
-          <span class="sidebar-label">Tool</span>
-          <div class="btn-grid-2col">
-            <button id="btn-brush" class="btn active" title="Brush (Paint Mask)">🖌️ Brush</button>
-            <button id="btn-eraser" class="btn" title="Eraser (Remove Mask)">🧹 Eraser</button>
-            <button id="btn-lasso" class="btn" title="Lasso (Freehand Polygon)">🎯 Lasso</button>
-            <button id="btn-wand" class="btn" title="Magic Wand (Content-Aware Region Fill)">🪄 Wand</button>
-            <button id="btn-grid-fill" class="btn" title="Grid Fill (Click Grid Cell to Fill)">🪟 Grid</button>
-            <button id="btn-pan" class="btn" title="Pan (Drag Viewport)">✋ Pan</button>
-          </div>
-        </div>
+      <!-- Grid Overlay Selection -->
+      <div class="tool-group">
+        <span class="tool-label">Grid:</span>
+        <select id="grid-select" class="select-input" title="Select Grid Overlay Preset">
+          <option value="off">Off</option>
+          <option value="1/2">1/2 (2x2)</option>
+          <option value="1/3">1/3 (3x3)</option>
+          <option value="1/4">1/4 (4x4)</option>
+          <option value="3h">3 Horiz</option>
+          <option value="3v">3 Vert</option>
+          <option value="2h">2 Horiz</option>
+          <option value="2v">2 Vert</option>
+        </select>
+      </div>
 
-        <!-- Brush Shape -->
-        <div class="sidebar-group" id="shape-group">
-          <span class="sidebar-label">Brush Shape</span>
-          <div class="btn-grid-3col">
-            <button id="btn-shape-circle" class="btn active" title="Circle Brush">⚪ Circle</button>
-            <button id="btn-shape-square" class="btn" title="Square Brush">⏹️ Square</button>
-            <button id="btn-shape-soft" class="btn" title="Soft Feathered Brush">🌫️ Soft</button>
-          </div>
-        </div>
+      <!-- Zoom Controls -->
+      <div class="tool-group">
+        <span class="tool-label">Zoom:</span>
+        <button id="btn-zoom-out" class="btn btn-sm" title="Zoom Out (-)">🔍-</button>
+        <span id="zoom-val" class="slider-value center-text">100%</span>
+        <button id="btn-zoom-in" class="btn btn-sm" title="Zoom In (+)">🔍+</button>
+        <button id="btn-zoom-reset" class="btn btn-sm" title="Reset Zoom / Fit Canvas">🎯 Fit</button>
+      </div>
 
-        <!-- Grid Overlay Preset -->
-        <div class="sidebar-group">
-          <span class="sidebar-label">Grid Overlay</span>
-          <select id="grid-select" class="select-input" title="Select Grid Overlay Preset">
-            <option value="off">Off</option>
-            <option value="1/2">1/2 (2x2)</option>
-            <option value="1/3">1/3 (3x3)</option>
-            <option value="1/4">1/4 (4x4)</option>
-            <option value="3h">3 Horizontal</option>
-            <option value="3v">3 Vertical</option>
-            <option value="2h">2 Horizontal</option>
-            <option value="2v">2 Vertical</option>
-          </select>
-        </div>
+      <!-- Brush Size Slider -->
+      <div class="tool-group slider-container" id="size-container">
+        <span class="tool-label">Size:</span>
+        <input type="range" id="size-slider" min="5" max="150" value="40">
+        <span id="size-val" class="slider-value">40px</span>
+      </div>
 
-        <!-- Zoom Controls -->
-        <div class="sidebar-group">
-          <span class="sidebar-label">Zoom & Scale</span>
-          <div class="zoom-bar">
-            <button id="btn-zoom-out" class="btn btn-sm" title="Zoom Out (-)">🔍-</button>
-            <span id="zoom-val" class="zoom-value">100%</span>
-            <button id="btn-zoom-in" class="btn btn-sm" title="Zoom In (+)">🔍+</button>
-            <button id="btn-zoom-reset" class="btn btn-sm" title="Reset Zoom / Fit Canvas">🎯 Fit</button>
-          </div>
-        </div>
+      <!-- Magic Wand Tolerance Slider -->
+      <div class="tool-group slider-container" id="wand-tol-container">
+        <span class="tool-label">Wand Tol:</span>
+        <input type="range" id="wand-tol-slider" min="1" max="100" value="32">
+        <span id="wand-tol-val" class="slider-value">32</span>
+      </div>
 
-        <!-- Sliders -->
-        <div class="sidebar-group sliders-group">
-          <!-- Size Slider -->
-          <div class="slider-row" id="size-container">
-            <div class="slider-info">
-              <span class="sidebar-label">Brush Size</span>
-              <span id="size-val" class="slider-val-text">40px</span>
-            </div>
-            <input type="range" id="size-slider" min="5" max="150" value="40">
-          </div>
+      <!-- Brush Opacity Slider -->
+      <div class="tool-group slider-container">
+        <span class="tool-label">Opacity:</span>
+        <input type="range" id="opacity-slider" min="10" max="100" value="100">
+        <span id="opacity-val" class="slider-value">100%</span>
+      </div>
 
-          <!-- Magic Wand Tolerance Slider -->
-          <div class="slider-row" id="wand-tol-container">
-            <div class="slider-info">
-              <span class="sidebar-label">Wand Tolerance</span>
-              <span id="wand-tol-val" class="slider-val-text">32</span>
-            </div>
-            <input type="range" id="wand-tol-slider" min="1" max="100" value="32">
-          </div>
+      <!-- Mask Overlay Opacity Slider -->
+      <div class="tool-group slider-container">
+        <span class="tool-label">Overlay:</span>
+        <input type="range" id="overlay-slider" min="10" max="100" value="65">
+        <span id="overlay-val" class="slider-value">65%</span>
+      </div>
 
-          <!-- Opacity Slider -->
-          <div class="slider-row">
-            <div class="slider-info">
-              <span class="sidebar-label">Brush Opacity</span>
-              <span id="opacity-val" class="slider-val-text">100%</span>
-            </div>
-            <input type="range" id="opacity-slider" min="10" max="100" value="100">
-          </div>
+      <!-- History & Actions -->
+      <div class="tool-group">
+        <button id="btn-undo" class="btn" title="Undo (Ctrl+Z)">↩️</button>
+        <button id="btn-redo" class="btn" title="Redo (Ctrl+Y)">↪️</button>
+        <button id="btn-toggle-mask" class="btn active" title="Toggle Mask Visibility">👁️ Mask</button>
+        <button id="btn-clear" class="btn btn-danger" title="Clear Mask">🗑️ Clear</button>
+      </div>
+    </header>
 
-          <!-- Overlay Slider -->
-          <div class="slider-row">
-            <div class="slider-info">
-              <span class="sidebar-label">Mask Overlay</span>
-              <span id="overlay-val" class="slider-val-text">65%</span>
-            </div>
-            <input type="range" id="overlay-slider" min="10" max="100" value="65">
-          </div>
-        </div>
+    <!-- Canvas Viewport -->
+    <main id="viewport" class="viewport">
+      <div id="canvas-stack" class="canvas-stack">
+        <canvas id="bg-canvas"></canvas>
+        <canvas id="mask-canvas"></canvas>
+        <canvas id="grid-canvas"></canvas>
+        <canvas id="cursor-canvas"></canvas>
+      </div>
+    </main>
 
-        <!-- History & Mask Actions -->
-        <div class="sidebar-group">
-          <span class="sidebar-label">Actions</span>
-          <div class="btn-grid-2col">
-            <button id="btn-undo" class="btn" title="Undo (Ctrl+Z)">↩️ Undo</button>
-            <button id="btn-redo" class="btn" title="Redo (Ctrl+Y)">↪️ Redo</button>
-            <button id="btn-toggle-mask" class="btn active" title="Toggle Mask Visibility">👁️ Mask</button>
-            <button id="btn-clear" class="btn btn-danger" title="Clear Mask">🗑️ Clear</button>
-          </div>
-        </div>
-      </aside>
-    </div>
-
-    <!-- Bottom Bar (Prompt & Submit) -->
+    <!-- Bottom Bar -->
     <footer class="bottom-bar">
       <input type="text" id="prompt-input" class="prompt-input" placeholder="Describe what you want to generate in the masked area..." />
       <button id="btn-submit" class="btn btn-primary">🎨 Submit Inpaint</button>
