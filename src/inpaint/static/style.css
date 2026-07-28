@@ -42,7 +42,7 @@ body, html {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 3px 6px;
+  gap: 0px;
   padding: 3px 8px;
   background: var(--panel-bg);
   border-bottom: 1px solid var(--panel-border);
