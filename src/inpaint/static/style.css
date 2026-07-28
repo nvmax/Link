@@ -36,7 +36,7 @@ body, html {
   overflow: hidden;
 }
 
-/* Single-Row Fixed 38px Top Header Toolbar */
+/* Single-Row Fixed 44px Top Header Toolbar */
 .toolbar-header {
   display: flex;
   flex-direction: row;
@@ -44,13 +44,13 @@ body, html {
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 3px 10px;
   background: var(--panel-bg);
   border-bottom: 1px solid var(--panel-border);
   z-index: 10;
-  height: 38px;
-  min-height: 38px;
-  max-height: 38px;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
@@ -67,7 +67,7 @@ body, html {
 
 .divider {
   width: 1px;
-  height: 16px;
+  height: 22px;
   background: var(--panel-border);
   flex-shrink: 0;
   margin: 0 2px;
@@ -81,7 +81,7 @@ body, html {
 }
 
 .tool-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -89,28 +89,46 @@ body, html {
   flex-shrink: 0;
 }
 
+/* Stacked Icon + Text Button Layout */
 .btn {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4px 7px;
-  height: 26px;
+  gap: 1px;
+  padding: 3px 6px;
+  height: 36px;
+  min-width: 36px;
   border-radius: 6px;
   border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-main);
-  font-size: 12px;
-  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  white-space: nowrap;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.btn-sm {
-  padding: 2px 6px;
-  height: 22px;
-  font-size: 10px;
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  height: 15px;
+}
+
+.btn-icon svg {
+  display: block;
+}
+
+.btn-text {
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
 .btn:hover {
@@ -118,11 +136,26 @@ body, html {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.btn:hover .btn-text {
+  color: var(--text-main);
+}
+
 .btn.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #ffffff;
   box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
+}
+
+.btn.active .btn-text {
+  color: #ffffff;
+}
+
+.btn-sm {
+  height: 30px;
+  min-width: 26px;
+  padding: 2px 4px;
+  font-size: 10px;
 }
 
 .btn-danger {
@@ -134,8 +167,16 @@ body, html {
   background: var(--danger);
   color: #ffffff;
 }
+.btn-danger:hover .btn-text {
+  color: #ffffff;
+}
 
 .btn-primary {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: var(--accent);
   border-color: var(--accent);
   color: #ffffff;
@@ -143,6 +184,7 @@ body, html {
   font-size: 12px;
   padding: 6px 14px;
   height: 32px;
+  border-radius: 8px;
 }
 .btn-primary:hover {
   background: var(--accent-hover);
@@ -156,14 +198,14 @@ body, html {
 }
 
 .slider-container input[type="range"] {
-  width: 50px;
+  width: 48px;
   height: 10px;
   accent-color: var(--accent);
   cursor: pointer;
 }
 
 .slider-value {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--text-muted);
   min-width: 24px;
@@ -179,9 +221,9 @@ body, html {
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   padding: 2px 6px;
-  height: 24px;
+  height: 26px;
   color: var(--text-main);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   outline: none;
   cursor: pointer;

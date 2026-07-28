@@ -10,25 +10,56 @@
 </head>
 <body>
   <div id="app-container">
-    <!-- Single-Row Ultra-Sleek Top Header Toolbar -->
+    <!-- Single-Row Ultra-Compact Top Header Toolbar -->
     <header class="toolbar-header">
       <!-- Tool Selection -->
       <div class="tool-group">
-        <button id="btn-brush" class="btn active" title="Brush Tool (Paint Mask)">🖌️</button>
-        <button id="btn-eraser" class="btn" title="Eraser Tool (Remove Mask)">🧹</button>
-        <button id="btn-lasso" class="btn" title="Lasso Tool (Freehand Polygon)">🎯</button>
-        <button id="btn-wand" class="btn" title="Magic Wand (Content-Aware Region Fill)">🪄</button>
-        <button id="btn-grid-fill" class="btn" title="Grid Fill (Click Grid Section to Fill)">🪟</button>
-        <button id="btn-pan" class="btn" title="Pan Canvas (Drag Viewport)">✋</button>
+        <button id="btn-brush" class="btn active" title="Brush Tool (Paint Mask)">
+          <span class="btn-icon">🖌️</span>
+          <span class="btn-text">Brush</span>
+        </button>
+        <button id="btn-eraser" class="btn" title="Eraser Tool (Remove Mask)">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"/><path d="M18 11L13 6"/></svg>
+          </span>
+          <span class="btn-text">Eraser</span>
+        </button>
+        <button id="btn-lasso" class="btn" title="Lasso Tool (Freehand Polygon)">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22a5 5 0 0 1-2-9.6l5.2-1.3a7 7 0 1 1 8.5 7.9L16 20"/><path d="M10 11l-3 4"/></svg>
+          </span>
+          <span class="btn-text">Lasso</span>
+        </button>
+        <button id="btn-wand" class="btn" title="Magic Wand (Content-Aware Region Fill)">
+          <span class="btn-icon">🪄</span>
+          <span class="btn-text">Wand</span>
+        </button>
+        <button id="btn-grid-fill" class="btn" title="Grid Fill (Click Grid Section to Fill)">
+          <span class="btn-icon">🪟</span>
+          <span class="btn-text">Grid</span>
+        </button>
+        <button id="btn-pan" class="btn" title="Pan Canvas (Drag Viewport)">
+          <span class="btn-icon">✋</span>
+          <span class="btn-text">Pan</span>
+        </button>
       </div>
 
       <div class="divider"></div>
 
       <!-- Brush Shape -->
       <div class="tool-group" id="shape-group">
-        <button id="btn-shape-circle" class="btn active" title="Circle Brush">⚪</button>
-        <button id="btn-shape-square" class="btn" title="Square Brush">⏹️</button>
-        <button id="btn-shape-soft" class="btn" title="Soft Feathered Brush">🌫️</button>
+        <button id="btn-shape-circle" class="btn active" title="Circle Brush">
+          <span class="btn-icon">⚪</span>
+          <span class="btn-text">Circle</span>
+        </button>
+        <button id="btn-shape-square" class="btn" title="Square Brush">
+          <span class="btn-icon">⏹️</span>
+          <span class="btn-text">Square</span>
+        </button>
+        <button id="btn-shape-soft" class="btn" title="Soft Feathered Brush">
+          <span class="btn-icon">🌫️</span>
+          <span class="btn-text">Soft</span>
+        </button>
       </div>
 
       <div class="divider"></div>
@@ -93,10 +124,22 @@
 
       <!-- History & Actions -->
       <div class="tool-group">
-        <button id="btn-undo" class="btn" title="Undo (Ctrl+Z)">↩️</button>
-        <button id="btn-redo" class="btn" title="Redo (Ctrl+Y)">↪️</button>
-        <button id="btn-toggle-mask" class="btn active" title="Toggle Mask Visibility">👁️</button>
-        <button id="btn-clear" class="btn btn-danger" title="Clear Mask">🗑️</button>
+        <button id="btn-undo" class="btn" title="Undo (Ctrl+Z)">
+          <span class="btn-icon">↩️</span>
+          <span class="btn-text">Undo</span>
+        </button>
+        <button id="btn-redo" class="btn" title="Redo (Ctrl+Y)">
+          <span class="btn-icon">↪️</span>
+          <span class="btn-text">Redo</span>
+        </button>
+        <button id="btn-toggle-mask" class="btn active" title="Toggle Mask Visibility">
+          <span class="btn-icon">👁️</span>
+          <span class="btn-text">Mask</span>
+        </button>
+        <button id="btn-clear" class="btn btn-danger" title="Clear Mask">
+          <span class="btn-icon">🗑️</span>
+          <span class="btn-text">Clear</span>
+        </button>
       </div>
     </header>
 
