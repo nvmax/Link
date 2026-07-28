@@ -106,10 +106,12 @@ In the **Visual Architect / List View**:
 5. Use the canvas tools:
    - **Brush**: Paint red over areas you want to replace.
    - **Eraser**: Remove mask areas.
-   - **Shapes**: Choose between Circle, Square, or Soft (feathered) brush tips.
-   - **Size**: Adjust brush diameter slider (5px - 150px).
-   - **Opacity**: Adjust the opacity of the brush.   
-   - **Undo / Redo / Clear / Mask Toggle**: Full control over mask editing.
+   - **Lasso Tool**: Draw freehand polygon shapes to select custom geometric mask areas.
+   - **Magic Wand (Content-Aware Region Fill)**: Click contiguous color regions with adjustable **Wand Tolerance** to auto-mask matching color areas.
+   - **Grid Selection Overlay & Section Fill**: Overlay grids (1/2, 1/3, 1/4, 3 Horizontal, 3 Vertical, etc.) and click any grid section to instantly fill or erase that cell.
+   - **Zoom & Pan Controls**: Zoom from 25% to 500% via UI controls or mouse wheel; use the Pan tool to drag around the canvas viewport.
+   - **Shapes & Sliders**: Choose Circle, Square, or Soft feathered tips; adjust brush size, wand tolerance, opacity, and overlay visibility.
+   - **Undo / Redo / Clear / Mask Toggle**: Full control over mask history and editing.
 6. Type what you want to see in the painted area in the prompt bar (e.g. *"a cute sleeping cat on the sofa"*).
 7. Click **🎨 Submit Inpaint**.
 8. The canvas automatically closes the window upon completion, and the generation runs asynchronously using your configured ComfyUI inpainting workflow!

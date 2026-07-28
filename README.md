@@ -26,8 +26,12 @@
    - Advanced nodes like Florence2 must be manually added to the custom_nodes folder. 
 - **Bot-Level Queue System**: Thread-Safe QueueManager with asynchronous locking, postition messages are updated live in discord.
 - **Server Limits, Quota's & Bans**: Per server settings to control usage of Link, allowing per 30m/1h/12h/24h/7d/forever bans, Limits for rate limits per minute, per hour and per day. 
-- **Mapping Node Names**: Allows you to map node names to custom names that will be displayed in discord. example: `value` user name is changed to `prompt` in discord. 
-- **Interactive Inpainting**: Draw masks directly on images in a browser canvas studio launched via a single Discord button. Automatically closes upon submission and seamlessly triggers your ComfyUI inpainting workflow.
+- **Interactive Inpainting Studio**: Full-featured browser canvas studio launched via a single Discord button. Automatically closes upon submission and seamlessly triggers your ComfyUI inpainting workflow.
+  - **Grid Selection & Section Fill**: Overlay grid divisions (1/2, 1/3, 1/4, 3 Horizontal, 3 Vertical, etc.) with single-click section fill/erase.
+  - **Zoom & Pan Navigation**: Canvas zoom (25% to 500%) via UI controls or mouse wheel, paired with Pan viewport navigation.
+  - **Freehand Lasso Tool**: Freehand polygon selection tool for masking custom geometric regions.
+  - **Content-Aware Magic Wand**: Smart region fill with adjustable color tolerance that flood-fills contiguous color areas.
+  - **Comprehensive Controls**: Undo/redo history, brush shapes (Circle, Square, Soft Feathered), size/opacity sliders, and live mask overlays.
 
 
 ### 🎨 Visual Architect

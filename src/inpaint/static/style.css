@@ -130,6 +130,32 @@ body, html {
   width: 32px;
 }
 
+.select-input {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.select-input:focus {
+  border-color: var(--accent);
+}
+
+.select-input option {
+  background: var(--panel-bg);
+  color: var(--text-main);
+}
+
+.hidden-tool {
+  display: none !important;
+}
+
 /* Canvas viewport */
 .viewport {
   flex: 1;
@@ -142,11 +168,20 @@ body, html {
   cursor: crosshair;
 }
 
+.viewport.mode-pan {
+  cursor: grab;
+}
+
+.viewport.mode-pan:active {
+  cursor: grabbing;
+}
+
 .canvas-stack {
   position: absolute;
   transform-origin: center center;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   border-radius: 4px;
+  transition: transform 0.05s linear;
 }
 
 .canvas-stack canvas {
@@ -167,8 +202,13 @@ body, html {
   opacity: 0.65;
 }
 
-#cursor-canvas {
+#grid-canvas {
   z-index: 3;
+  pointer-events: none;
+}
+
+#cursor-canvas {
+  z-index: 4;
   pointer-events: none;
 }
 

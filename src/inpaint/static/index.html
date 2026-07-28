@@ -17,21 +17,56 @@
         <span class="tool-label">Tool:</span>
         <button id="btn-brush" class="btn active" title="Brush (Paint Mask)">🖌️ Brush</button>
         <button id="btn-eraser" class="btn" title="Eraser (Remove Mask)">🧹 Eraser</button>
+        <button id="btn-lasso" class="btn" title="Lasso (Freehand Polygon)">🎯 Lasso</button>
+        <button id="btn-wand" class="btn" title="Magic Wand (Content-Aware Region Fill)">🪄 Wand</button>
+        <button id="btn-grid-fill" class="btn" title="Grid Fill (Click Grid Cell to Fill)">🪟 Grid Fill</button>
+        <button id="btn-pan" class="btn" title="Pan (Drag Viewport)">✋ Pan</button>
       </div>
 
       <!-- Brush Shape -->
-      <div class="tool-group">
+      <div class="tool-group" id="shape-group">
         <span class="tool-label">Shape:</span>
         <button id="btn-shape-circle" class="btn active" title="Circle Brush">⚪ Circle</button>
         <button id="btn-shape-square" class="btn" title="Square Brush">⏹️ Square</button>
         <button id="btn-shape-soft" class="btn" title="Soft Feathered Brush">🌫️ Soft</button>
       </div>
 
+      <!-- Grid Overlay Selection -->
+      <div class="tool-group">
+        <span class="tool-label">Grid:</span>
+        <select id="grid-select" class="select-input" title="Select Grid Overlay Preset">
+          <option value="off">Off</option>
+          <option value="1/2">1/2 (2x2)</option>
+          <option value="1/3">1/3 (3x3)</option>
+          <option value="1/4">1/4 (4x4)</option>
+          <option value="3h">3 Horizontal</option>
+          <option value="3v">3 Vertical</option>
+          <option value="2h">2 Horizontal</option>
+          <option value="2v">2 Vertical</option>
+        </select>
+      </div>
+
+      <!-- Zoom Controls -->
+      <div class="tool-group">
+        <span class="tool-label">Zoom:</span>
+        <button id="btn-zoom-out" class="btn" title="Zoom Out (-)">🔍-</button>
+        <span id="zoom-val" class="slider-value">100%</span>
+        <button id="btn-zoom-in" class="btn" title="Zoom In (+)">🔍+</button>
+        <button id="btn-zoom-reset" class="btn" title="Reset Zoom / Fit Canvas">🎯 Fit</button>
+      </div>
+
       <!-- Brush Size Slider -->
-      <div class="tool-group slider-container">
+      <div class="tool-group slider-container" id="size-container">
         <span class="tool-label">Size:</span>
         <input type="range" id="size-slider" min="5" max="150" value="40">
         <span id="size-val" class="slider-value">40px</span>
+      </div>
+
+      <!-- Magic Wand Tolerance Slider -->
+      <div class="tool-group slider-container" id="wand-tol-container">
+        <span class="tool-label">Wand Tol:</span>
+        <input type="range" id="wand-tol-slider" min="1" max="100" value="32">
+        <span id="wand-tol-val" class="slider-value">32</span>
       </div>
 
       <!-- Brush Opacity Slider -->
@@ -62,6 +97,7 @@
       <div id="canvas-stack" class="canvas-stack">
         <canvas id="bg-canvas"></canvas>
         <canvas id="mask-canvas"></canvas>
+        <canvas id="grid-canvas"></canvas>
         <canvas id="cursor-canvas"></canvas>
       </div>
     </main>
