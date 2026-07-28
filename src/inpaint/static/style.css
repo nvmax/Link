@@ -36,60 +36,86 @@ body, html {
   overflow: hidden;
 }
 
-/* Ultra-Compact Top Header Toolbar */
+/* Single-Row Fixed 38px Top Header Toolbar */
 .toolbar-header {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: row;
+  flex-wrap: nowrap; /* Strictly single row - NEVER wrap */
   align-items: center;
-  justify-content: space-between;
-  gap: 0px;
-  padding: 3px 8px;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 4px 10px;
   background: var(--panel-bg);
   border-bottom: 1px solid var(--panel-border);
   z-index: 10;
-  min-height: 28px;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+/* Custom Scrollbar for Toolbar if viewport is very narrow */
+.toolbar-header::-webkit-scrollbar {
+  height: 3px;
+}
+.toolbar-header::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--panel-border);
+  flex-shrink: 0;
+  margin: 0 2px;
 }
 
 .tool-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
 .tool-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
-  margin-right: 2px;
+  flex-shrink: 0;
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 2px 5px;
-  border-radius: 4px;
+  padding: 4px 7px;
+  height: 26px;
+  border-radius: 6px;
   border: 1px solid var(--panel-border);
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-main);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-sm {
-  padding: 1px 4px;
-  font-size: 9px;
+  padding: 2px 6px;
+  height: 22px;
+  font-size: 10px;
 }
 
 .btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .btn.active {
@@ -114,8 +140,9 @@ body, html {
   border-color: var(--accent);
   color: #ffffff;
   font-weight: 700;
-  font-size: 11px;
-  padding: 4px 10px;
+  font-size: 12px;
+  padding: 6px 14px;
+  height: 32px;
 }
 .btn-primary:hover {
   background: var(--accent-hover);
@@ -124,21 +151,23 @@ body, html {
 .slider-container {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .slider-container input[type="range"] {
-  width: 46px;
+  width: 50px;
   height: 10px;
   accent-color: var(--accent);
   cursor: pointer;
 }
 
 .slider-value {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-muted);
-  min-width: 22px;
+  min-width: 24px;
+  flex-shrink: 0;
 }
 
 .center-text {
@@ -148,14 +177,16 @@ body, html {
 .select-input {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--panel-border);
-  border-radius: 4px;
-  padding: 1px 4px;
+  border-radius: 6px;
+  padding: 2px 6px;
+  height: 24px;
   color: var(--text-main);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   outline: none;
   cursor: pointer;
   transition: border-color 0.15s ease;
+  flex-shrink: 0;
 }
 
 .select-input:focus {
@@ -237,6 +268,8 @@ body, html {
   background: var(--panel-bg);
   border-top: 1px solid var(--panel-border);
   z-index: 10;
+  height: 48px;
+  min-height: 48px;
 }
 
 .prompt-input {
