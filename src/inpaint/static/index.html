@@ -10,23 +10,28 @@
 </head>
 <body>
   <div id="app-container">
-    <!-- Main Layout Container (Canvas Viewport + Right Sidebar Toolbar) -->
-    <div class="main-layout">
-      <!-- Canvas Viewport -->
-      <main id="viewport" class="viewport">
-        <div id="canvas-stack" class="canvas-stack">
-          <canvas id="bg-canvas"></canvas>
-          <canvas id="mask-canvas"></canvas>
-          <canvas id="grid-canvas"></canvas>
-          <canvas id="cursor-canvas"></canvas>
-        </div>
-      </main>
+    <!-- Main Viewport Area -->
+    <main id="viewport" class="viewport">
+      <div id="canvas-stack" class="canvas-stack">
+        <canvas id="bg-canvas"></canvas>
+        <canvas id="mask-canvas"></canvas>
+        <canvas id="grid-canvas"></canvas>
+        <canvas id="cursor-canvas"></canvas>
+      </div>
 
-      <!-- Right Sidebar Toolbar -->
-      <aside class="toolbar-sidebar">
+      <!-- Floating Tool Toggle FAB (Visible when sidebar collapsed) -->
+      <button id="btn-open-sidebar" class="btn-fab hidden" title="Open Tools Panel">🛠️ Tools</button>
+
+      <!-- Floating Right Sidebar Panel -->
+      <aside id="toolbar-sidebar" class="toolbar-sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">🎨 Tools</span>
+          <button id="btn-close-sidebar" class="btn-icon" title="Close Panel">✕</button>
+        </div>
+
         <!-- Tools Section -->
         <div class="sidebar-section">
-          <span class="tool-label">Tools</span>
+          <span class="tool-label">Tool</span>
           <div class="tool-grid-2col">
             <button id="btn-brush" class="btn active" title="Brush (Paint Mask)">🖌️ Brush</button>
             <button id="btn-eraser" class="btn" title="Eraser (Remove Mask)">🧹 Eraser</button>
@@ -39,7 +44,7 @@
 
         <!-- Brush Shape -->
         <div class="sidebar-section" id="shape-group">
-          <span class="tool-label">Brush Shape</span>
+          <span class="tool-label">Shape</span>
           <div class="tool-grid-3col">
             <button id="btn-shape-circle" class="btn active" title="Circle Brush">⚪</button>
             <button id="btn-shape-square" class="btn" title="Square Brush">⏹️</button>
@@ -64,7 +69,7 @@
 
         <!-- Zoom Controls -->
         <div class="sidebar-section">
-          <span class="tool-label">Zoom & Scale</span>
+          <span class="tool-label">Zoom</span>
           <div class="zoom-controls-row">
             <button id="btn-zoom-out" class="btn btn-sm" title="Zoom Out (-)">🔍-</button>
             <span id="zoom-val" class="slider-value center-text">100%</span>
@@ -87,7 +92,7 @@
           <!-- Magic Wand Tolerance Slider -->
           <div class="slider-item" id="wand-tol-container">
             <div class="slider-header">
-              <span class="tool-label">Wand Tolerance</span>
+              <span class="tool-label">Wand Tol</span>
               <span id="wand-tol-val" class="slider-value">32</span>
             </div>
             <input type="range" id="wand-tol-slider" min="1" max="100" value="32">
@@ -96,7 +101,7 @@
           <!-- Brush Opacity Slider -->
           <div class="slider-item">
             <div class="slider-header">
-              <span class="tool-label">Brush Opacity</span>
+              <span class="tool-label">Opacity</span>
               <span id="opacity-val" class="slider-value">100%</span>
             </div>
             <input type="range" id="opacity-slider" min="10" max="100" value="100">
@@ -105,7 +110,7 @@
           <!-- Mask Overlay Opacity Slider -->
           <div class="slider-item">
             <div class="slider-header">
-              <span class="tool-label">Mask Overlay</span>
+              <span class="tool-label">Overlay</span>
               <span id="overlay-val" class="slider-value">65%</span>
             </div>
             <input type="range" id="overlay-slider" min="10" max="100" value="65">
@@ -123,7 +128,7 @@
           </div>
         </div>
       </aside>
-    </div>
+    </main>
 
     <!-- Bottom Bar -->
     <footer class="bottom-bar">

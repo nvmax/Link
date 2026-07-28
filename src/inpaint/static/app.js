@@ -175,6 +175,22 @@
   const btnClear = document.getElementById('btn-clear');
   const btnSubmit = document.getElementById('btn-submit');
 
+  const toolbarSidebar = document.getElementById('toolbar-sidebar');
+  const btnCloseSidebar = document.getElementById('btn-close-sidebar');
+  const btnOpenSidebar = document.getElementById('btn-open-sidebar');
+
+  if (btnCloseSidebar && btnOpenSidebar && toolbarSidebar) {
+    btnCloseSidebar.addEventListener('click', () => {
+      toolbarSidebar.classList.add('collapsed');
+      btnOpenSidebar.classList.remove('hidden');
+    });
+
+    btnOpenSidebar.addEventListener('click', () => {
+      toolbarSidebar.classList.remove('collapsed');
+      btnOpenSidebar.classList.add('hidden');
+    });
+  }
+
   const toolButtons = [btnBrush, btnEraser, btnLasso, btnWand, btnGridFill, btnPan];
 
   function setToolMode(m, activeBtn) {
