@@ -32,15 +32,26 @@ body, html {
   flex-direction: column;
   width: 100vw;
   height: 100vh;
-  position: relative;
   overflow: hidden;
+  position: relative;
 }
 
-/* Canvas Viewport (Fills 100% space above bottom bar) */
-.viewport {
+/* Main Workspace (Row split: Left Viewport, Right Sidebar) */
+.main-workspace {
   flex: 1;
+  display: flex;
+  flex-direction: row;
   width: 100%;
   height: calc(100vh - 60px);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Left Canvas Viewport */
+.viewport {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   position: relative;
   overflow: hidden;
   background: repeating-conic-gradient(#141417 0% 25%, #1b1b20 0% 50%) 50% / 20px 20px;
@@ -94,130 +105,65 @@ body, html {
   pointer-events: none;
 }
 
-/* Floating Right Sidebar Panel */
-.toolbar-sidebar {
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  max-height: calc(100% - 28px);
-  width: 220px;
-  background: rgba(24, 24, 28, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--panel-border);
-  border-radius: 12px;
+/* Right Sidebar Panel (Fixed column on the right) */
+.sidebar-panel {
+  width: 250px;
+  min-width: 250px;
+  flex-shrink: 0;
+  height: 100%;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--panel-border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px;
+  gap: 14px;
+  padding: 14px;
   overflow-y: auto;
-  z-index: 50;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
-}
-
-.toolbar-sidebar.collapsed {
-  transform: translateX(250px);
-  opacity: 0;
-  pointer-events: none;
+  z-index: 10;
 }
 
 /* Custom Scrollbar for Sidebar */
-.toolbar-sidebar::-webkit-scrollbar {
+.sidebar-panel::-webkit-scrollbar {
   width: 4px;
 }
-.toolbar-sidebar::-webkit-scrollbar-thumb {
+.sidebar-panel::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
 
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 6px;
+.sidebar-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-main);
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--panel-border);
 }
 
-.sidebar-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-main);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.btn-icon {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: background 0.15s ease;
-}
-.btn-icon:hover {
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* Floating Action Button (to re-open sidebar when collapsed) */
-.btn-fab {
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  z-index: 40;
-  background: rgba(24, 24, 28, 0.9);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--panel-border);
-  color: var(--text-main);
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  transition: all 0.2s ease;
-}
-.btn-fab:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #ffffff;
-}
-
-.sidebar-section {
+.sidebar-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.tool-label {
+.sidebar-label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
-  margin-bottom: 2px;
 }
 
-.tool-grid-2col {
+.btn-grid-2col {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
-.tool-grid-3col {
+.btn-grid-3col {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 6px;
-}
-
-.zoom-controls-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
 }
 
 .btn {
@@ -230,7 +176,7 @@ body, html {
   border: 1px solid var(--panel-border);
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-main);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -238,7 +184,7 @@ body, html {
 }
 
 .btn-sm {
-  padding: 4px 8px;
+  padding: 4px 6px;
   font-size: 11px;
 }
 
@@ -269,12 +215,15 @@ body, html {
   border-color: var(--accent);
   color: #ffffff;
   font-weight: 700;
+  font-size: 13px;
+  padding: 8px 16px;
 }
 .btn-primary:hover {
   background: var(--accent-hover);
 }
 
 .select-input {
+  width: 100%;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
@@ -287,10 +236,6 @@ body, html {
   transition: border-color 0.15s ease;
 }
 
-.select-input.full-width {
-  width: 100%;
-}
-
 .select-input:focus {
   border-color: var(--accent);
 }
@@ -300,47 +245,52 @@ body, html {
   color: var(--text-main);
 }
 
-.sliders-stack {
+.zoom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.zoom-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  min-width: 38px;
+}
+
+.sliders-group {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.slider-item {
+.slider-row {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.slider-header {
+.slider-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.slider-item input[type="range"] {
-  width: 100%;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.slider-value {
+.slider-val-text {
   font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
 }
 
-.center-text {
-  text-align: center;
-  display: inline-block;
-  min-width: 36px;
+.slider-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .hidden-tool {
-  display: none !important;
-}
-
-.hidden {
   display: none !important;
 }
 
@@ -352,8 +302,9 @@ body, html {
   padding: 12px 16px;
   background: var(--panel-bg);
   border-top: 1px solid var(--panel-border);
-  z-index: 10;
+  z-index: 20;
   height: 60px;
+  min-height: 60px;
 }
 
 .prompt-input {
