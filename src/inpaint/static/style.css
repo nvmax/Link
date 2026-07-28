@@ -301,7 +301,7 @@ body, html {
   pointer-events: none;
 }
 
-/* Bottom Bar (Prompt + Submit) */
+/* Bottom Bar (Prompt + Zoom + Submit) */
 .bottom-bar {
   display: flex;
   align-items: center;
@@ -312,6 +312,17 @@ body, html {
   z-index: 10;
   height: 48px;
   min-height: 48px;
+}
+
+.zoom-bottom-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  flex-shrink: 0;
 }
 
 .prompt-input {

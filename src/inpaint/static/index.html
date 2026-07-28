@@ -96,17 +96,6 @@
 
       <div class="divider"></div>
 
-      <!-- Zoom Controls -->
-      <div class="tool-group">
-        <span class="tool-label">Zoom:</span>
-        <button id="btn-zoom-out" class="btn btn-sm" title="Zoom Out (-)">-</button>
-        <span id="zoom-val" class="slider-value center-text">100%</span>
-        <button id="btn-zoom-in" class="btn btn-sm" title="Zoom In (+)">+</button>
-        <button id="btn-zoom-reset" class="btn btn-sm" title="Reset Zoom / Fit Canvas">Fit</button>
-      </div>
-
-      <div class="divider"></div>
-
       <!-- Mask & Brush Opacity Sliders -->
       <div class="tool-group slider-container">
         <span class="tool-label">Opacity:</span>
@@ -156,6 +145,16 @@
     <!-- Bottom Bar -->
     <footer class="bottom-bar">
       <input type="text" id="prompt-input" class="prompt-input" placeholder="Describe what you want to generate in the masked area..." />
+      
+      <!-- Zoom Controls moved to bottom bar -->
+      <div class="tool-group zoom-bottom-group">
+        <span class="tool-label">Zoom:</span>
+        <button id="btn-zoom-out" class="btn btn-sm" title="Zoom Out (-)">-</button>
+        <span id="zoom-val" class="slider-value center-text">100%</span>
+        <button id="btn-zoom-in" class="btn btn-sm" title="Zoom In (+)">+</button>
+        <button id="btn-zoom-reset" class="btn btn-sm" title="Reset Zoom / Fit Canvas">Fit</button>
+      </div>
+
       <button id="btn-submit" class="btn btn-primary">🎨 Submit Inpaint</button>
     </footer>
 
