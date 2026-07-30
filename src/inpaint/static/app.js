@@ -207,7 +207,13 @@
   btnEraser.addEventListener('click', () => setToolMode('eraser', btnEraser));
   btnLasso.addEventListener('click', () => setToolMode('lasso', btnLasso));
   btnWand.addEventListener('click', () => setToolMode('wand', btnWand));
-  btnGridFill.addEventListener('click', () => setToolMode('grid-fill', btnGridFill));
+  btnGridFill.addEventListener('click', () => {
+    if (gridPreset === 'off') {
+      gridPreset = '1/3';
+      gridSelect.value = '1/3';
+    }
+    setToolMode('grid-fill', btnGridFill);
+  });
   btnPan.addEventListener('click', () => setToolMode('pan', btnPan));
 
   // Initialize tool view
@@ -226,7 +232,15 @@
   // Grid selection
   gridSelect.addEventListener('change', (e) => {
     gridPreset = e.target.value;
-    renderGrid();
+    if (gridPreset !== 'off') {
+      setToolMode('grid-fill', btnGridFill);
+    } else {
+      if (mode === 'grid-fill') {
+        setToolMode('brush', btnBrush);
+      } else {
+        renderGrid();
+      }
+    }
   });
 
   // Zoom Engine
@@ -374,7 +388,7 @@
     gridCtx.restore();
   }
 
-  function fillGridSection(col, row, rows, cols) {
+  function fillGridSection(col, row, rows, cols, isErase = false) {
     saveState();
     const cellW = imgWidth / cols;
     const cellH = imgHeight / rows;
@@ -383,7 +397,7 @@
 
     maskCtx.save();
     maskCtx.globalAlpha = brushOpacity;
-    if (mode === 'eraser') {
+    if (isErase) {
       maskCtx.globalCompositeOperation = 'destination-out';
       maskCtx.fillRect(x, y, cellW, cellH);
     } else {
@@ -603,7 +617,7 @@
         const col = Math.floor(x / cellW);
         const row = Math.floor(y / cellH);
         if (col >= 0 && col < cols && row >= 0 && row < rows) {
-          fillGridSection(col, row, rows, cols);
+          fillGridSection(col, row, rows, cols, e.shiftKey);
         }
       }
       return;
