@@ -1,0 +1,102 @@
+workflow_name: video_ltx2_5_i2v2
+display_name: /LTX2.5
+discord_command: ltx25
+ai_prompt:
+  enabled: true
+  category: video
+  prompt_id: prompt-1787071640300
+  target_input: prompt
+  include_image: true
+  target_image: ''
+description: Run ltx25 workflow
+mapping:
+  image:
+    - '395'
+    - inputs
+    - image
+  prompt:
+    - '398:376'
+    - inputs
+    - value
+  duration:
+    - '398:362'
+    - inputs
+    - value
+inputs:
+  - id: image
+    type: image_upload
+    label: image
+    required: true
+  - id: prompt
+    type: text
+    label: prompt
+    required: true
+  - id: duration
+    type: select
+    label: duration
+    required: true
+    choices:
+      - '5'
+      - '10'
+      - '15'
+      - '20'
+discord:
+  command: ltx25
+  inputs:
+    - id: image
+      nodeId: '395'
+      field: image
+      type: image_upload
+      label: image
+      required: true
+    - id: prompt
+      nodeId: '398:376'
+      field: value
+      type: text
+      label: prompt
+      required: true
+    - id: duration
+      nodeId: '398:362'
+      field: value
+      type: select
+      label: duration
+      required: true
+      choices:
+        - '5'
+        - '10'
+        - '15'
+        - '20'
+  ui:
+    layout_version: v1
+    embed:
+      title_template: '{user}''s Generation'
+      color: '#5865F2'
+      use_role_color: true
+      show_metadata:
+        - prompt
+        - seed
+        - model
+        - ratio
+    v2_layout:
+      title_template: '{user}''s Generation'
+      color: '#5865F2'
+      use_role_color: true
+      grid_columns: 2
+      media_position: left
+      show_metadata:
+        - prompt
+        - seed
+        - model
+        - ratio
+    buttons:
+      - type: regenerate
+        label: Regenerate
+        style: primary
+      - type: options
+        label: Options
+        style: secondary
+      - type: delete
+        label: Delete
+        style: danger
+    positions: {}
+  loras: {}

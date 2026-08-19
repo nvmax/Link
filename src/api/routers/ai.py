@@ -38,12 +38,13 @@ async def enhance_prompt(request: Request) -> Dict[str, Any]:
     data = await request.json()
     user_prompt = data.get("prompt")
     system_prompt_id = data.get("system_prompt_id")
+    image_data = data.get("image")
     
     if not user_prompt or not system_prompt_id:
         raise HTTPException(status_code=400, detail="Missing prompt or system_prompt_id")
         
     try:
-        enhanced = await state.ai_service.enhance_prompt(user_prompt, system_prompt_id)
+        enhanced = await state.ai_service.enhance_prompt(user_prompt, system_prompt_id, image_data=image_data)
         return {"enhanced": enhanced}
     except Exception as e:
         logger.error(f"AI Enhancement failed: {e}")

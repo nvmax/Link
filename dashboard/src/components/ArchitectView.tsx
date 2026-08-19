@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Type, CheckCircle2, ChevronLeft, ChevronRight, Upload, Trash2, Sparkles, Video, Image as ImageIcon } from 'lucide-react';
+import { Type, CheckCircle2, ChevronLeft, ChevronRight, Upload, Trash2, Sparkles, Video, Image as ImageIcon, Eye } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 import { VisualWorkflowMap } from './VisualWorkflowMap';
 import { ListView } from './ListView';
@@ -181,6 +181,26 @@ export function ArchitectView() {
                     </div>
                   </div>
 
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter ml-1">Context Mode</span>
+                    <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/5">
+                      <button 
+                        onClick={() => setAiPrompt({ ...aiPrompt, include_image: false })}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${!aiPrompt.include_image ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-500 hover:text-slate-400'}`}
+                        title="Enhance prompt from text input only"
+                      >
+                        <Type className="w-3 h-3 inline mr-1" /> Text Only
+                      </button>
+                      <button 
+                        onClick={() => setAiPrompt({ ...aiPrompt, include_image: true })}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${aiPrompt.include_image ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500 hover:text-slate-400'}`}
+                        title="Send uploaded keyframe/image alongside prompt to Vision LLM"
+                      >
+                        <Eye className="w-3 h-3 inline mr-1" /> + Image (Vision)
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col gap-1 min-w-[150px]">
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter ml-1">System Prompt</span>
                     <select 
@@ -196,7 +216,7 @@ export function ArchitectView() {
                   </div>
 
                   <div className="flex flex-col gap-1 min-w-[150px]">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter ml-1">Target Input</span>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter ml-1">Target Prompt Input</span>
                     <select 
                       value={aiPrompt.target_input}
                       onChange={(e) => setAiPrompt({ ...aiPrompt, target_input: e.target.value })}
@@ -208,6 +228,27 @@ export function ArchitectView() {
                       ))}
                     </select>
                   </div>
+
+                  {aiPrompt.include_image && (
+                    <div className="flex flex-col gap-1 min-w-[150px] animate-in fade-in slide-in-from-left-2 duration-300">
+                      <span className="text-[10px] font-black text-amber-400 uppercase tracking-tighter ml-1 flex items-center gap-1">
+                        <ImageIcon className="w-2.5 h-2.5" /> Target Image
+                      </span>
+                      <select 
+                        value={aiPrompt.target_image || ''}
+                        onChange={(e) => setAiPrompt({ ...aiPrompt, target_image: e.target.value })}
+                        className="bg-black/40 border border-amber-500/30 rounded-lg px-3 py-1.5 text-[10px] font-bold text-amber-400 outline-none focus:border-amber-500/50 transition-all cursor-pointer appearance-none"
+                      >
+                        <option value="">Auto-detect from upload...</option>
+                        {(selections.filter((s: any) => ['image_upload', 'inpaint', 'image', 'file'].includes(s.type) || s.field?.toLowerCase().includes('image') || s.id?.toLowerCase().includes('image')).length > 0
+                          ? selections.filter((s: any) => ['image_upload', 'inpaint', 'image', 'file'].includes(s.type) || s.field?.toLowerCase().includes('image') || s.id?.toLowerCase().includes('image'))
+                          : selections
+                        ).map((s: any) => (
+                          <option key={s.id || s.field} value={s.id || s.field}>{s.label || s.field}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

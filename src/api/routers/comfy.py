@@ -13,6 +13,7 @@ from src.api.helpers import (
     resolve_comfy_workspace,
     execute_comfy_command,
     run_comfy_install_deps,
+    sanitize_custom_nodes_permissions,
     MANUAL_NODE_MAPPING
 )
 from src.core import node_folder_cache
@@ -114,6 +115,12 @@ async def restore_nodes(request: Request) -> dict[str, Any]:
 async def get_nodes(force: bool = False) -> dict[str, Any]:
     try:
         workspace = resolve_comfy_workspace(Config.COMFY_PATH)
+        if not workspace or not os.path.exists(workspace):
+            return {
+                "nodes": [],
+                "error": f"ComfyUI workspace directory not found for COMFY_PATH: '{Config.COMFY_PATH}'. Please verify your ComfyUI path."
+            }
+
         if force:
             await execute_comfy_command(workspace, ["comfy", "--workspace", workspace, "node", "update-cache"])
         
@@ -337,6 +344,8 @@ async def setup_comfyui(request: Request) -> dict[str, Any]:
     steps = []
 
     comfy_workspace = resolve_comfy_workspace(comfy_base)
+    if os.name == 'nt' and comfy_workspace:
+        sanitize_custom_nodes_permissions(comfy_workspace)
     custom_nodes_dir = os.path.join(comfy_workspace, "custom_nodes")
     manager_dir = os.path.join(custom_nodes_dir, "ComfyUI-Manager")
     kjnodes_dir = os.path.join(custom_nodes_dir, "ComfyUI-KJNodes")
@@ -405,12 +414,51 @@ async def setup_comfyui(request: Request) -> dict[str, Any]:
     if not req_files:
         raise HTTPException(status_code=400, detail="No ComfyUI Manager or KJNodes requirements file was found.")
 
+    # Detect PyTorch CUDA version and GPU compute capability in python_embeded
+    gpu_check_script = (
+        "import sys, torch\n"
+        "cuda_ver = getattr(torch.version, 'cuda', '') or ''\n"
+        "print('CUDA_VER:', cuda_ver)\n"
+        "if torch.cuda.is_available():\n"
+        "    try:\n"
+        "        cap = torch.cuda.get_device_capability(0)\n"
+        "        name = torch.cuda.get_device_name(0)\n"
+        "        print(f'GPU: {name}, CC: {cap[0]}.{cap[1]}')\n"
+        "        if cap[0] >= 12 or '5090' in name or '5080' in name or '5070' in name:\n"
+        "            print('BLACKWELL_GPU_DETECTED')\n"
+        "        t = torch.zeros(1, device='cuda') + 1\n"
+        "    except Exception as e:\n"
+        "        print('GPU_COMPAT_ERROR:', e)\n"
+        "        sys.exit(2)\n"
+    )
+
+    gpu_check_proc = await asyncio.create_subprocess_exec(
+        python_exe, "-c", gpu_check_script,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=portable_root
+    )
+    gpu_check_bytes, _ = await gpu_check_proc.communicate()
+    gpu_check_output = gpu_check_bytes.decode("utf-8", errors="replace").strip()
+
+    import re as _re
+    cuda_match = _re.search(r"CUDA_VER:\s*(\d+)\.(\d+)", gpu_check_output)
+    if "BLACKWELL_GPU_DETECTED" in gpu_check_output or gpu_check_proc.returncode == 2:
+        cuda_tag = "cu130"
+    elif cuda_match:
+        cuda_tag = f"cu{cuda_match.group(1)}{cuda_match.group(2)}"
+    else:
+        cuda_tag = "cu130" if ("5090" in gpu_check_output or "sm_120" in gpu_check_output) else "cu126"
+
+    index_url = f"https://download.pytorch.org/whl/{cuda_tag}"
+    logger.info(f"[setup] GPU Check Output:\n{gpu_check_output}\nPyTorch Index selected: {index_url}")
+
     outputs = []
     success1 = True
     for req in req_files:
         logger.info(f"[setup] Running: pip install -r {req}")
         proc1 = await asyncio.create_subprocess_exec(
-            python_exe, "-m", "pip", "install", "-r", req,
+            python_exe, "-m", "pip", "install", "-r", req, "--extra-index-url", index_url,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             cwd=portable_root
@@ -423,6 +471,55 @@ async def setup_comfyui(request: Request) -> dict[str, Any]:
 
     steps.append({"step": "comfyui_manager", "success": success1, "output": "\n\n".join(outputs)})
 
+    # Align torch, torchaudio and torchvision to match PyTorch CUDA version
+    check_script = (
+        "import sys, torch\n"
+        "err = False\n"
+        "if torch.cuda.is_available():\n"
+        "    try:\n"
+        "        t = torch.zeros(1, device='cuda') + 1\n"
+        "    except Exception as e:\n"
+        "        print('GPU tensor test error:', e)\n"
+        "        err = True\n"
+        "try:\n"
+        "    import torchaudio\n"
+        "    print('torchaudio:', torchaudio.__version__)\n"
+        "except Exception as e:\n"
+        "    print('torchaudio error:', e)\n"
+        "    err = True\n"
+        "try:\n"
+        "    import torchvision\n"
+        "    print('torchvision:', torchvision.__version__)\n"
+        "except Exception as e:\n"
+        "    print('torchvision error:', e)\n"
+        "    err = True\n"
+        "if err:\n"
+        "    sys.exit(1)\n"
+    )
+
+    check_proc = await asyncio.create_subprocess_exec(
+        python_exe, "-c", check_script,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=portable_root
+    )
+    check_bytes, _ = await check_proc.communicate()
+    check_output = check_bytes.decode("utf-8", errors="replace").strip()
+
+    if check_proc.returncode != 0 or "BLACKWELL_GPU_DETECTED" in gpu_check_output:
+        logger.info(f"[setup] Torch ecosystem mismatch or GPU incompatibility detected. Reinstalling torch, torchaudio & torchvision with {index_url}...")
+        fix_proc = await asyncio.create_subprocess_exec(
+            python_exe, "-m", "pip", "install", "--upgrade", "torch", "torchaudio", "torchvision", "--index-url", index_url,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=portable_root
+        )
+        fix_bytes, _ = await fix_proc.communicate()
+        fix_output = fix_bytes.decode("utf-8", errors="replace")
+        steps.append({"step": "align_torch_deps", "success": fix_proc.returncode == 0, "output": f"PyTorch CUDA index: {index_url}\n\n" + fix_output[-1500:]})
+    else:
+        steps.append({"step": "align_torch_deps", "success": True, "output": f"PyTorch CUDA and TorchAudio/TorchVision dependencies are matching and compatible with GPU.\n{check_output}"})
+
     ver_proc = await asyncio.create_subprocess_exec(
         python_exe, "--version",
         stdout=asyncio.subprocess.PIPE,
@@ -432,7 +529,6 @@ async def setup_comfyui(request: Request) -> dict[str, Any]:
     ver_bytes, _ = await ver_proc.communicate()
     py_version_str = ver_bytes.decode("utf-8", errors="replace").strip()
 
-    import re as _re
     ver_match = _re.search(r"Python (\d+)\.(\d+)", py_version_str, _re.IGNORECASE)
     py_tag = f"cp{ver_match.group(1)}{ver_match.group(2)}" if ver_match else None
 
@@ -549,8 +645,9 @@ async def check_nodes(request: Request) -> dict[str, Any]:
     try:
         workflow = await request.json()
         comfy_workspace = resolve_comfy_workspace(Config.COMFY_PATH)
-        if not comfy_workspace:
-            raise HTTPException(status_code=500, detail="Invalid COMFY_PATH")
+        if not comfy_workspace or not os.path.exists(comfy_workspace):
+            logger.warning(f"Node check skipped: ComfyUI workspace not found for path '{Config.COMFY_PATH}'")
+            return {"missing": []}
 
         node_classes = set()
         for node in workflow.values():
@@ -594,15 +691,10 @@ async def check_nodes(request: Request) -> dict[str, Any]:
         try:
             logger.info(f"Node check: running comfy node deps-in-workflow")
             cmd = ["comfy", "--workspace", comfy_workspace, "node", "deps-in-workflow", "--workflow", wf_path, "--output", out_path]
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
+            success, output = await execute_comfy_command(comfy_workspace, cmd)
 
-            if process.returncode != 0:
-                logger.error(f"comfy node deps-in-workflow failed: {stderr.decode()}")
+            if not success:
+                logger.error(f"comfy node deps-in-workflow failed: {output}")
                 return {"missing": []}
 
             with open(out_path, 'r', encoding='utf-8') as f:

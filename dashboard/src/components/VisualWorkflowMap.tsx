@@ -622,17 +622,12 @@ export function VisualWorkflowMap() {
                                   {isSelected.type === 'select' && (
                                     <div className="mt-2 space-y-1">
                                       <label className="text-[7px] font-bold text-indigo-300/70 uppercase tracking-widest block">Choices (comma-separated)</label>
-                                      <input
-                                        type="text"
-                                        value={isSelected.choices ? isSelected.choices.join(', ') : ''}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          const arr = val.split(',').map(s => s.trim()).filter(Boolean);
+                                      <ChoicesInput
+                                        choices={isSelected.choices}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onChange={(arr) => {
                                           updateSelection(selections.indexOf(isSelected), { choices: arr });
                                         }}
-                                        placeholder="e.g. 5, 10, 15, 20"
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                        className="w-full bg-black/60 border border-indigo-500/30 rounded-lg text-[10px] px-2 py-1 text-slate-200 outline-none focus:border-indigo-500 font-mono"
                                       />
                                     </div>
                                   )}
@@ -676,3 +671,61 @@ export function VisualWorkflowMap() {
      </div>
   );
 }
+
+function ChoicesInput({
+  choices,
+  onChange,
+  onMouseDown
+}: {
+  choices?: any[];
+  onChange: (choices: string[]) => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
+}) {
+  const formatChoices = (arr?: any[]): string => {
+    if (!Array.isArray(arr)) return '';
+    return arr.map(c => {
+      if (c && typeof c === 'object') {
+        return c.value !== undefined ? String(c.value) : (c.label !== undefined ? String(c.label) : JSON.stringify(c));
+      }
+      return String(c);
+    }).join(', ');
+  };
+
+  const [rawText, setRawText] = React.useState<string>(() => formatChoices(choices));
+  const isInternalChange = React.useRef(false);
+
+  React.useEffect(() => {
+    if (isInternalChange.current) {
+      isInternalChange.current = false;
+      return;
+    }
+    setRawText(formatChoices(choices));
+  }, [choices]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const text = e.target.value;
+    isInternalChange.current = true;
+    setRawText(text);
+    const arr = text.split(',').map(s => s.trim()).filter(Boolean);
+    onChange(arr);
+  };
+
+  const handleBlur = () => {
+    const arr = rawText.split(',').map(s => s.trim()).filter(Boolean);
+    setRawText(arr.join(', '));
+    onChange(arr);
+  };
+
+  return (
+    <input
+      type="text"
+      value={rawText}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onMouseDown={onMouseDown}
+      placeholder="e.g. 5, 10, 15, 20"
+      className="w-full bg-black/60 border border-indigo-500/30 rounded-lg text-[10px] px-2 py-1 text-slate-200 outline-none focus:border-indigo-500 font-mono"
+    />
+  );
+}
+

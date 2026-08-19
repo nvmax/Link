@@ -14,40 +14,126 @@ MANUAL_NODE_MAPPING = {
     "Krea2SystemPrompt": "https://github.com/ethanfel/ComfyUI-Krea2TextEncoder",
 }
 
-def resolve_comfy_workspace(base_path: str):
-    if not base_path: return ""
-    base_path = base_path.replace("/", os.sep).rstrip(os.sep)
-    if os.path.exists(os.path.join(base_path, "main.py")): return base_path
-    subfolder = os.path.join(base_path, "ComfyUI")
-    if os.path.exists(os.path.join(subfolder, "main.py")): return subfolder
+def find_python_embeded(workspace_path: str) -> str | None:
+    if not workspace_path or os.name != 'nt':
+        return None
+    p_root = workspace_path.replace("/", os.sep).replace("\\", os.sep).rstrip(os.sep)
+    candidates = [
+        p_root,
+        os.path.dirname(p_root) if p_root else "",
+        os.path.dirname(os.path.dirname(p_root)) if os.path.dirname(p_root) else "",
+    ]
+    for c in candidates:
+        if c and os.path.isdir(c):
+            embed_py = os.path.join(c, "python_embeded", "python.exe")
+            if os.path.exists(embed_py):
+                return embed_py
+    return None
+
+def resolve_comfy_workspace(base_path: str) -> str:
+    if not base_path:
+        base_path = ""
     
+    normalized = base_path.replace("/", os.sep).replace("\\", os.sep).rstrip(os.sep)
+
+    def _check_dir(path: str) -> str | None:
+        if not path or not os.path.exists(path):
+            return None
+        if os.path.exists(os.path.join(path, "main.py")):
+            return path
+        sub = os.path.join(path, "ComfyUI")
+        if os.path.exists(os.path.join(sub, "main.py")):
+            return sub
+        try:
+            if os.path.isdir(path):
+                for name in os.listdir(path):
+                    p = os.path.join(path, name)
+                    if os.path.isdir(p) and os.path.exists(os.path.join(p, "main.py")):
+                        return p
+        except Exception:
+            pass
+        return None
+
+    # 1. Check if configured base_path resolves
+    if normalized:
+        found = _check_dir(normalized)
+        if found:
+            return found
+
+    # 2. Check if username in path is mismatched (e.g., C:\Users\Admin\... copied from another PC)
+    if normalized:
+        import re
+        user_home = os.path.expanduser("~")
+        match = re.match(r"^[A-Za-z]:[\\/]Users[\\/][^\\/]+([\\/].*)$", normalized, re.IGNORECASE)
+        if match:
+            remapped = user_home + match.group(1)
+            found = _check_dir(remapped)
+            if found:
+                logger.info(f"Auto-remapped COMFY_PATH to current user profile: {found}")
+                return found
+
+    # 3. Check common desktop / user locations
+    home = os.path.expanduser("~")
+    common_locations = [
+        os.path.join(home, "Desktop", "ComfyUI_windows_portable"),
+        os.path.join(home, "Desktop", "ComfyUI"),
+        os.path.join(home, "ComfyUI_windows_portable"),
+        os.path.join(home, "ComfyUI"),
+    ]
+    for loc in common_locations:
+        found = _check_dir(loc)
+        if found:
+            logger.info(f"Auto-discovered ComfyUI workspace at: {found}")
+            return found
+
+def sanitize_custom_nodes_permissions(workspace_path: str):
+    """
+    On Windows NTFS, dotfiles (.cursorrules, .gitignore, .comfyignore, .editorconfig, etc.)
+    and git files often receive the Hidden (+H) or Read-Only (+R) attributes.
+    When ComfyUI-Manager extracts or updates node packages (e.g. #LAZY-CNR-SWITCH-SCRIPT),
+    Python's standard file-write operations fail with [Errno 13] Permission denied on hidden files.
+    This helper recursively removes Hidden and Read-Only flags from all files in custom_nodes.
+    """
+    if not workspace_path or os.name != 'nt':
+        return
+    custom_nodes_dir = os.path.join(workspace_path, "custom_nodes")
+    if not os.path.isdir(custom_nodes_dir):
+        return
+
     try:
-        if os.path.isdir(base_path):
-            for name in os.listdir(base_path):
-                p = os.path.join(base_path, name)
-                if os.path.isdir(p) and os.path.exists(os.path.join(p, "main.py")):
-                    return p
-    except Exception:
-        pass
-        
-    return base_path
+        import ctypes
+        FILE_ATTRIBUTE_READONLY = 0x01
+        FILE_ATTRIBUTE_HIDDEN = 0x02
+        FILE_ATTRIBUTE_NORMAL = 0x80
+
+        for root, dirs, files in os.walk(custom_nodes_dir):
+            for name in files + dirs:
+                full_p = os.path.join(root, name)
+                try:
+                    attrs = ctypes.windll.kernel32.GetFileAttributesW(full_p)
+                    if attrs != -1 and (attrs & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN)):
+                        new_attrs = attrs & ~(FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN)
+                        if new_attrs == 0:
+                            new_attrs = FILE_ATTRIBUTE_NORMAL
+                        ctypes.windll.kernel32.SetFileAttributesW(full_p, new_attrs)
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.debug(f"Failed to sanitize custom_nodes permissions: {e}")
 
 async def execute_comfy_command(workspace_path: str, cmd: list[str]) -> tuple[bool, str]:
-    python_exe = None
-    if workspace_path and os.name == 'nt':
-        p_root = workspace_path.replace("/", os.sep).rstrip(os.sep)
-        if os.path.exists(os.path.join(p_root, "python_embeded")):
-            pass
-        elif os.path.exists(os.path.join(os.path.dirname(p_root), "python_embeded")):
-            p_root = os.path.dirname(p_root)
-        elif os.path.basename(p_root).lower() == "comfyui":
-            p_root = os.path.dirname(p_root)
-        
-        embed_py = os.path.join(p_root, "python_embeded", "python.exe")
-        if os.path.exists(embed_py):
-            python_exe = embed_py
+    if not workspace_path or not os.path.exists(workspace_path):
+        err_msg = f"ComfyUI workspace directory not found: '{workspace_path}'"
+        logger.error(f"[comfy-cli] {err_msg}")
+        return False, err_msg
 
-    exec_args = cmd
+    # Ensure custom_nodes files are writable and not hidden on Windows
+    if os.name == 'nt':
+        sanitize_custom_nodes_permissions(workspace_path)
+
+    python_exe = find_python_embeded(workspace_path)
+
+    exec_args = list(cmd)
     if python_exe and cmd and cmd[0] == "comfy":
         cmd_parts = []
         i = 1
@@ -143,16 +229,9 @@ async def run_comfy_install_deps(workspace_path: str, workflow_path: str, extra_
         deps_path = tf.name
 
     try:
-        python_exe = None
-        if workspace_path and os.name == 'nt':
-            p_root = workspace_path.replace("/", os.sep).rstrip(os.sep)
-            if os.path.exists(os.path.join(os.path.dirname(p_root), "python_embeded")):
-                p_root = os.path.dirname(p_root)
-            elif os.path.basename(p_root).lower() == "comfyui":
-                p_root = os.path.dirname(p_root)
-            embed_py = os.path.join(p_root, "python_embeded", "python.exe")
-            if os.path.exists(embed_py):
-                python_exe = embed_py
+        if os.name == 'nt':
+            sanitize_custom_nodes_permissions(workspace_path)
+        python_exe = find_python_embeded(workspace_path)
 
         async def _run_cm(args: list[str]) -> tuple[bool, str]:
             exec_args = [python_exe, "-m", "cm_cli"] + args if python_exe else args

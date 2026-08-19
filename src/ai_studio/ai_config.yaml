@@ -1,11 +1,11 @@
-active_provider: gemini
+active_provider: lmstudio
 providers:
   anthropic:
     active: false
     base_url: null
     model: claude-3-5-sonnet-latest
   gemini:
-    active: true
+    active: false
     base_url: null
     model: gemini-3.1-flash-lite
   grok:
@@ -13,9 +13,9 @@ providers:
     base_url: null
     model: grok-beta
   lmstudio:
-    active: false
-    base_url: http://192.168.1.166:1234/v1
-    model: google/gemma-4-26b-a4b
+    active: true
+    base_url: http://192.168.1.174:1234/v1
+    model: gemma-4-e4b-it
   ollama:
     active: false
     base_url: http://127.0.0.1:11434/v1

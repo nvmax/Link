@@ -231,13 +231,52 @@ class GenerationCog(commands.Cog):
                     return None
 
             # --- AI ENHANCEMENT INTERCEPTOR ---
-            async def run_ai_enhancement(target_interaction: discord.Interaction, current_values: dict, run_enhancement: bool = False):
+            def _extract_image_data(values: dict, target_img_id: str | None) -> bytes | str | None:
+                # 1. Direct match on target_img_id
+                if target_img_id and target_img_id in values:
+                    val = values[target_img_id]
+                    if hasattr(val, 'data'):
+                        return val.data
+                    elif isinstance(val, bytes) and val:
+                        return val
+                    elif isinstance(val, str) and val:
+                        if os.path.isfile(val):
+                            try:
+                                with open(val, 'rb') as f:
+                                    return f.read()
+                            except Exception: pass
+                        return val
+
+                # 2. Match any CapturedFile, raw bytes, or image file paths
+                for k, val in values.items():
+                    if hasattr(val, 'data') and hasattr(val, 'filename'):
+                        fn = getattr(val, 'filename', '').lower()
+                        if any(fn.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff']):
+                            return val.data
+                    elif hasattr(val, 'data') and isinstance(val.data, bytes):
+                        return val.data
+                    elif isinstance(val, bytes) and val:
+                        return val
+                    elif isinstance(val, str):
+                        if val.startswith('data:image') or val.startswith('http://') or val.startswith('https://'):
+                            return val
+                        if os.path.isfile(val) and any(val.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp', '.gif']):
+                            try:
+                                with open(val, 'rb') as f:
+                                    return f.read()
+                            except Exception: pass
+                return None
+
+            async def run_ai_enhancement(target_interaction: discord.Interaction, current_values: dict, run_enhancement: bool = False, with_image: bool = False):
                 ai_cfg = manifest.get("ai_prompt", {})
                 if not ai_cfg.get("enabled"):
                     return await continue_to_lora_or_gen(target_interaction, current_values)
                 
                 target_field_id = ai_cfg.get("target_input")
                 prompt_id = ai_cfg.get("prompt_id")
+                include_image = bool(ai_cfg.get("include_image", False))
+                target_image_id = ai_cfg.get("target_image")
+                category = str(ai_cfg.get("category") or ai_cfg.get("modality") or "").lower()
                 
                 if not target_field_id or not prompt_id:
                     logger.warning(f"AI Enhancement enabled but target_input or prompt_id missing in manifest for {workflow_name}")
@@ -247,11 +286,32 @@ class GenerationCog(commands.Cog):
                 if not original_prompt:
                     return await continue_to_lora_or_gen(target_interaction, current_values)
 
+                available_image = _extract_image_data(current_values, target_image_id)
+                is_video_modality = (category == "video" or (category != "image" and "video" in workflow_name.lower()))
+
+                # --- VIDEO MODALITY AUTO-ENHANCE FLOW ---
+                # Video modality automatically passes the image + prompt to the LLM and goes straight through to generation without prompt dialogues
+                if is_video_modality:
+                    logger.info(f"Video modality active for {workflow_name}. Auto-enhancing prompt with vision context (image available={available_image is not None}).")
+                    try:
+                        ai_service = AiService()
+                        # Always include available image context for video workflows
+                        img_payload = available_image if (include_image or available_image is not None) else None
+                        enhanced_prompt = await ai_service.enhance_prompt(original_prompt, prompt_id, image_data=img_payload)
+                        current_values[target_field_id] = enhanced_prompt
+                        logger.info(f"AI Video Enhancement complete for {workflow_name}. Auto-proceeding to generation.")
+                    except Exception as e:
+                        logger.error(f"AI Video Enhancement failed for {workflow_name}: {e}. Proceeding with original prompt.")
+                    
+                    return await continue_to_lora_or_gen(target_interaction, current_values)
+
+                # --- IMAGE / TEXT MODALITY FLOW ---
                 if run_enhancement:
                     # Call AI Service
                     try:
                         ai_service = AiService()
-                        enhanced_prompt = await ai_service.enhance_prompt(original_prompt, prompt_id)
+                        img_payload = available_image if with_image else None
+                        enhanced_prompt = await ai_service.enhance_prompt(original_prompt, prompt_id, image_data=img_payload)
                     except Exception as e:
                         logger.error(f"AI Enhancement failed: {e}")
                         enhanced_prompt = original_prompt
@@ -304,13 +364,31 @@ class GenerationCog(commands.Cog):
 
                 # Otherwise, first ask the user if they want to use AI enhancement
                 class AIQueryView(ui.View):
-                    def __init__(self, original_interaction, current_values, target_field_id, continue_callback, run_ai_enhancement_callback):
+                    def __init__(self, original_interaction, current_values, target_field_id, continue_callback, run_ai_enhancement_callback, has_image: bool):
                         super().__init__(timeout=300)
                         self.original_interaction = original_interaction
                         self.current_values = current_values
                         self.target_field_id = target_field_id
                         self.continue_callback = continue_callback
                         self.run_ai_enhancement_callback = run_ai_enhancement_callback
+                        self.has_image = has_image
+
+                        if self.has_image:
+                            btn_img = ui.Button(label="🖼️ Enhance with Image", style=discord.ButtonStyle.success)
+                            btn_img.callback = self.enhance_with_img
+                            self.add_item(btn_img)
+
+                            btn_text = ui.Button(label="📝 Text Only", style=discord.ButtonStyle.primary)
+                            btn_text.callback = self.enhance_text_only
+                            self.add_item(btn_text)
+                        else:
+                            btn_yes = ui.Button(label="✨ Yes, Enhance", style=discord.ButtonStyle.success)
+                            btn_yes.callback = self.enhance_text_only
+                            self.add_item(btn_yes)
+
+                        btn_skip = ui.Button(label="❌ No, Skip", style=discord.ButtonStyle.secondary)
+                        btn_skip.callback = self.no_skip
+                        self.add_item(btn_skip)
 
                     async def interaction_check(self, interaction: discord.Interaction) -> bool:
                         if interaction.user.id != self.original_interaction.user.id:
@@ -318,32 +396,29 @@ class GenerationCog(commands.Cog):
                             return False
                         return True
 
-                    @ui.button(label="✨ Yes, Enhance", style=discord.ButtonStyle.success)
-                    async def yes_enhance(self, button_interaction: discord.Interaction, button: ui.Button):
-                        await button_interaction.response.edit_message(content="✨ **AI is enhancing your prompt...** Please wait.", view=None)
-                        await self.run_ai_enhancement_callback(button_interaction, self.current_values, run_enhancement=True)
+                    async def enhance_with_img(self, button_interaction: discord.Interaction):
+                        await button_interaction.response.edit_message(content="✨ **AI is analyzing your image & prompt...** Please wait.", view=None)
+                        await self.run_ai_enhancement_callback(button_interaction, self.current_values, run_enhancement=True, with_image=True)
 
-                    @ui.button(label="❌ No, Skip", style=discord.ButtonStyle.secondary)
-                    async def no_skip(self, button_interaction: discord.Interaction, button: ui.Button):
-                        # Proceed with original prompt directly
+                    async def enhance_text_only(self, button_interaction: discord.Interaction):
+                        await button_interaction.response.edit_message(content="✨ **AI is enhancing your prompt...** Please wait.", view=None)
+                        await self.run_ai_enhancement_callback(button_interaction, self.current_values, run_enhancement=True, with_image=False)
+
+                    async def no_skip(self, button_interaction: discord.Interaction):
                         await button_interaction.response.edit_message(content="⏩ **Proceeding without AI enhancement...**", view=None)
                         await self.continue_callback(button_interaction, self.current_values)
 
-                query_view = AIQueryView(target_interaction, current_values, target_field_id, continue_to_lora_or_gen, run_ai_enhancement)
+                has_img = (available_image is not None)
+                query_view = AIQueryView(target_interaction, current_values, target_field_id, continue_to_lora_or_gen, run_ai_enhancement, has_img)
                 
-                # Check if we should send response or followup
+                query_msg = "🧠 **AI Enhancement is enabled for this workflow.**\nWould you like to use AI to enhance your prompt?"
+                if has_img:
+                    query_msg = "🧠 **AI Multimodal Enhancement is available.**\nWould you like to enhance using your prompt + reference image, or text only?"
+
                 if not target_interaction.response.is_done():
-                    await target_interaction.response.send_message(
-                        content="🧠 **AI Enhancement is enabled for this workflow.**\nWould you like to use AI to enhance your prompt?",
-                        view=query_view,
-                        ephemeral=True
-                    )
+                    await target_interaction.response.send_message(content=query_msg, view=query_view, ephemeral=True)
                 else:
-                    await target_interaction.followup.send(
-                        content="🧠 **AI Enhancement is enabled for this workflow.**\nWould you like to use AI to enhance your prompt?",
-                        view=query_view,
-                        ephemeral=True
-                    )
+                    await target_interaction.followup.send(content=query_msg, view=query_view, ephemeral=True)
 
             async def continue_to_lora_or_gen(target_interaction: discord.Interaction, current_values: dict):
                 # --- LORA SELECTION STEP ---
@@ -366,17 +441,15 @@ class GenerationCog(commands.Cog):
                         await self.show_lora_selection(target_interaction, workflow_name, workflow, manifest, current_values, lora_list=lora_list_name)
                         return
 
-                # NO LORA - Proceed to generation
-                display_name = manifest.get("workflow_name") or manifest.get("discord_command") or workflow_name
-                display_msg = f"(Queue) Starting generation for '{display_name}'..."
-                
-                if not target_interaction.response.is_done():
-                    await target_interaction.response.send_message(display_msg)
-                    message = await target_interaction.original_response()
-                else:
-                    message = await target_interaction.followup.send(display_msg)
-                
-                await self._execute_generation(target_interaction, workflow_name, workflow, manifest, current_values, message_id=message.id)
+                # NO LORA - Proceed to generation (post real public channel message)
+                try:
+                    if target_interaction.response.is_done():
+                        # Acknowledge ephemeral interaction if needed
+                        pass
+                except Exception:
+                    pass
+
+                await self._execute_generation(target_interaction, workflow_name, workflow, manifest, current_values, message_id=None)
 
             # If user_values is None and we have modal fields, show the modal first
             if user_values is None and modal_fields:

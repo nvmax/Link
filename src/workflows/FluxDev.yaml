@@ -131,6 +131,7 @@ discord:
           - KleinEdit
           - Krea2-Edit-Image
           - Krea2_Inpaint
+          - video_ltx2_5_i2v
     positions:
       '8':
         x: 3100

@@ -1,5 +1,6 @@
 import discord
 import os
+import asyncio
 import aiofiles
 from src.database.session import db_session
 from src.database.models import GenerationJob, JobStatus, Asset
@@ -97,6 +98,7 @@ NODE_LABELS: dict[str, str] = {
 class ResultHandler:
     def __init__(self, bot):
         self.bot = bot
+        self._processing_prompts = set()
 
     def _friendly_node_label(self, node_type: str | None) -> str:
         """Return a friendly label for the given ComfyUI node class name."""
@@ -121,96 +123,147 @@ class ResultHandler:
         return f"⚙️  {node_type}"
 
     async def handle_execution_done(self, prompt_id: str):
-        logger.info(f"Processing finished execution for prompt {prompt_id}")
-        
-        job_data = None
-        with db_session() as db:
-            job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
-            if not job:
-                logger.warning(f"No job found for prompt_id {prompt_id}")
-                return
-            
-            if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
-                logger.info(f"Job {job.id} already processed ({job.status}), skipping redundant signal.")
-                return
-            
-            # Mark COMPLETED immediately to block concurrent/delayed progress updates
-            job.status = JobStatus.COMPLETED
-            db.commit()
+        if prompt_id in self._processing_prompts:
+            logger.debug(f"Prompt {prompt_id} is already being processed, ignoring duplicate signal.")
+            return
 
-            job_data = {
-                "id": job.id,
-                "status": job.status,
-                "channel_id": job.channel_id,
-                "discord_message_id": job.discord_message_id,
-                "workflow_name": job.workflow_name,
-                "user_id": job.user_id,
-                "input_params": dict(job.input_params) if job.input_params else {},
-                "node_map": dict(job.node_map) if job.node_map else {},
-            }
-
+        self._processing_prompts.add(prompt_id)
         try:
-            # 1. Get history from ComfyUI
-            history = await self.bot.api_client.get_history(prompt_id)
-            prompt_history = history.get(prompt_id, {})
-            outputs = prompt_history.get("outputs", {})
+            logger.info(f"Processing finished execution for prompt {prompt_id}")
             
+            job_data = None
+            with db_session() as db:
+                job = db.query(GenerationJob).filter(GenerationJob.comfy_prompt_id == prompt_id).first()
+                if not job:
+                    logger.warning(f"No job found for prompt_id {prompt_id}")
+                    return
+                
+                if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                    logger.info(f"Job {job.id} already processed ({job.status}), skipping redundant signal.")
+                    return
+                
+                # Mark COMPLETED immediately to block concurrent/delayed progress updates
+                job.status = JobStatus.COMPLETED
+                db.commit()
+
+                job_data = {
+                    "id": job.id,
+                    "status": job.status,
+                    "channel_id": job.channel_id,
+                    "discord_message_id": job.discord_message_id,
+                    "workflow_name": job.workflow_name,
+                    "user_id": job.user_id,
+                    "input_params": dict(job.input_params) if job.input_params else {},
+                    "node_map": dict(job.node_map) if job.node_map else {},
+                }
+
+            # 1. Get history from ComfyUI with polling retries (ComfyUI may take a moment to write output history)
+            history = {}
+            outputs = {}
+            for attempt in range(12):  # Poll for up to 6 seconds
+                try:
+                    history = await self.bot.api_client.get_history(prompt_id)
+                    prompt_history = history.get(prompt_id, {})
+                    outputs = prompt_history.get("outputs", {})
+                    if outputs:
+                        # Check if any outputs have files
+                        has_files = False
+                        for node_output in outputs.values():
+                            if isinstance(node_output, dict):
+                                for items in node_output.values():
+                                    if isinstance(items, dict):
+                                        items = [items]
+                                    if isinstance(items, list):
+                                        if any(isinstance(item, dict) and item.get("filename") for item in items):
+                                            has_files = True
+                                            break
+                            if has_files:
+                                break
+                        if has_files:
+                            break
+                except Exception as e:
+                    logger.debug(f"History poll attempt {attempt+1} failed: {e}")
+                await asyncio.sleep(0.5)
+
             files_to_upload = []
             assets_to_add = []
+            seen_files = set()
             
             # 2. Scan ALL output nodes for any media files
-            SCAN_KEYS = ["images", "gifs", "video", "videos", "audio", "output"]
-            
             for node_id, node_output in outputs.items():
-                for key in SCAN_KEYS:
-                    if key in node_output:
-                        items = node_output[key]
-                        if isinstance(items, dict):
-                            items = [items]
-                        for file_info in items:
-                            if not isinstance(file_info, dict):
-                                continue
-                            filename = file_info.get("filename")
-                            subfolder = file_info.get("subfolder", "")
-                            folder_type = file_info.get("type", "output")
-                            
-                            if not filename:
-                                continue
+                if not isinstance(node_output, dict):
+                    continue
+                for key, items in node_output.items():
+                    if isinstance(items, dict):
+                        items = [items]
+                    if not isinstance(items, list):
+                        continue
+                    for file_info in items:
+                        if not isinstance(file_info, dict):
+                            continue
+                        filename = file_info.get("filename")
+                        if not filename or not isinstance(filename, str):
+                            continue
+                        subfolder = file_info.get("subfolder", "")
+                        folder_type = file_info.get("type", "output")
+                        
+                        file_key = (filename, subfolder, folder_type)
+                        if file_key in seen_files:
+                            continue
+                        seen_files.add(file_key)
 
-                            logger.info(f"Found output in node {node_id} [{key}]: {filename} (subfolder={subfolder}, type={folder_type})")
+                        logger.info(f"Found output in node {node_id} [{key}]: {filename} (subfolder={subfolder}, type={folder_type})")
+                        
+                        try:
+                            img_data = await self.bot.api_client.get_image(filename, subfolder, folder_type)
+                            if not img_data:
+                                logger.warning(f"Empty data received for {filename}")
+                                continue
                             
-                            try:
-                                img_data = await self.bot.api_client.get_image(filename, subfolder, folder_type)
-                                
-                                # Save locally with unique name
-                                local_filename = f"{prompt_id}_{filename}"
-                                local_path = os.path.join(Config.ASSETS_DIR, local_filename)
-                                async with aiofiles.open(local_path, mode='wb') as f:
-                                    await f.write(img_data)
-                                
-                                # Determine MIME type for DB asset
-                                ext = filename.rsplit('.', 1)[-1].lower()
-                                mime = (
-                                    "video/mp4" if ext in ["mp4", "webm", "mov"] else
-                                    "audio/wav" if ext in ["wav", "mp3", "flac", "ogg"] else
-                                    "image/gif" if ext == "gif" else
-                                    "image/png"
-                                )
-                                
-                                # Save asset metadata details to register in DB later
-                                assets_to_add.append((local_path, mime))
-                                files_to_upload.append(discord.File(local_path, filename=filename))
-                            except Exception as e:
-                                logger.error(f"Failed to download file {filename}: {e}")
+                            # Save locally with unique name
+                            local_filename = f"{prompt_id}_{filename}"
+                            local_path = os.path.join(Config.ASSETS_DIR, local_filename)
+                            async with aiofiles.open(local_path, mode='wb') as f:
+                                await f.write(img_data)
+                            
+                            # Determine MIME type for DB asset
+                            ext = filename.rsplit('.', 1)[-1].lower()
+                            mime = (
+                                "video/mp4" if ext in ["mp4", "webm", "mov"] else
+                                "audio/wav" if ext in ["wav", "mp3", "flac", "ogg"] else
+                                "image/gif" if ext == "gif" else
+                                "image/png"
+                            )
+                            
+                            # Save asset metadata details to register in DB later
+                            assets_to_add.append((local_path, mime, filename))
+                            files_to_upload.append(discord.File(local_path, filename=filename))
+                        except Exception as e:
+                            logger.error(f"Failed to download file {filename}: {e}")
 
-            # 3. Deliver to Discord (Recycle the progress message)
+            # 3. Deliver to Discord (Recycle progress message or send fresh)
             channel = self.bot.get_channel(int(job_data["channel_id"]))
-            if channel and job_data["discord_message_id"]:
+            if not channel:
                 try:
-                    msg = await channel.fetch_message(int(job_data["discord_message_id"]))
-                    
-                    if files_to_upload:
-                        # Get UI Config from manifest
+                    channel = await self.bot.fetch_channel(int(job_data["channel_id"]))
+                except Exception as e:
+                    logger.error(f"Could not resolve Discord channel {job_data['channel_id']}: {e}")
+
+            if channel:
+                try:
+                    msg = None
+                    if job_data.get("discord_message_id"):
+                        try:
+                            msg = await channel.fetch_message(int(job_data["discord_message_id"]))
+                        except Exception as e:
+                            logger.warning(f"Could not fetch progress message {job_data['discord_message_id']}: {e}. Will post fresh message to channel.")
+                            msg = None
+    
+                    def create_upload_files():
+                        return [discord.File(path, filename=orig_name) for path, _, orig_name in assets_to_add]
+    
+                    if assets_to_add:
+                        files_to_upload = create_upload_files()
                         # Get UI Config from manifest
                         wf = self.bot.workflow_registry.get_workflow(job_data["workflow_name"])
                         manifest = wf.get("manifest", {})
@@ -225,7 +278,7 @@ class ResultHandler:
                                 use_v2_components = True
                             except ImportError:
                                 use_v2_components = False
-
+    
                             if use_v2_components:
                                 view = LayoutView()
                                 
@@ -247,7 +300,7 @@ class ResultHandler:
                                     if style_str == "primary": style = discord.ButtonStyle.primary
                                     elif style_str == "success": style = discord.ButtonStyle.success
                                     elif style_str == "danger": style = discord.ButtonStyle.danger
-
+    
                                     if btn_type == "action":
                                         target = btn_cfg.get("target_workflow", "")
                                         source = btn_cfg.get("source_type", "image")
@@ -339,11 +392,11 @@ class ResultHandler:
                                     user = self.bot.get_user(int(job_data["user_id"]))
                                     if not user: user = await self.bot.fetch_user(int(job_data["user_id"]))
                                 except Exception: pass
-
+    
                                 title_text = v2_cfg.get('title_template', '{user}\'s Generation')
                                 if user: title_text = title_text.replace('{user}', user.display_name)
                                 else: title_text = title_text.replace('{user}', 'User')
-
+    
                                 title_display = TextDisplay(f"### ✨ {title_text}")
                                 
                                 meta_fields = v2_cfg.get("show_metadata", [])
@@ -416,23 +469,23 @@ class ResultHandler:
                                         meta_text = "\n".join(paired_lines) if paired_lines else ""
                                     else:
                                         meta_text = "\n".join(meta_lines) if meta_lines else ""
-
+    
                                 prompt_display = TextDisplay(f"📝 **Prompt:**\n{prompt_val}") if prompt_val else None
                                 meta_display = TextDisplay(meta_text) if meta_text else None
-
+    
                                 show_footer = v2_cfg.get("show_footer", ui_cfg.get("show_footer", True))
                                 footer_display = None
                                 if show_footer:
                                     profile = job_data['input_params'].get('__profile__', 'Standard')
                                     job_id = job_data['id']
                                     footer_display = TextDisplay(f"_*Link | Profile: {profile} | Job ID: {job_id}*_")
-
+    
                                 media_position = v2_cfg.get("media_position", "left")
                                 try:
                                     grid_columns = int(v2_cfg.get("grid_columns", 2))
                                 except (ValueError, TypeError):
                                     grid_columns = 2
-
+    
                                 if grid_columns == 2 and media_position in ["left", "right"] and files_to_upload and len(files_to_upload) == 1:
                                     first_file = files_to_upload[0]
                                     thumbnail = Thumbnail(media=f"attachment://{first_file.filename}")
@@ -490,7 +543,7 @@ class ResultHandler:
                                             container_children.append(footer_display)
                                             
                                     container = Container(*container_children, accent_color=color)
-
+    
                                 view.add_item(container)
                                 
                                 if buttons:
@@ -499,18 +552,21 @@ class ResultHandler:
                                         for btn in buttons[i:i+5]:
                                             action_row.add_item(btn)
                                         view.add_item(action_row)
-
-                                try:
-                                    await msg.edit(content="", embed=None, attachments=files_to_upload, view=view)
-                                except Exception as e:
-                                    logger.warning(f"Failed to edit message with V2 layout: {e}. Falling back to fresh message...")
+    
+                                if msg:
                                     try:
-                                        try: await msg.delete()
-                                        except Exception: pass
-                                        await channel.send(content=None, embed=None, files=files_to_upload, view=view)
-                                    except Exception as e2:
-                                        logger.error(f"Critical failure delivering V2 generation result: {e2}")
-                                        await channel.send(files=files_to_upload)
+                                        await msg.edit(content="", embed=None, attachments=create_upload_files(), view=view)
+                                    except Exception as e:
+                                        logger.warning(f"Failed to edit message with V2 layout: {e}. Falling back to fresh message...")
+                                        try:
+                                            try: await msg.delete()
+                                            except Exception: pass
+                                            await channel.send(content=None, embed=None, files=create_upload_files(), view=view)
+                                        except Exception as e2:
+                                            logger.error(f"Critical failure delivering V2 generation result: {e2}")
+                                            await channel.send(files=create_upload_files())
+                                else:
+                                    await channel.send(content=None, embed=None, files=create_upload_files(), view=view)
                             else:
                                 # Fallback V2 implementation when discord.ui.LayoutView is missing
                                 from src.bot.views import GenerationView
@@ -532,7 +588,7 @@ class ResultHandler:
                                     if style_str == "primary": style = discord.ButtonStyle.primary
                                     elif style_str == "success": style = discord.ButtonStyle.success
                                     elif style_str == "danger": style = discord.ButtonStyle.danger
-
+    
                                     if btn_type == "action":
                                         target = btn_cfg.get("target_workflow", "")
                                         source = btn_cfg.get("source_type", "image")
@@ -589,7 +645,7 @@ class ResultHandler:
                                                 btn.custom_id = f"link_gen_options_{job_data['id']}"
                                                 buttons.append(btn)
                                                 existing_ids.add("link_gen_options")
-
+    
                                 v2_cfg = ui_cfg.get("v2_layout", {})
                                 use_role_color = v2_cfg.get("use_role_color", True)
                                 color = None
@@ -606,19 +662,19 @@ class ResultHandler:
                                 if color is None:
                                     color_hex = v2_cfg.get("color", "#5865F2").replace("#", "")
                                     color = int(color_hex, 16)
-
+    
                                 embed = discord.Embed(color=color)
                                 user = None
                                 try:
                                     user = self.bot.get_user(int(job_data["user_id"]))
                                     if not user: user = await self.bot.fetch_user(int(job_data["user_id"]))
                                 except Exception: pass
-
+    
                                 title_text = v2_cfg.get('title_template', '{user}\'s Generation')
                                 if user: title_text = title_text.replace('{user}', user.display_name)
                                 else: title_text = title_text.replace('{user}', 'User')
                                 embed.title = f"✨ {title_text}"
-
+    
                                 meta_fields = v2_cfg.get("show_metadata", [])
                                 if meta_fields:
                                     meta_map = {
@@ -666,10 +722,10 @@ class ResultHandler:
                                         elif field in job_data["input_params"]:
                                             val = str(job_data["input_params"][field])
                                         embed.add_field(name=f"{emoji} **{label}:**", value=val, inline=True)
-
+    
                                 if v2_cfg.get("show_footer", True):
                                     embed.set_footer(text=f"Link | Profile: {job_data['input_params'].get('__profile__', 'Standard')} | Job ID: {job_data['id']}")
-
+    
                                 if files_to_upload:
                                     media_pos = v2_cfg.get("media_position", "left")
                                     first_filename = files_to_upload[0].filename.lower()
@@ -679,224 +735,233 @@ class ResultHandler:
                                             embed.set_thumbnail(url=f"attachment://{files_to_upload[0].filename}")
                                         else:
                                             embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
-
+    
                                 for btn in buttons:
                                     view.add_item(btn)
-
-                                try:
-                                    await msg.edit(content="", embed=embed, attachments=files_to_upload, view=view)
-                                except Exception as e:
-                                    logger.warning(f"Failed to edit message with V2 fallback embed: {e}. Falling back to fresh message...")
+    
+                                if msg:
                                     try:
-                                        try: await msg.delete()
-                                        except Exception: pass
-                                        await channel.send(content=None, embed=embed, files=files_to_upload, view=view)
-                                    except Exception as e2:
-                                        logger.error(f"Critical failure delivering V2 fallback embed: {e2}")
-                                        await channel.send(files=files_to_upload)
+                                        await msg.edit(content="", embed=embed, attachments=create_upload_files(), view=view)
+                                    except Exception as e:
+                                        logger.warning(f"Failed to edit message with V2 fallback embed: {e}. Falling back to fresh message...")
+                                        try:
+                                            try: await msg.delete()
+                                            except Exception: pass
+                                            await channel.send(content=None, embed=embed, files=create_upload_files(), view=view)
+                                        except Exception as e2:
+                                            logger.error(f"Critical failure delivering V2 fallback embed: {e2}")
+                                            await channel.send(files=create_upload_files())
+                                else:
+                                    await channel.send(content=None, embed=embed, files=create_upload_files(), view=view)
                         else:
-                            # Legacy V1 Layout Embed implementation
-                            embed_cfg = ui_cfg.get("embed", {})
-                            
-                            # Create View and sync with configured buttons
-                            from src.bot.views import GenerationView
-                            view = GenerationView()
-                            
-                            # Grab existing items to retain their callbacks
-                            existing_items = {item.custom_id: item for item in view.children if hasattr(item, 'custom_id')}
-                            view.clear_items()
-                            
-                            existing_ids = set()
-                            for btn_cfg in ui_cfg.get("buttons", []):
-                                btn_type = btn_cfg.get("type", "action")
-                                label = btn_cfg.get("label", "Button")
-                                style_str = btn_cfg.get("style", "secondary")
-                                emoji = btn_cfg.get("emoji")
-                                if not emoji: emoji = None
+                                # Legacy V1 Layout Embed implementation
+                                embed_cfg = ui_cfg.get("embed", {})
                                 
-                                style = discord.ButtonStyle.secondary
-                                if style_str == "primary": style = discord.ButtonStyle.primary
-                                elif style_str == "success": style = discord.ButtonStyle.success
-                                elif style_str == "danger": style = discord.ButtonStyle.danger
-
-                                if btn_type == "action":
-                                    target = btn_cfg.get("target_workflow", "")
-                                    source = btn_cfg.get("source_type", "image")
-                                    mapping = btn_cfg.get("input_mapping", "")
+                                # Create View and sync with configured buttons
+                                from src.bot.views import GenerationView
+                                view = GenerationView()
+                                
+                                # Grab existing items to retain their callbacks
+                                existing_items = {item.custom_id: item for item in view.children if hasattr(item, 'custom_id')}
+                                view.clear_items()
+                                
+                                existing_ids = set()
+                                for btn_cfg in ui_cfg.get("buttons", []):
+                                    btn_type = btn_cfg.get("type", "action")
+                                    label = btn_cfg.get("label", "Button")
+                                    style_str = btn_cfg.get("style", "secondary")
+                                    emoji = btn_cfg.get("emoji")
+                                    if not emoji: emoji = None
                                     
-                                    import json
-                                    mapping_str = json.dumps(mapping) if isinstance(mapping, dict) else mapping
-                                    custom_id = f"link_action_{target}_{source}_{mapping_str}_{job_data['id']}"
-                                    
-                                    if custom_id not in existing_ids:
-                                        btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
-                                        view.add_item(btn)
-                                        existing_ids.add(custom_id)
+                                    style = discord.ButtonStyle.secondary
+                                    if style_str == "primary": style = discord.ButtonStyle.primary
+                                    elif style_str == "success": style = discord.ButtonStyle.success
+                                    elif style_str == "danger": style = discord.ButtonStyle.danger
+    
+                                    if btn_type == "action":
+                                        target = btn_cfg.get("target_workflow", "")
+                                        source = btn_cfg.get("source_type", "image")
+                                        mapping = btn_cfg.get("input_mapping", "")
                                         
-                                elif btn_type == "chain":
-                                    target = btn_cfg.get("target_workflow", "")
-                                    pass_data = btn_cfg.get("pass_data", "image")
-                                    target_input = btn_cfg.get("target_input", "image")
-                                    custom_id = f"link_chain_{target}|{pass_data}|{target_input}|{job_data['id']}"
-                                    
-                                    if custom_id not in existing_ids:
-                                        btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
-                                        view.add_item(btn)
-                                        existing_ids.add(custom_id)
+                                        import json
+                                        mapping_str = json.dumps(mapping) if isinstance(mapping, dict) else mapping
+                                        custom_id = f"link_action_{target}_{source}_{mapping_str}_{job_data['id']}"
                                         
-                                elif btn_type == "selector":
-                                    custom_id = f"link_selector_{job_data['id']}"
-                                    if custom_id not in existing_ids:
-                                        btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
-                                        view.add_item(btn)
-                                        existing_ids.add(custom_id)
-                                        
-                                elif btn_type == "delete":
-                                    if "link_gen_delete" not in existing_ids:
-                                        btn = existing_items.get("link_gen_delete")
-                                        if btn:
-                                            btn.label = label
-                                            btn.style = style
-                                            btn.emoji = emoji
-                                            btn.custom_id = f"link_gen_delete_{job_data['id']}"
+                                        if custom_id not in existing_ids:
+                                            btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
                                             view.add_item(btn)
-                                            existing_ids.add("link_gen_delete")
+                                            existing_ids.add(custom_id)
                                             
-                                elif btn_type == "regenerate":
-                                    if "link_gen_redo" not in existing_ids:
-                                        btn = existing_items.get("link_gen_redo")
-                                        if btn:
-                                            btn.label = label
-                                            btn.style = style
-                                            btn.emoji = emoji
-                                            btn.custom_id = f"link_gen_redo_{job_data['id']}"
+                                    elif btn_type == "chain":
+                                        target = btn_cfg.get("target_workflow", "")
+                                        pass_data = btn_cfg.get("pass_data", "image")
+                                        target_input = btn_cfg.get("target_input", "image")
+                                        custom_id = f"link_chain_{target}|{pass_data}|{target_input}|{job_data['id']}"
+                                        
+                                        if custom_id not in existing_ids:
+                                            btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
                                             view.add_item(btn)
-                                            existing_ids.add("link_gen_redo")
+                                            existing_ids.add(custom_id)
                                             
-                                elif btn_type == "options":
-                                    if "link_gen_options" not in existing_ids:
-                                        btn = existing_items.get("link_gen_options")
-                                        if btn:
-                                            btn.label = label
-                                            btn.style = style
-                                            btn.emoji = emoji
-                                            btn.custom_id = f"link_gen_options_{job_data['id']}"
+                                    elif btn_type == "selector":
+                                        custom_id = f"link_selector_{job_data['id']}"
+                                        if custom_id not in existing_ids:
+                                            btn = discord.ui.Button(label=label, style=style, custom_id=custom_id, emoji=emoji)
                                             view.add_item(btn)
-                                            existing_ids.add("link_gen_options")
-
-                            # 3. Build Result Embed (High-Detail "Workstation" Style)
-                            use_role_color = embed_cfg.get("use_role_color", True)
-                            color = None
-                            
-                            if use_role_color and job_data["user_id"]:
+                                            existing_ids.add(custom_id)
+                                            
+                                    elif btn_type == "delete":
+                                        if "link_gen_delete" not in existing_ids:
+                                            btn = existing_items.get("link_gen_delete")
+                                            if btn:
+                                                btn.label = label
+                                                btn.style = style
+                                                btn.emoji = emoji
+                                                btn.custom_id = f"link_gen_delete_{job_data['id']}"
+                                                view.add_item(btn)
+                                                existing_ids.add("link_gen_delete")
+                                                
+                                    elif btn_type == "regenerate":
+                                        if "link_gen_redo" not in existing_ids:
+                                            btn = existing_items.get("link_gen_redo")
+                                            if btn:
+                                                btn.label = label
+                                                btn.style = style
+                                                btn.emoji = emoji
+                                                btn.custom_id = f"link_gen_redo_{job_data['id']}"
+                                                view.add_item(btn)
+                                                existing_ids.add("link_gen_redo")
+                                                
+                                    elif btn_type == "options":
+                                        if "link_gen_options" not in existing_ids:
+                                            btn = existing_items.get("link_gen_options")
+                                            if btn:
+                                                btn.label = label
+                                                btn.style = style
+                                                btn.emoji = emoji
+                                                btn.custom_id = f"link_gen_options_{job_data['id']}"
+                                                view.add_item(btn)
+                                                existing_ids.add("link_gen_options")
+    
+                                # 3. Build Result Embed (High-Detail "Workstation" Style)
+                                use_role_color = embed_cfg.get("use_role_color", True)
+                                color = None
+                                
+                                if use_role_color and job_data["user_id"]:
+                                    try:
+                                        guild = channel.guild if channel and hasattr(channel, 'guild') else None
+                                        member = None
+                                        if guild:
+                                            member = guild.get_member(int(job_data["user_id"])) or await guild.fetch_member(int(job_data["user_id"]))
+                                        
+                                        if member and member.color != discord.Color.default():
+                                            color = member.color
+                                    except Exception as e:
+                                        logger.debug(f"Could not resolve role color for user {job_data['user_id']}: {e}")
+                                        
+                                if color is None:
+                                    color_hex = embed_cfg.get("color", "#5865F2").replace("#", "")
+                                    color = int(color_hex, 16)
+                                
+                                user = None
                                 try:
-                                    guild = channel.guild if channel and hasattr(channel, 'guild') else None
-                                    member = None
-                                    if guild:
-                                        member = guild.get_member(int(job_data["user_id"])) or await guild.fetch_member(int(job_data["user_id"]))
-                                    
-                                    if member and member.color != discord.Color.default():
-                                        color = member.color
-                                except Exception as e:
-                                    logger.debug(f"Could not resolve role color for user {job_data['user_id']}: {e}")
-                                    
-                            if color is None:
-                                color_hex = embed_cfg.get("color", "#5865F2").replace("#", "")
-                                color = int(color_hex, 16)
-                            
-                            user = None
-                            try:
-                                user = self.bot.get_user(int(job_data["user_id"]))
-                                if not user: user = await self.bot.fetch_user(int(job_data["user_id"]))
-                            except Exception: pass
-
-                            embed = discord.Embed(color=color)
-                            
-                            title_text = embed_cfg.get('title_template', '{user}\'s Generation')
-                            if user: title_text = title_text.replace('{user}', user.display_name)
-                            else: title_text = title_text.replace('{user}', 'User')
-                            embed.title = f"✨ {title_text}"
-
-                            # Metadata fields
-                            meta_fields = embed_cfg.get("show_metadata", [])
-                            if meta_fields:
-                                meta_map = {
-                                    "prompt": ("Prompt", "📝"),
-                                    "seed": ("Seed", "🎲"),
-                                    "model": ("Model", "🤖"),
-                                    "ratio": ("Resolution", "📐"),
-                                    "lora": ("LoRAs", "🧩"),
-                                    "steps": ("Steps", "⏱️"),
-                                    "cfg": ("CFG", "⚙️"),
-                                    "sampler": ("Sampler", "🧪"),
-                                    "upscale": ("Upscale", "🔍")
-                                }
+                                    user = self.bot.get_user(int(job_data["user_id"]))
+                                    if not user: user = await self.bot.fetch_user(int(job_data["user_id"]))
+                                except Exception: pass
+    
+                                embed = discord.Embed(color=color)
                                 
-                                if "prompt" in meta_fields:
-                                    p_val = job_data["input_params"].get("prompt")
-                                    if not p_val: p_val = job_data["input_params"].get("text")
-                                    if not p_val: p_val = job_data["input_params"].get("positive")
-                                    if not p_val: p_val = "—"
-                                    embed.description = f"📝 **Prompt:**\n{p_val}"
-                                
-                                for field in meta_fields:
-                                    if field == "prompt": continue
-                                    label, emoji = meta_map.get(field, (field.title(), "🔹"))
-                                    val = "Unknown"
+                                title_text = embed_cfg.get('title_template', '{user}\'s Generation')
+                                if user: title_text = title_text.replace('{user}', user.display_name)
+                                else: title_text = title_text.replace('{user}', 'User')
+                                embed.title = f"✨ {title_text}"
+    
+                                # Metadata fields
+                                meta_fields = embed_cfg.get("show_metadata", [])
+                                if meta_fields:
+                                    meta_map = {
+                                        "prompt": ("Prompt", "📝"),
+                                        "seed": ("Seed", "🎲"),
+                                        "model": ("Model", "🤖"),
+                                        "ratio": ("Resolution", "📐"),
+                                        "lora": ("LoRAs", "🧩"),
+                                        "steps": ("Steps", "⏱️"),
+                                        "cfg": ("CFG", "⚙️"),
+                                        "sampler": ("Sampler", "🧪"),
+                                        "upscale": ("Upscale", "🔍")
+                                    }
                                     
-                                    if field == "seed": 
-                                        val = job_data["input_params"].get('seed')
-                                        if not val:
-                                            seed_key = next((k for k in job_data["input_params"].keys() if k.startswith('__seed_')), None)
-                                            if seed_key: val = job_data["input_params"][seed_key]
-                                        if not val: val = "Random"
-                                        val = f"`{val}`"
+                                    if "prompt" in meta_fields:
+                                        p_val = job_data["input_params"].get("prompt")
+                                        if not p_val: p_val = job_data["input_params"].get("text")
+                                        if not p_val: p_val = job_data["input_params"].get("positive")
+                                        if not p_val: p_val = "—"
+                                        embed.description = f"📝 **Prompt:**\n{p_val}"
+                                    
+                                    for field in meta_fields:
+                                        if field == "prompt": continue
+                                        label, emoji = meta_map.get(field, (field.title(), "🔹"))
+                                        val = "Unknown"
                                         
-                                    elif field == "model": val = f"`{job_data['input_params'].get('__model__', '—')}`"
-                                    elif field == "lora":
-                                        lora_data = job_data["input_params"].get("__selected_lora__")
-                                        if lora_data:
-                                            l_name = lora_data.get("name") or lora_data.get("file", "—").split(".")[0]
-                                            l_weight = lora_data.get("weight", 1.0)
-                                            val = f"`{l_name}` ({l_weight})"
+                                        if field == "seed": 
+                                            val = job_data["input_params"].get('seed')
+                                            if not val:
+                                                seed_key = next((k for k in job_data["input_params"].keys() if k.startswith('__seed_')), None)
+                                                if seed_key: val = job_data["input_params"][seed_key]
+                                            if not val: val = "Random"
+                                            val = f"`{val}`"
+                                            
+                                        elif field == "model": val = f"`{job_data['input_params'].get('__model__', '—')}`"
+                                        elif field == "lora":
+                                            lora_data = job_data["input_params"].get("__selected_lora__")
+                                            if lora_data:
+                                                l_name = lora_data.get("name") or lora_data.get("file", "—").split(".")[0]
+                                                l_weight = lora_data.get("weight", 1.0)
+                                                val = f"`{l_name}` ({l_weight})"
+                                            else:
+                                                val = "—"
+                                        elif field == "ratio": 
+                                            val = job_data["input_params"].get("ratio_selected")
+                                            if not val: val = job_data["input_params"].get("resolution")
+                                            if not val: val = job_data["input_params"].get("aspect_ratio", "—")
+                                            
+                                        elif field in job_data["input_params"]: 
+                                            val = str(job_data["input_params"][field])
                                         else:
                                             val = "—"
-                                    elif field == "ratio": 
-                                        val = job_data["input_params"].get("ratio_selected")
-                                        if not val: val = job_data["input_params"].get("resolution")
-                                        if not val: val = job_data["input_params"].get("aspect_ratio", "—")
                                         
-                                    elif field in job_data["input_params"]: 
-                                        val = str(job_data["input_params"][field])
-                                    else:
-                                        val = "—"
+                                        embed.add_field(name=f"{emoji} **{label}:**", value=val, inline=True)
+    
+                                # Footer section
+                                if embed_cfg.get("show_footer", True):
+                                    embed.set_footer(text=f"Link | Profile: {job_data['input_params'].get('__profile__', 'Standard')} | Job ID: {job_data['id']}")
+    
+                                if files_to_upload:
+                                    first_filename = files_to_upload[0].filename.lower()
+                                    is_image = any(first_filename.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp'])
                                     
-                                    embed.add_field(name=f"{emoji} **{label}:**", value=val, inline=True)
-
-                            # Footer section
-                            if embed_cfg.get("show_footer", True):
-                                embed.set_footer(text=f"Link | Profile: {job_data['input_params'].get('__profile__', 'Standard')} | Job ID: {job_data['id']}")
-
-                            if files_to_upload:
-                                first_filename = files_to_upload[0].filename.lower()
-                                is_image = any(first_filename.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp'])
-                                
-                                if is_image and embed_cfg.get("image_position") == "bottom":
-                                    embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
-
-                            try:
-                                await msg.edit(content="", embed=embed, attachments=files_to_upload, view=view)
-                            except Exception as e:
-                                logger.warning(f"Failed to edit message with files: {e}. Falling back to fresh message...")
-                                try:
-                                    try: await msg.delete()
-                                    except Exception: pass
-                                    await channel.send(content="", embed=embed, files=files_to_upload, view=view)
-                                except Exception as e2:
-                                    logger.error(f"Critical failure delivering generation result: {e2}")
-                                    await channel.send(files=files_to_upload)
+                                    if is_image and embed_cfg.get("image_position") == "bottom":
+                                        embed.set_image(url=f"attachment://{files_to_upload[0].filename}")
+    
+                                if msg:
+                                    try:
+                                        await msg.edit(content="", embed=embed, attachments=create_upload_files(), view=view)
+                                    except Exception as e:
+                                        logger.warning(f"Failed to edit message with files: {e}. Falling back to fresh message...")
+                                        try:
+                                            try: await msg.delete()
+                                            except Exception: pass
+                                            await channel.send(content="", embed=embed, files=create_upload_files(), view=view)
+                                        except Exception as e2:
+                                            logger.error(f"Critical failure delivering generation result: {e2}")
+                                            await channel.send(files=create_upload_files())
+                                else:
+                                    await channel.send(content="", embed=embed, files=create_upload_files(), view=view)
                     else:
-                        await msg.edit(content="Generation complete, but no output files were found.", embed=None)
+                        if msg:
+                            await msg.edit(content="Generation complete, but no output files were found.", embed=None)
+                        else:
+                            await channel.send(content="Generation complete, but no output files were found.")
                 except Exception as e:
                     logger.error(f"Failed to process execution results: {e}")
                     if files_to_upload:
@@ -904,7 +969,7 @@ class ResultHandler:
 
             # 4. Update Job Status and register assets in database
             with db_session() as db:
-                for file_path, mime in assets_to_add:
+                for file_path, mime, _ in assets_to_add:
                     asset = Asset(job_id=job_data["id"], file_path=file_path, file_type=mime)
                     db.add(asset)
                 
@@ -924,6 +989,7 @@ class ResultHandler:
                 except Exception as db_err:
                     logger.error(f"Failed to mark job as failed in DB: {db_err}")
         finally:
+            self._processing_prompts.discard(prompt_id)
             if hasattr(self.bot, 'queue_manager') and self.bot.queue_manager:
                 await self.bot.queue_manager.on_job_completed(prompt_id)
 

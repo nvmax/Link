@@ -17,14 +17,14 @@ export function MissionControl() {
   const { config, setConfig, saveConfig, workflows, loraFiles, handleReboot, handleBotRestart, showToast, aiConfig } = useDashboard();
 
   const handleConfigChange = (key: string, value: string) => {
-    setConfig({ ...config, [key]: value });
+    setConfig({ ...(config || {}), [key]: value });
   };
 
   const [selectedAiKeyProvider, setSelectedAiKeyProvider] = React.useState('OPENAI_API_KEY');
 
   React.useEffect(() => {
     if (aiConfig?.active_provider) {
-      const active = aiConfig.active_provider.toUpperCase();
+      const active = String(aiConfig.active_provider).toUpperCase();
       const providerKey = `${active}_API_KEY`;
       const validKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GROK_API_KEY', 'LMSTUDIO_API_KEY', 'OLLAMA_API_KEY', 'VLLM_API_KEY'];
       if (validKeys.includes(providerKey)) {
@@ -42,7 +42,7 @@ export function MissionControl() {
         setSelectedAiKeyProvider('GROK_API_KEY');
       }
     }
-  }, [config, aiConfig]);
+  }, [config?.OPENAI_API_KEY, config?.GEMINI_API_KEY, config?.ANTHROPIC_API_KEY, config?.GROK_API_KEY, aiConfig?.active_provider]);
   const [newGuildId, setNewGuildId] = React.useState('');
   const [newChannelId, setNewChannelId] = React.useState('');
   const [managerType, setManagerType] = React.useState<'--enable-manager-legacy-ui' | '--enable-manager'>('--enable-manager');
@@ -50,7 +50,7 @@ export function MissionControl() {
   const handleAddGuild = () => {
     const val = newGuildId.trim();
     if (val) {
-      const current = config.ALLOWED_GUILD_ID || '';
+      const current = config?.ALLOWED_GUILD_ID || '';
       const ids = current.split(',').filter(Boolean);
       if (!ids.includes(val)) {
         const next = current ? `${current},${val}` : val;
@@ -63,7 +63,7 @@ export function MissionControl() {
   const handleAddChannel = () => {
     const val = newChannelId.trim();
     if (val) {
-      const current = config.ALLOWED_CHANNEL_ID || '';
+      const current = config?.ALLOWED_CHANNEL_ID || '';
       const ids = current.split(',').filter(Boolean);
       if (!ids.includes(val)) {
         const next = current ? `${current},${val}` : val;
@@ -105,7 +105,7 @@ export function MissionControl() {
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  value={config.COMFY_URL || 'http://127.0.0.1:8188'} 
+                  value={config?.COMFY_URL || 'http://127.0.0.1:8188'} 
                   onChange={(e) => handleConfigChange('COMFY_URL', e.target.value)}
                   className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500/50 outline-none transition-all" 
                 />
@@ -123,8 +123,8 @@ export function MissionControl() {
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="C:\Users\Admin\ComfyUI_windows_portable\ComfyUI"
-                  value={config.COMFY_PATH || ''} 
+                  placeholder="C:\Users\Username\Desktop\ComfyUI_windows_portable"
+                  value={config?.COMFY_PATH || ''} 
                   onChange={(e) => handleConfigChange('COMFY_PATH', e.target.value)}
                   className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500/50 outline-none transition-all placeholder:text-white/10" 
                 />
@@ -150,11 +150,11 @@ export function MissionControl() {
           <div className="space-y-3">
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                 <span className="text-xs text-slate-400 font-medium">Workflows Loaded</span>
-                <span className="text-xs text-white font-bold">{workflows.length}</span>
+                <span className="text-xs text-white font-bold">{workflows?.length || 0}</span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                 <span className="text-xs text-slate-400 font-medium">LoRA Lists</span>
-                <span className="text-xs text-white font-bold">{loraFiles.length}</span>
+                <span className="text-xs text-white font-bold">{loraFiles?.length || 0}</span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                 <span className="text-xs text-slate-400 font-medium">Discord Pipeline</span>
@@ -196,7 +196,7 @@ export function MissionControl() {
               <input 
                 type="text" 
                 placeholder="yourdomain.com"
-                value={config.INPAINT_SERVER_DOMAIN || ''} 
+                value={config?.INPAINT_SERVER_DOMAIN || ''} 
                 onChange={(e) => handleConfigChange('INPAINT_SERVER_DOMAIN', e.target.value)}
                 className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-fuchsia-300 focus:border-fuchsia-500/50 outline-none transition-all placeholder:text-white/10" 
               />
@@ -206,7 +206,7 @@ export function MissionControl() {
               <input 
                 type="number" 
                 placeholder="8000"
-                value={config.INPAINT_SERVER_PORT || '8000'} 
+                value={config?.INPAINT_SERVER_PORT || '8000'} 
                 onChange={(e) => handleConfigChange('INPAINT_SERVER_PORT', e.target.value)}
                 className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-fuchsia-300 focus:border-fuchsia-500/50 outline-none transition-all" 
               />
@@ -228,7 +228,7 @@ export function MissionControl() {
             </div>
           </div>
           <button 
-            onClick={() => saveConfig(config)}
+            onClick={() => saveConfig(config || {})}
             className="bg-amber-500 text-black px-6 py-2.5 rounded-xl font-black text-sm hover:bg-amber-400 transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-95 shrink-0"
           >
             <Save className="w-4 h-4" /> Save Settings
@@ -242,20 +242,20 @@ export function MissionControl() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Whitelisted Servers</label>
-                <span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-full">{config.ALLOWED_GUILD_ID?.split(',').filter(Boolean).length || 0} Active</span>
+                <span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-full">{config?.ALLOWED_GUILD_ID?.split(',').filter(Boolean).length || 0} Active</span>
               </div>
               
               <div className="space-y-3">
-                {config.ALLOWED_GUILD_ID?.split(',').filter(Boolean).map((gid: string) => (
+                {config?.ALLOWED_GUILD_ID?.split(',').filter(Boolean).map((gid: string) => (
                   <GuildCard key={gid} id={gid} onRemove={(id) => {
-                    const newIds = config.ALLOWED_GUILD_ID.split(',').filter((x: string) => x !== id).join(',');
+                    const newIds = (config?.ALLOWED_GUILD_ID || '').split(',').filter((x: string) => x !== id).join(',');
                     handleConfigChange('ALLOWED_GUILD_ID', newIds);
                   }} />
                 ))}
                 
                   <div className="flex gap-2 p-2 bg-black/40 border border-white/5 rounded-2xl">
                     <input 
-                      type="text"
+                      type="text" 
                       placeholder="Enter Server ID..."
                       value={newGuildId}
                       onChange={(e) => setNewGuildId(e.target.value)}
@@ -280,20 +280,20 @@ export function MissionControl() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Whitelisted Channels</label>
-                <span className="text-[10px] text-fuchsia-400 font-bold bg-fuchsia-500/10 px-2 py-0.5 rounded-full">{config.ALLOWED_CHANNEL_ID?.split(',').filter(Boolean).length || 0} Active</span>
+                <span className="text-[10px] text-fuchsia-400 font-bold bg-fuchsia-500/10 px-2 py-0.5 rounded-full">{config?.ALLOWED_CHANNEL_ID?.split(',').filter(Boolean).length || 0} Active</span>
               </div>
               
               <div className="space-y-3">
-                {config.ALLOWED_CHANNEL_ID?.split(',').filter(Boolean).map((cid: string) => (
+                {config?.ALLOWED_CHANNEL_ID?.split(',').filter(Boolean).map((cid: string) => (
                   <ChannelCard key={cid} id={cid} onRemove={(id) => {
-                    const newIds = config.ALLOWED_CHANNEL_ID.split(',').filter((x: string) => x !== id).join(',');
+                    const newIds = (config?.ALLOWED_CHANNEL_ID || '').split(',').filter((x: string) => x !== id).join(',');
                     handleConfigChange('ALLOWED_CHANNEL_ID', newIds);
                   }} />
                 ))}
                 
                   <div className="flex gap-2 p-2 bg-black/40 border border-white/5 rounded-2xl">
                     <input 
-                      type="text"
+                      type="text" 
                       placeholder="Enter Channel ID..."
                       value={newChannelId}
                       onChange={(e) => setNewChannelId(e.target.value)}
@@ -320,7 +320,7 @@ export function MissionControl() {
               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Discord Token</label>
               <input 
                 type="password" 
-                value={config.DISCORD_TOKEN || ''} 
+                value={config?.DISCORD_TOKEN || ''} 
                 onChange={(e) => handleConfigChange('DISCORD_TOKEN', e.target.value)}
                 placeholder="MTQ5NjI0MzYz..."
                 className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10" 
@@ -331,7 +331,7 @@ export function MissionControl() {
               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Database URL</label>
               <input 
                 type="text" 
-                value={config.DATABASE_URL || 'sqlite:///data/link.db'} 
+                value={config?.DATABASE_URL || 'sqlite:///data/link.db'} 
                 onChange={(e) => handleConfigChange('DATABASE_URL', e.target.value)}
                 className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all" 
               />
@@ -341,7 +341,7 @@ export function MissionControl() {
               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">HuggingFace Token</label>
               <input 
                 type="password" 
-                value={config.HF_TOKEN || ''} 
+                value={config?.HF_TOKEN || ''} 
                 onChange={(e) => handleConfigChange('HF_TOKEN', e.target.value)}
                 placeholder="hf_xxxxxxxx"
                 className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm font-mono text-slate-300 focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10" 
@@ -374,13 +374,13 @@ export function MissionControl() {
               ) : (
                 <input 
                   type="password" 
-                  value={config[selectedAiKeyProvider] || ''} 
+                  value={config?.[selectedAiKeyProvider] || ''} 
                   onChange={(e) => {
                     const val = e.target.value;
                     const detected = autoDetectProvider(val);
                     if (detected && detected !== selectedAiKeyProvider) {
                       setSelectedAiKeyProvider(detected);
-                      const updatedConfig = { ...config };
+                      const updatedConfig = { ...(config || {}) };
                       delete updatedConfig[selectedAiKeyProvider];
                       updatedConfig[detected] = val;
                       setConfig(updatedConfig);
@@ -467,20 +467,32 @@ function NodeManager() {
   const [updating, setUpdating] = React.useState(false);
   const [selectedNodes, setSelectedNodes] = React.useState<string[]>([]);
 
-  const fetchNodes = async (force = false) => {
+  const fetchNodes = async (force = false, isMounted = () => true) => {
     setLoading(true);
     try {
       const res = await fetch(`http://127.0.0.1:8001/api/comfy/nodes${force ? '?force=true' : ''}`);
+      if (!res.ok) {
+        if (isMounted()) setNodes([]);
+        return;
+      }
       const data = await res.json();
-      setNodes(data.nodes || []);
+      if (isMounted()) {
+        setNodes(data.nodes || []);
+      }
     } catch (e) {
-      console.error('Failed to fetch nodes:', e);
+      console.warn('Backend API server (port 8001) offline or unreachable for node list:', e);
+      if (isMounted()) setNodes([]);
+    } finally {
+      if (isMounted()) {
+        setLoading(false);
+      }
     }
-    setLoading(false);
   };
 
   React.useEffect(() => {
-    fetchNodes(false);
+    let active = true;
+    fetchNodes(false, () => active);
+    return () => { active = false; };
   }, []);
 
   const handleUpdate = async () => {
@@ -632,20 +644,32 @@ function SnapshotManager() {
   const [snapshots, setSnapshots] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const fetchSnapshots = async () => {
+  const fetchSnapshots = async (isMounted = () => true) => {
     setLoading(true);
     try {
       const res = await fetch('http://127.0.0.1:8001/api/comfy/snapshots');
+      if (!res.ok) {
+        if (isMounted()) setSnapshots([]);
+        return;
+      }
       const data = await res.json();
-      setSnapshots(data.snapshots || []);
+      if (isMounted()) {
+        setSnapshots(data.snapshots || []);
+      }
     } catch (e) {
-      console.error('Failed to fetch snapshots:', e);
+      console.warn('Backend API server (port 8001) offline or unreachable for snapshots:', e);
+      if (isMounted()) setSnapshots([]);
+    } finally {
+      if (isMounted()) {
+        setLoading(false);
+      }
     }
-    setLoading(false);
   };
 
   React.useEffect(() => {
-    fetchSnapshots();
+    let active = true;
+    fetchSnapshots(() => active);
+    return () => { active = false; };
   }, []);
 
   const handleRestore = async (id: string) => {
@@ -695,7 +719,7 @@ function SnapshotManager() {
         </div>
         <div className="flex gap-2">
             <button 
-                onClick={fetchSnapshots}
+                onClick={() => fetchSnapshots()}
                 className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-all border border-white/5"
             >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -822,15 +846,23 @@ function BotStatus() {
   const [connected, setConnected] = React.useState(false);
 
   React.useEffect(() => {
+    let active = true;
     const check = () => {
       fetch('http://127.0.0.1:8001/health')
         .then(res => res.json())
-        .then(data => setConnected(data.bot_connected))
-        .catch(() => setConnected(false));
+        .then(data => {
+          if (active) setConnected(Boolean(data.bot_connected));
+        })
+        .catch(() => {
+          if (active) setConnected(false);
+        });
     };
     check();
     const interval = setInterval(check, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -844,15 +876,23 @@ function ComfyStatusIndicator() {
   const [connected, setConnected] = React.useState(false);
 
   React.useEffect(() => {
+    let active = true;
     const check = () => {
       fetch('http://127.0.0.1:8001/health')
         .then(res => res.json())
-        .then(data => setConnected(data.comfy_connected))
-        .catch(() => setConnected(false));
+        .then(data => {
+          if (active) setConnected(Boolean(data.comfy_connected));
+        })
+        .catch(() => {
+          if (active) setConnected(false);
+        });
     };
     check();
     const interval = setInterval(check, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -867,19 +907,34 @@ function GuildCard({ id, onRemove }: { id: string, onRemove: (id: string) => voi
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    fetch(`http://127.0.0.1:8001/api/discord/guild/${id}`)
+    let active = true;
+    const cleanId = id ? String(id).trim() : '';
+    if (!cleanId) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(`http://127.0.0.1:8001/api/discord/guild/${cleanId}`)
       .then(res => {
         if (!res.ok) throw new Error('Not found');
         return res.json();
       })
       .then(d => {
-        setData(d);
-        setLoading(false);
+        if (active) {
+          setData(d);
+          setLoading(false);
+        }
       })
       .catch(() => {
-        setData(null);
-        setLoading(false);
+        if (active) {
+          setData(null);
+          setLoading(false);
+        }
       });
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   return (
@@ -909,19 +964,34 @@ function ChannelCard({ id, onRemove }: { id: string, onRemove: (id: string) => v
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    fetch(`http://127.0.0.1:8001/api/discord/channel/${id}`)
+    let active = true;
+    const cleanId = id ? String(id).trim() : '';
+    if (!cleanId) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(`http://127.0.0.1:8001/api/discord/channel/${cleanId}`)
       .then(res => {
         if (!res.ok) throw new Error('Not found');
         return res.json();
       })
       .then(d => {
-        setData(d);
-        setLoading(false);
+        if (active) {
+          setData(d);
+          setLoading(false);
+        }
       })
       .catch(() => {
-        setData(null);
-        setLoading(false);
+        if (active) {
+          setData(null);
+          setLoading(false);
+        }
       });
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   return (
@@ -951,7 +1021,9 @@ function SetupComfyUI({ managerType, setManagerType }: {
 
   const stepLabels: Record<string, string> = {
     clone_manager:   'Clone ComfyUI Manager',
+    clone_kjnodes:   'Clone ComfyUI KJNodes',
     comfyui_manager: 'ComfyUI Manager Requirements',
+    align_torch_deps:'Align PyTorch & TorchAudio/Vision',
     sage_attention:  'SageAttention 2.2.0',
     triton:          'Triton',
     extra_packages:  'Extra Packages (numba, gguf, cv2)',
