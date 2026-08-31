@@ -933,12 +933,21 @@ class GenerationCog(commands.Cog):
             return await interaction.response.send_message("Workflow no longer exists.", ephemeral=True)
 
         manifest = wf["manifest"]
-        inputs = manifest.get("inputs", [])
+        inputs = manifest.get("inputs") or manifest.get("discord", {}).get("inputs", [])
 
         async def on_options_confirm(confirm_interaction: discord.Interaction, new_values: dict):
             """Called when user clicks Confirm in OptionsView. Then route to LoRA picker or generate."""
             # Merge new values over current
             merged = {**current_values, **new_values}
+
+            # Re-inject profile for new run if present
+            if "__profile__" in merged and "profile" not in merged:
+                merged["profile"] = merged["__profile__"]
+
+            # Reset seeds to -1 for the new run unless explicitly set in visible inputs
+            for k in list(merged.keys()):
+                if "seed" in k.lower() and not any(c.get("id") == k for c in inputs):
+                    merged[k] = -1
 
             # Check for dynamic LoRAs
             discord_loras = manifest.get('discord', {}).get('loras', {})
@@ -957,9 +966,13 @@ class GenerationCog(commands.Cog):
                 )
             else:
                 # No LoRA — go straight to a new generation
-                await confirm_interaction.response.edit_message(
-                    content=f"✅ Options saved — queuing **{workflow_name}**…", view=None
-                )
+                try:
+                    await confirm_interaction.response.edit_message(
+                        content=f"✅ Options saved — queuing **{workflow_name}**…", view=None
+                    )
+                except Exception:
+                    pass
+
                 try:
                     queue_msg = await confirm_interaction.channel.send(
                         f"🎨 **{confirm_interaction.user.display_name}** — queuing **{workflow_name}**…"

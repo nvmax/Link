@@ -44,6 +44,16 @@ When you expose a node, a dropdown menu appears allowing you to select the **Inp
 - **Select - Dropdown**: A list of choices (perfect for aspect ratios or models).
 - **Image/Video/Audio Upload**: Tells the Discord bot to request a file attachment from the user.
 
+### AI Enhancemenet
+-  Two modes 
+    1. **Image Enhancement**: 
+        - This will enahnce text based on user input to enhance the overall generation.
+    2. **Video Enhancement**:  
+        - This will take your input image and prompt and in conjunction enhance the prompt and generate a more enhanced video.
+
+   - When using LTX2.5 or any Video enhancement with LLM, you want to make sure you have your system prompt in the AI stuido under Video prompts,
+     select Modality Video and Context Mode to Image (vision). 
+
 ---
 
 ## 4. Modal Studio: Designing the Interface

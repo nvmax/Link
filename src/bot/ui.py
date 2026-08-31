@@ -1,6 +1,9 @@
 import discord
 from discord import ui
 from typing import Dict, Any, List, Callable, Awaitable
+from src.core.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class DynamicModal(ui.Modal):
@@ -8,7 +11,7 @@ class DynamicModal(ui.Modal):
     def __init__(self, title: str, inputs: List[Dict[str, Any]],
                  callback: Callable[[discord.Interaction, Dict[str, Any]], Awaitable[None]],
                  prefilled: Dict[str, Any] = None):
-        super().__init__(title=title)
+        super().__init__(title=(title or "Edit")[:45])
         self.submit_callback = callback
         self.fields: Dict[str, ui.TextInput] = {}
         prefilled = prefilled or {}
@@ -17,34 +20,86 @@ class DynamicModal(ui.Modal):
             itype = input_cfg.get("type", "")
             fid = input_cfg.get("id", "")
             fid_lower = fid.lower()
-            # Skip all file-upload and inpaint types (declared or inferred by field name)
-            FILE_UPLOAD_TYPES = ["image_upload", "audio_upload", "video_upload", "inpaint", "select"]
-            FILE_KEYWORDS = ["audio", "video", "image", "file", "attachment", "inpaint"]
+            # Skip all file-upload, inpaint, and select types
+            FILE_UPLOAD_TYPES = ["image_upload", "audio_upload", "video_upload", "inpaint", "select", "file", "image", "audio", "video"]
             if itype in FILE_UPLOAD_TYPES:
-                continue
-            if any(k in fid_lower for k in FILE_KEYWORDS):
                 continue
             # Skip LoRA fields
             if "lora" in fid_lower or "➕" in fid:
                 continue
 
-            label = input_cfg.get("label", fid)[:45]
-            default = str(prefilled.get(fid, input_cfg.get("default", "")))
-            required = input_cfg.get("required", True)
+            # Hard limit: Discord allows max 5 components in a modal
+            if len(self.fields) >= 5:
+                break
+
+            label = (input_cfg.get("label") or fid or "Field")[:45]
+            val = prefilled.get(fid)
+            if val is None:
+                val = input_cfg.get("default", "")
+            default = str(val) if val is not None else ""
+            
+            # Discord limit for TextInput default/value is 4000 characters
+            if len(default) > 4000:
+                default = default[:4000]
+
+            placeholder = input_cfg.get("placeholder")
+            if placeholder:
+                placeholder = str(placeholder)[:100]
+            else:
+                placeholder = None
+
+            required = bool(input_cfg.get("required", False))
+
+            # Determine text style:
+            # Discord TextStyle.short throws 400 Bad Request if default value has ANY newlines (\n).
+            # If type is text/prompt/string/text_area, or contains newlines, or is long, use paragraph.
+            is_paragraph = (
+                input_cfg.get("type") in ["text_area", "string", "text", "prompt", "text_input", "paragraph"]
+                or "\n" in default
+                or len(default) > 80
+                or "prompt" in fid_lower
+                or "text" in fid_lower
+                or "desc" in fid_lower
+            )
+
+            style = discord.TextStyle.paragraph if is_paragraph else discord.TextStyle.short
+            # If style is short, sanitize any newlines to avoid Discord 400 Bad Request
+            if style == discord.TextStyle.short and "\n" in default:
+                default = default.replace("\r\n", " ").replace("\n", " ")
 
             text_input = ui.TextInput(
                 label=label,
-                placeholder=input_cfg.get("placeholder", ""),
+                placeholder=placeholder,
                 default=default,
                 required=required,
-                style=discord.TextStyle.paragraph if input_cfg.get("type") in ["text_area", "string"] else discord.TextStyle.short
+                style=style
             )
             self.add_item(text_input)
             self.fields[fid] = text_input
 
     async def on_submit(self, interaction: discord.Interaction):
-        user_values = {fid: field.value for fid, field in self.fields.items()}
-        await self.submit_callback(interaction, user_values)
+        try:
+            user_values = {fid: field.value for fid, field in self.fields.items()}
+            await self.submit_callback(interaction, user_values)
+        except Exception as e:
+            logger.error(f"DynamicModal submit error: {e}", exc_info=True)
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ Error submitting form: {e}", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"❌ Error submitting form: {e}", ephemeral=True)
+            except Exception:
+                pass
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        logger.error(f"DynamicModal error: {error}", exc_info=True)
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Modal error: {error}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Modal error: {error}", ephemeral=True)
+        except Exception:
+            pass
 
 
 class OptionsView(ui.View):
@@ -67,9 +122,9 @@ class OptionsView(ui.View):
         # Strip LoRA, upload, and inpaint fields
         self.visible_inputs = [
             cfg for cfg in inputs
-            if cfg.get("type") not in ["image_upload", "audio_upload", "video_upload", "inpaint"]
-            and "lora" not in cfg["id"].lower()
-            and "➕" not in cfg["id"]
+            if cfg.get("type") not in ["image_upload", "audio_upload", "video_upload", "inpaint", "file", "image", "audio", "video"]
+            and "lora" not in cfg.get("id", "").lower()
+            and "➕" not in cfg.get("id", "")
         ]
 
         self._build()
@@ -87,8 +142,8 @@ class OptionsView(ui.View):
 
                 options = [
                     discord.SelectOption(
-                        label=c[:100],
-                        value=c[:100],
+                        label=str(c)[:100],
+                        value=str(c)[:100],
                         default=(c == current)
                     )
                     for c in choices
@@ -96,7 +151,7 @@ class OptionsView(ui.View):
 
                 sel = _FieldSelect(
                     field_id=cfg["id"],
-                    placeholder=cfg.get("label", cfg["id"])[:150],
+                    placeholder=(cfg.get("label") or cfg["id"])[:100],
                     options=options,
                     row=row,
                 )
@@ -133,40 +188,93 @@ class OptionsView(ui.View):
         self.add_item(cancel_btn)
 
     async def _open_text_modal(self, interaction: discord.Interaction):
-        text_fields = [c for c in self.visible_inputs if c.get("type") not in ["select"]]
+        try:
+            text_fields = [c for c in self.visible_inputs if c.get("type") not in ["select"]]
 
-        async def text_callback(modal_interaction: discord.Interaction, new_vals: dict):
-            self.values.update(new_vals)
-            # Re-build to keep selects current, then update the ephemeral message
-            self._build()
-            await modal_interaction.response.edit_message(
-                content=self._status_text(),
-                view=self,
+            async def text_callback(modal_interaction: discord.Interaction, new_vals: dict):
+                try:
+                    self.values.update(new_vals)
+                    # Re-build to keep selects current, then update the ephemeral message
+                    self._build()
+                    await modal_interaction.response.edit_message(
+                        content=self._status_text(),
+                        view=self,
+                    )
+                except Exception as e:
+                    logger.error(f"Error updating options from modal: {e}", exc_info=True)
+                    try:
+                        if not modal_interaction.response.is_done():
+                            await modal_interaction.response.send_message(f"❌ Failed to update options: {e}", ephemeral=True)
+                        else:
+                            await modal_interaction.followup.send(f"❌ Failed to update options: {e}", ephemeral=True)
+                    except Exception:
+                        pass
+
+            modal = DynamicModal(
+                title=f"Edit {self.workflow_name}"[:45],
+                inputs=text_fields,
+                callback=text_callback,
+                prefilled=self.values,
             )
 
-        modal = DynamicModal(
-            title=f"Edit {self.workflow_name}",
-            inputs=text_fields,
-            callback=text_callback,
-            prefilled=self.values,
-        )
-        await interaction.response.send_modal(modal)
+            if not modal.fields:
+                return await interaction.response.send_message("❌ No editable text fields found.", ephemeral=True)
+
+            await interaction.response.send_modal(modal)
+        except Exception as e:
+            logger.error(f"Error opening text modal: {e}", exc_info=True)
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ Failed to open edit modal: {e}", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"❌ Failed to open edit modal: {e}", ephemeral=True)
+            except Exception:
+                pass
 
     async def _confirm(self, interaction: discord.Interaction):
-        await self.on_confirm(interaction, self.values)
-        self.stop()
+        try:
+            await self.on_confirm(interaction, self.values)
+            self.stop()
+        except Exception as e:
+            logger.error(f"Error in OptionsView._confirm: {e}", exc_info=True)
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ Confirmation failed: {e}", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"❌ Confirmation failed: {e}", ephemeral=True)
+            except Exception:
+                pass
 
     async def _cancel(self, interaction: discord.Interaction):
-        await interaction.response.edit_message(content="❌ Cancelled.", view=None)
-        self.stop()
+        try:
+            await interaction.response.edit_message(content="❌ Cancelled.", view=None)
+            self.stop()
+        except Exception as e:
+            logger.error(f"Error in OptionsView._cancel: {e}", exc_info=True)
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item: ui.Item) -> None:
+        logger.error(f"OptionsView error on item {item}: {error}", exc_info=True)
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Interaction error: {error}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Interaction error: {error}", ephemeral=True)
+        except Exception:
+            pass
 
     def _status_text(self) -> str:
         lines = [f"⚙️ **Options — {self.workflow_name}**"]
         for cfg in self.visible_inputs:
-            fid = cfg["id"]
+            fid = cfg.get("id", "")
             val = self.values.get(fid, cfg.get("default", "—"))
-            lines.append(f"• **{cfg.get('label', fid)}**: {val}")
-        return "\n".join(lines)
+            val_str = str(val) if val is not None else "—"
+            if len(val_str) > 250:
+                val_str = val_str[:247] + "..."
+            lines.append(f"• **{cfg.get('label', fid)}**: {val_str}")
+        full_text = "\n".join(lines)
+        if len(full_text) > 1950:
+            full_text = full_text[:1940] + "\n..."
+        return full_text
 
 
 class _FieldSelect(ui.Select):
@@ -175,7 +283,7 @@ class _FieldSelect(ui.Select):
                  options: List[discord.SelectOption], row: int):
         self.field_id = field_id
         super().__init__(
-            placeholder=placeholder,
+            placeholder=(placeholder or "Select option")[:100],
             min_values=1,
             max_values=1,
             options=options,
@@ -192,8 +300,14 @@ class _FieldSelect(ui.Select):
                 view=ov,
             )
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"FieldSelect error: {e}", exc_info=True)
+            logger.error(f"FieldSelect error: {e}", exc_info=True)
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ Selection error: {e}", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"❌ Selection error: {e}", ephemeral=True)
+            except Exception:
+                pass
 
 
 class ChainSelect(ui.Select):
@@ -204,13 +318,23 @@ class ChainSelect(ui.Select):
         self.workflow_names = workflow_names
         
         options = [
-            discord.SelectOption(label=name[:100], value=name, emoji="🪄")
+            discord.SelectOption(label=name[:100], value=name[:100], emoji="🪄")
             for name in workflow_names[:25]
         ]
         super().__init__(placeholder="Choose a workflow to chain to...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        await self.trigger_callback(interaction, self.values[0], self.job_id)
+        try:
+            await self.trigger_callback(interaction, self.values[0], self.job_id)
+        except Exception as e:
+            logger.error(f"ChainSelect error: {e}", exc_info=True)
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ Chain error: {e}", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"❌ Chain error: {e}", ephemeral=True)
+            except Exception:
+                pass
 
 
 class ChainSelectView(ui.View):
@@ -230,8 +354,19 @@ class ChainSelectView(ui.View):
                     label = manifest.get("display_name") or manifest.get("workflow_name") or manifest.get("discord_command") or name
                 
                 refined_options.append(
-                    discord.SelectOption(label=label[:100], value=name, emoji="🪄")
+                    discord.SelectOption(label=label[:100], value=name[:100], emoji="🪄")
                 )
             select.options = refined_options
             
         self.add_item(select)
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item: ui.Item) -> None:
+        logger.error(f"ChainSelectView error: {error}", exc_info=True)
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Interaction error: {error}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Interaction error: {error}", ephemeral=True)
+        except Exception:
+            pass
+
