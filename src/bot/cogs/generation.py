@@ -289,25 +289,30 @@ class GenerationCog(commands.Cog):
                 available_image = _extract_image_data(current_values, target_image_id)
                 is_video_modality = (category == "video" or (category != "image" and "video" in workflow_name.lower()))
 
-                # --- VIDEO MODALITY AUTO-ENHANCE FLOW ---
-                # Video modality automatically passes the image + prompt to the LLM and goes straight through to generation without prompt dialogues
-                if is_video_modality:
-                    logger.info(f"Video modality active for {workflow_name}. Auto-enhancing prompt with vision context (image available={available_image is not None}).")
+                # Determine if execution mode is Full Auto vs Ask User
+                is_auto_cfg = ai_cfg.get("auto")
+                if is_auto_cfg is None:
+                    # Backward compatibility: existing video workflows without 'auto' explicitly set default to True
+                    is_auto = is_video_modality
+                else:
+                    is_auto = bool(is_auto_cfg)
+
+                # --- FULL AUTO ENHANCE FLOW ---
+                if is_auto:
+                    logger.info(f"AI Auto-Enhancement active for {workflow_name} (video={is_video_modality}, image available={available_image is not None}).")
                     try:
                         ai_service = AiService()
-                        # Always include available image context for video workflows
-                        img_payload = available_image if (include_image or available_image is not None) else None
+                        img_payload = available_image if (include_image or (is_video_modality and available_image is not None)) else None
                         enhanced_prompt = await ai_service.enhance_prompt(original_prompt, prompt_id, image_data=img_payload)
                         current_values[target_field_id] = enhanced_prompt
-                        logger.info(f"AI Video Enhancement complete for {workflow_name}. Auto-proceeding to generation.")
+                        logger.info(f"AI Enhancement complete for {workflow_name}. Auto-proceeding to generation.")
                     except Exception as e:
-                        logger.error(f"AI Video Enhancement failed for {workflow_name}: {e}. Proceeding with original prompt.")
+                        logger.error(f"AI Enhancement failed for {workflow_name}: {e}. Proceeding with original prompt.")
                     
                     return await continue_to_lora_or_gen(target_interaction, current_values)
 
-                # --- IMAGE / TEXT MODALITY FLOW ---
+                # --- ASK USER FLOW: USER CONFIRMED ENHANCE ---
                 if run_enhancement:
-                    # Call AI Service
                     try:
                         ai_service = AiService()
                         img_payload = available_image if with_image else None
@@ -316,14 +321,14 @@ class GenerationCog(commands.Cog):
                         logger.error(f"AI Enhancement failed: {e}")
                         enhanced_prompt = original_prompt
 
-                    # Create a view with a button to trigger the modal
                     class AIReviewView(ui.View):
-                        def __init__(self, original_interaction, current_values, target_field_id, enhanced_prompt, continue_callback):
+                        def __init__(self, original_interaction, current_values, target_field_id, enhanced_prompt, original_prompt, continue_callback):
                             super().__init__(timeout=300)
                             self.original_interaction = original_interaction
                             self.current_values = current_values
                             self.target_field_id = target_field_id
                             self.enhanced_prompt = enhanced_prompt
+                            self.original_prompt = original_prompt
                             self.continue_callback = continue_callback
 
                         async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -332,13 +337,20 @@ class GenerationCog(commands.Cog):
                                 return False
                             return True
 
-                        @ui.button(label="✨ Review & Generate", style=discord.ButtonStyle.primary)
-                        async def review(self, button_interaction: discord.Interaction, button: ui.Button):
+                        @ui.button(label="🚀 Generate Now", style=discord.ButtonStyle.success)
+                        async def generate_now(self, button_interaction: discord.Interaction, button: ui.Button):
+                            self.current_values[self.target_field_id] = self.enhanced_prompt
+                            try:
+                                await button_interaction.response.edit_message(content="✅ **Prompt approved! Starting generation...**", view=None)
+                            except Exception: pass
+                            await self.continue_callback(button_interaction, self.current_values)
+
+                        @ui.button(label="✏️ Edit Prompt", style=discord.ButtonStyle.primary)
+                        async def edit_prompt(self, button_interaction: discord.Interaction, button: ui.Button):
                             async def modal_callback(modal_interaction: discord.Interaction, final_prompt: str):
                                 self.current_values[self.target_field_id] = final_prompt
-                                # Disable the original button message
                                 try:
-                                    await button_interaction.edit_original_response(content="✅ Prompt approved. Proceeding...", view=None)
+                                    await button_interaction.edit_original_response(content="✅ **Prompt approved! Starting generation...**", view=None)
                                 except Exception: pass
                                 await self.continue_callback(modal_interaction, self.current_values)
 
@@ -353,18 +365,35 @@ class GenerationCog(commands.Cog):
                             )
                             await button_interaction.response.send_modal(modal)
 
-                    view = AIReviewView(target_interaction, current_values, target_field_id, enhanced_prompt, continue_to_lora_or_gen)
+                        @ui.button(label="❌ Use Original", style=discord.ButtonStyle.secondary)
+                        async def use_original(self, button_interaction: discord.Interaction, button: ui.Button):
+                            self.current_values[self.target_field_id] = self.original_prompt
+                            try:
+                                await button_interaction.response.edit_message(content="⏩ **Discarded AI enhancement. Proceeding with original prompt...**", view=None)
+                            except Exception: pass
+                            await self.continue_callback(button_interaction, self.current_values)
+
+                    view = AIReviewView(target_interaction, current_values, target_field_id, enhanced_prompt, original_prompt, continue_to_lora_or_gen)
                     
-                    await target_interaction.followup.send(
-                        content="✨ **AI has enhanced your prompt!**\nClick below to review the changes and start the generation.",
-                        view=view,
-                        ephemeral=True
+                    preview_text = enhanced_prompt if len(enhanced_prompt) <= 1500 else enhanced_prompt[:1497] + "..."
+                    review_msg = (
+                        f"✨ **AI has enhanced your prompt!**\n\n"
+                        f"**Enhanced Prompt:**\n> {preview_text}\n\n"
+                        f"Click **Generate Now** to run, **Edit Prompt** to tweak it, or **Use Original** to cancel enhancement."
                     )
+                    
+                    try:
+                        if target_interaction.response.is_done():
+                            await target_interaction.edit_original_response(content=review_msg, view=view)
+                        else:
+                            await target_interaction.response.send_message(content=review_msg, view=view, ephemeral=True)
+                    except Exception:
+                        await target_interaction.followup.send(content=review_msg, view=view, ephemeral=True)
                     return
 
-                # Otherwise, first ask the user if they want to use AI enhancement
+                # --- ASK USER FLOW: INITIAL PROMPT QUESTION ---
                 class AIQueryView(ui.View):
-                    def __init__(self, original_interaction, current_values, target_field_id, continue_callback, run_ai_enhancement_callback, has_image: bool):
+                    def __init__(self, original_interaction, current_values, target_field_id, continue_callback, run_ai_enhancement_callback, has_image: bool, include_image: bool):
                         super().__init__(timeout=300)
                         self.original_interaction = original_interaction
                         self.current_values = current_values
@@ -372,9 +401,10 @@ class GenerationCog(commands.Cog):
                         self.continue_callback = continue_callback
                         self.run_ai_enhancement_callback = run_ai_enhancement_callback
                         self.has_image = has_image
+                        self.include_image = include_image
 
-                        if self.has_image:
-                            btn_img = ui.Button(label="🖼️ Enhance with Image", style=discord.ButtonStyle.success)
+                        if self.has_image and self.include_image:
+                            btn_img = ui.Button(label="✨ Yes, Enhance (with Image)", style=discord.ButtonStyle.success)
                             btn_img.callback = self.enhance_with_img
                             self.add_item(btn_img)
 
@@ -386,7 +416,7 @@ class GenerationCog(commands.Cog):
                             btn_yes.callback = self.enhance_text_only
                             self.add_item(btn_yes)
 
-                        btn_skip = ui.Button(label="❌ No, Skip", style=discord.ButtonStyle.secondary)
+                        btn_skip = ui.Button(label="❌ No, Keep Original", style=discord.ButtonStyle.secondary)
                         btn_skip.callback = self.no_skip
                         self.add_item(btn_skip)
 
@@ -405,15 +435,25 @@ class GenerationCog(commands.Cog):
                         await self.run_ai_enhancement_callback(button_interaction, self.current_values, run_enhancement=True, with_image=False)
 
                     async def no_skip(self, button_interaction: discord.Interaction):
-                        await button_interaction.response.edit_message(content="⏩ **Proceeding without AI enhancement...**", view=None)
+                        await button_interaction.response.edit_message(content="⏩ **Proceeding with original prompt...**", view=None)
                         await self.continue_callback(button_interaction, self.current_values)
 
                 has_img = (available_image is not None)
-                query_view = AIQueryView(target_interaction, current_values, target_field_id, continue_to_lora_or_gen, run_ai_enhancement, has_img)
+                query_view = AIQueryView(target_interaction, current_values, target_field_id, continue_to_lora_or_gen, run_ai_enhancement, has_img, include_image)
                 
-                query_msg = "🧠 **AI Enhancement is enabled for this workflow.**\nWould you like to use AI to enhance your prompt?"
-                if has_img:
-                    query_msg = "🧠 **AI Multimodal Enhancement is available.**\nWould you like to enhance using your prompt + reference image, or text only?"
+                preview_prompt = original_prompt if len(original_prompt) <= 1500 else original_prompt[:1497] + "..."
+                if has_img and include_image:
+                    query_msg = (
+                        f"🧠 **AI Prompt Enhancement is available.**\n"
+                        f"Would you like to enhance your prompt with AI using your reference image?\n\n"
+                        f"**Original Prompt:**\n> {preview_prompt}"
+                    )
+                else:
+                    query_msg = (
+                        f"🧠 **AI Prompt Enhancement is available.**\n"
+                        f"Would you like to enhance your prompt with AI before generating?\n\n"
+                        f"**Original Prompt:**\n> {preview_prompt}"
+                    )
 
                 if not target_interaction.response.is_done():
                     await target_interaction.response.send_message(content=query_msg, view=query_view, ephemeral=True)

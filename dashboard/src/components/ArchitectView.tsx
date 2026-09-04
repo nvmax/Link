@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Type, CheckCircle2, ChevronLeft, ChevronRight, Upload, Trash2, Sparkles, Video, Image as ImageIcon, Eye } from 'lucide-react';
+import { Type, CheckCircle2, ChevronLeft, ChevronRight, Upload, Trash2, Sparkles, Video, Image as ImageIcon, Eye, Zap, HelpCircle } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 import { VisualWorkflowMap } from './VisualWorkflowMap';
 import { ListView } from './ListView';
@@ -148,7 +148,7 @@ export function ArchitectView() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-black text-white uppercase tracking-tight">AI Enhancement</span>
                       <button 
-                        onClick={() => setAiPrompt({ ...aiPrompt, enabled: !aiPrompt.enabled })}
+                        onClick={() => setAiPrompt({ ...aiPrompt, enabled: !aiPrompt.enabled, auto: aiPrompt.auto !== undefined ? aiPrompt.auto : true })}
                         className={`w-8 h-4 rounded-full relative transition-all ${aiPrompt.enabled ? 'bg-indigo-500' : 'bg-slate-700'}`}
                       >
                         <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${aiPrompt.enabled ? 'left-4.5' : 'left-0.5'}`} />
@@ -177,6 +177,26 @@ export function ArchitectView() {
                         className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${aiPrompt.category === 'video' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-400'}`}
                       >
                         <Video className="w-3 h-3 inline mr-1" /> Video
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter ml-1">Mode</span>
+                    <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/5">
+                      <button 
+                        onClick={() => setAiPrompt({ ...aiPrompt, auto: true })}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${aiPrompt.auto !== false ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-500 hover:text-slate-400'}`}
+                        title="Full Auto: Automatically enhances prompt using the specified system prompt"
+                      >
+                        <Zap className="w-3 h-3 inline mr-1" /> Full Auto
+                      </button>
+                      <button 
+                        onClick={() => setAiPrompt({ ...aiPrompt, auto: false })}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${aiPrompt.auto === false ? 'bg-sky-500/20 text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}
+                        title="Ask User: Discord bot asks the user if they want to enhance their prompt before running"
+                      >
+                        <HelpCircle className="w-3 h-3 inline mr-1" /> Ask User
                       </button>
                     </div>
                   </div>

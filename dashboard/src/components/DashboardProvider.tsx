@@ -490,7 +490,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [loraPage, setLoraPage] = useState(0);
 
   // AI Workflow Integration
-  const [aiPrompt, setAiPrompt] = useState<any>({ enabled: false, category: 'image', prompt_id: '', target_input: '', include_image: false, target_image: '' });
+  const [aiPrompt, setAiPrompt] = useState<any>({ enabled: false, auto: true, category: 'image', prompt_id: '', target_input: '', include_image: false, target_image: '' });
 
   // AI Studio State
   const [aiConfig, setAiConfig] = useState<any>({});
@@ -768,7 +768,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       } else {
         setNodeCoords({});
       }
-      setAiPrompt(data.manifest?.ai_prompt || { enabled: false, category: 'image', prompt_id: '', target_input: '', include_image: false, target_image: '' });
+      const loadedAiPrompt = data.manifest?.ai_prompt ? { ...data.manifest.ai_prompt } : { enabled: false, auto: true, category: 'image', prompt_id: '', target_input: '', include_image: false, target_image: '' };
+      if (loadedAiPrompt.auto === undefined) {
+        loadedAiPrompt.auto = true;
+      }
+      setAiPrompt(loadedAiPrompt);
     } catch (e) {
       console.error('Failed to load workflow:', e);
     } finally {
