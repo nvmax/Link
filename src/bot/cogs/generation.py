@@ -150,6 +150,10 @@ class GenerationCog(commands.Cog):
             if has_inpaint:
                 return await self.handle_inpaint_request(interaction, workflow_name, workflow, manifest, user_values, prefilled)
 
+            # Check if workflow is YuE2 Music Studio
+            if workflow_name == "yue2_full_producer_studio_workflow" or manifest.get("discord_command") == "music":
+                return await self.handle_music_studio_request(interaction, workflow_name, workflow, manifest, user_values, prefilled)
+
             # Ensure prefilled is initialized
             if prefilled is None: prefilled = {}
             
@@ -1320,6 +1324,66 @@ class GenerationCog(commands.Cog):
         ))
 
 
+
+        if not interaction.response.is_done():
+            reply_msg = await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            try:
+                msg_obj = await interaction.original_response()
+                session.message_id = str(msg_obj.id)
+            except Exception: pass
+        else:
+            followup_msg = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            if followup_msg:
+                session.message_id = str(followup_msg.id)
+
+    async def handle_music_studio_request(self, interaction: discord.Interaction, workflow_name: str, wf: dict, manifest: dict, user_values: dict = None, prefilled: dict = None):
+        """Entry point for YuE2 Music Studio requests."""
+        logger.info(f"handle_music_studio_request for {workflow_name} by {interaction.user.display_name}")
+        
+        user_values = user_values or {}
+        prefilled = prefilled or {}
+        merged = {**prefilled, **user_values}
+
+        from src.music_studio.session_store import music_session_store
+        session = music_session_store.create_session(
+            user_id=str(interaction.user.id),
+            user_name=interaction.user.display_name,
+            channel_id=str(interaction.channel_id),
+            guild_id=str(interaction.guild_id) if interaction.guild_id else None,
+            custom_style=merged.get("custom_style", "Style of Bruno Mars song Risk It All"),
+            lyrics=merged.get("lyrics", ""),
+            genre_preset=merged.get("genre_preset", "Custom / Keep Only Lyrics"),
+            vocal_profile=merged.get("vocal_profile", "Warm Smooth Baritone (Male)"),
+            bpm=int(merged.get("bpm", 120)) if str(merged.get("bpm", "")).isdigit() else 120,
+            intro_style=merged.get("intro_style", "None"),
+            action=merged.get("action", "Generate Full Song Concept"),
+        )
+
+        domain = (Config.INPAINT_SERVER_DOMAIN or "").strip()
+        if domain:
+            studio_url = f"https://{domain}/music/?token={session.token}"
+        else:
+            studio_url = f"http://localhost:{Config.INPAINT_SERVER_PORT}/music/?token={session.token}"
+
+        embed = discord.Embed(
+            title="🎵 YuE2 Music Studio — AI Producer Workstation",
+            description=(
+                f"**Producer**: {interaction.user.mention}\n\n"
+                f"Click below to launch the **YuE2 Music Studio**!\n\n"
+                f"✨ **Co-Produce Lyrics**: Polish, structure & edit lyrics with local LLM without neural audio delay\n"
+                f"🚀 **Produce Master Audio**: Synthesize full multi-track vocals and instruments with YuE2 Neural Song Generator\n"
+                f"🎧 **Master Player**: Audition playback and waveform visualizer directly in your workstation"
+            ),
+            color=discord.Color.from_rgb(139, 92, 246)
+        )
+        embed.set_footer(text="YuE2 Neural Music Generator • Powered by LINK")
+
+        view = ui.View(timeout=1800)
+        view.add_item(ui.Button(
+            label="🎵 Open Music Studio",
+            style=discord.ButtonStyle.link,
+            url=studio_url
+        ))
 
         if not interaction.response.is_done():
             reply_msg = await interaction.response.send_message(embed=embed, view=view, ephemeral=True)

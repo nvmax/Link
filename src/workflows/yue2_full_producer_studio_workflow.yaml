@@ -1,0 +1,169 @@
+workflow_name: yue2_full_producer_studio_workflow
+display_name: YuE2 Music Studio
+discord_command: music
+ai_prompt:
+  enabled: false
+  category: audio
+  prompt_id: ''
+  target_input: ''
+description: Professional AI Music Studio using YuE2 Neural Song Generator and LLM Co-Producer
+mapping:
+  genre_preset:
+    - '1'
+    - inputs
+    - genre_preset
+  vocal_profile:
+    - '1'
+    - inputs
+    - vocal_profile
+  bpm:
+    - '1'
+    - inputs
+    - bpm
+  intro_style:
+    - '1'
+    - inputs
+    - intro_style
+  custom_style:
+    - '1'
+    - inputs
+    - custom_style
+  lyrics:
+    - '1'
+    - inputs
+    - lyrics
+  action:
+    - '3'
+    - inputs
+    - action
+inputs:
+  - id: custom_style
+    type: text
+    label: Song Style & Musical Direction
+    required: false
+  - id: genre_preset
+    type: select
+    label: Genre Preset
+    choices:
+      - Custom / Keep Only Lyrics
+      - Pop / Dance Pop
+      - Pop / Pop Funk
+      - Rock / Classic Rock
+      - Ballad / Power Ballad
+      - Hip-Hop / Rap
+      - Synthwave / Retro 80s Electro
+      - EDM / Melodic Progressive House
+      - R&B / Neo-Soul
+      - Metal / Heavy Metal
+    required: false
+  - id: vocal_profile
+    type: select
+    label: Vocal Profile
+    choices:
+      - Warm Smooth Baritone (Male)
+      - Bright Soaring Tenor (Male)
+      - Deep Resonant Bass (Male)
+      - Airy Crystalline Soprano (Female)
+      - Velvety Mezzo-Soprano (Female)
+      - Smoky Deep Alto (Female)
+      - Male & Female Duet (Baritone + Soprano)
+      - None / Pure Instrumental
+    required: false
+  - id: bpm
+    type: number
+    label: Tempo (BPM)
+    required: false
+  - id: intro_style
+    type: select
+    label: Intro Style
+    choices:
+      - None
+      - Instrumental Intro
+      - Ambient Nature Intro
+      - Immediate Vocal Entry (No Intro)
+    required: false
+  - id: action
+    type: select
+    label: LLM Co-Producer Action
+    choices:
+      - Generate Full Song Concept
+      - Polish & Arrange Lyrics
+      - Optimize Acoustic Style String
+    required: false
+  - id: lyrics
+    type: text
+    label: Lyrics
+    required: false
+discord:
+  command: music
+  inputs:
+    - id: custom_style
+      nodeId: '1'
+      field: custom_style
+      type: text
+      label: Song Style & Musical Direction
+      required: false
+    - id: genre_preset
+      nodeId: '1'
+      field: genre_preset
+      type: select
+      label: Genre Preset
+      required: false
+    - id: vocal_profile
+      nodeId: '1'
+      field: vocal_profile
+      type: select
+      label: Vocal Profile
+      required: false
+    - id: bpm
+      nodeId: '1'
+      field: bpm
+      type: number
+      label: Tempo (BPM)
+      required: false
+    - id: action
+      nodeId: '3'
+      field: action
+      type: select
+      label: LLM Action
+      required: false
+    - id: lyrics
+      nodeId: '1'
+      field: lyrics
+      type: text
+      label: Lyrics
+      required: false
+  ui:
+    layout_version: v1
+    embed:
+      title_template: '{user}''s Master Track'
+      color: '#8B5CF6'
+      use_role_color: true
+      show_metadata:
+        - custom_style
+        - bpm
+        - vocal_profile
+        - genre_preset
+    v2_layout:
+      title_template: '{user}''s Master Track'
+      color: '#8B5CF6'
+      use_role_color: true
+      grid_columns: 2
+      media_position: left
+      show_metadata:
+        - custom_style
+        - bpm
+        - vocal_profile
+        - genre_preset
+    buttons:
+      - type: regenerate
+        label: Regenerate
+        style: primary
+      - type: options
+        label: Options
+        style: secondary
+      - type: delete
+        label: Delete
+        style: danger
+    positions: {}
+  loras: {}

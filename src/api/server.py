@@ -88,7 +88,7 @@ async def api_key_middleware(request: Request, call_next):
         return await call_next(request)
         
     path = request.url.path
-    if path.startswith("/api/") and request.method != "OPTIONS":
+    if path.startswith("/api/") and not path.startswith("/api/music/") and request.method != "OPTIONS":
         req_key = request.headers.get("x-api-key") or request.query_params.get("api_key")
         if req_key != api_key:
             if path == "/api/config/reload":
@@ -125,6 +125,13 @@ app.include_router(models.router)
 app.include_router(discord.router)
 app.include_router(ai.router)
 app.include_router(config.router)
+
+from src.music_studio.server import router as music_router
+from fastapi.staticfiles import StaticFiles
+music_static_dir = os.path.join(Config.BASE_DIR, "src", "music_studio", "static")
+if os.path.exists(music_static_dir):
+    app.mount("/music/static", StaticFiles(directory=music_static_dir), name="music_static")
+app.include_router(music_router)
 
 @app.get("/health")
 async def health():

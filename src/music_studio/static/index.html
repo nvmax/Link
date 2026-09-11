@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YuE2 Music Studio — AI Producer Workstation</title>
+  <meta name="description" content="State-of-the-art AI Music Producer Studio powered by YuE2 Neural Song Generator and LLM Co-Producer.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/music/static/style.css">
+  <!-- Discord Embedded App SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.4.0/dist/index.global.js"></script>
+</head>
+<body>
+  <div id="studio-app">
+    <!-- Top DAW Master Header -->
+    <header class="master-header">
+      <div class="brand-group">
+        <div class="brand-logo">
+          <div class="equalizer-icon">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="brand-title">
+          <span class="brand-name">LINK STUDIO</span>
+          <span class="brand-sub">YuE2 Full Producer & Co-Writer</span>
+        </div>
+      </div>
+
+      <!-- Studio Status Monitors -->
+      <div class="status-monitors">
+        <div class="monitor-badge" id="badge-comfy">
+          <span class="indicator-dot"></span>
+          <span class="badge-label">ComfyUI</span>
+          <span class="badge-status" id="status-comfy-text">Checking...</span>
+        </div>
+        <div class="monitor-badge" id="badge-llm">
+          <span class="indicator-dot"></span>
+          <span class="badge-label">LM Studio</span>
+          <span class="badge-status" id="status-llm-text">Checking...</span>
+        </div>
+        <div class="monitor-badge" id="badge-neural">
+          <span class="indicator-dot online"></span>
+          <span class="badge-label">YuE2-3B Engine</span>
+          <span class="badge-status">Ready</span>
+        </div>
+      </div>
+
+      <!-- Main Action Buttons -->
+      <div class="master-actions">
+        <button id="btn-generate-lyrics" class="btn btn-secondary" title="Disables neural audio generation (Node 5). Generates lyrics concept & structure using LLM (Node 3) and views output in Node 14.">
+          <span class="btn-icon">✨</span>
+          <span class="btn-text">Generate Lyrics</span>
+          <span class="btn-subtext">Node 14 (Fast)</span>
+        </button>
+
+        <button id="btn-generate-song" class="btn btn-primary" title="Runs full workflow including YuE2 Neural Song Generator (Node 5) and produces master MP3 audio (Node 6).">
+          <span class="btn-icon">🚀</span>
+          <span class="btn-text">Generate Final Song</span>
+          <span class="btn-subtext">Node 6 Audio</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Studio Workspace Grid -->
+    <main class="studio-workspace">
+      <!-- Left Panel: Track Architecture & Production Controls (Node 1 & Node 3) -->
+      <section class="panel production-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <span class="panel-icon">🎛️</span>
+            <h2 class="panel-title">Track Production Controls</h2>
+          </div>
+          <span class="node-tag">Node 1 & Node 3</span>
+        </div>
+
+        <div class="panel-scroll-content">
+          <!-- Quick Preset Chips -->
+          <div class="control-group">
+            <label class="control-label">
+              <span>Genre Preset</span>
+              <span class="label-info">Node 1: genre_preset</span>
+            </label>
+            <div class="select-wrapper">
+              <select id="select-genre" class="studio-select"></select>
+            </div>
+            <div class="quick-chips" id="genre-quick-chips">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+
+          <!-- Vocal Profile & Timbre -->
+          <div class="control-group">
+            <label class="control-label">
+              <span>Vocal Profile</span>
+              <span class="label-info">Node 1: vocal_profile</span>
+            </label>
+            <div class="select-wrapper">
+              <select id="select-vocal" class="studio-select"></select>
+            </div>
+          </div>
+
+          <!-- BPM / Tempo Master Section -->
+          <div class="control-group tempo-group">
+            <div class="tempo-header">
+              <label class="control-label">
+                <span>Tempo / BPM</span>
+                <span class="label-info">Node 1: bpm</span>
+              </label>
+              <div class="bpm-digital-readout">
+                <span id="bpm-val">120</span>
+                <span class="bpm-unit">BPM</span>
+              </div>
+            </div>
+
+            <div class="tempo-controls-row">
+              <input type="range" id="bpm-slider" class="studio-slider" min="40" max="240" value="120" step="1">
+              <button id="btn-tap-tempo" class="btn btn-tap" title="Tap repeatedly in rhythm to detect tempo">
+                <span class="tap-label">TAP</span>
+              </button>
+            </div>
+
+            <div class="tempo-presets">
+              <button class="tempo-chip" data-bpm="75">75 Chill</button>
+              <button class="tempo-chip" data-bpm="102">102 Mid</button>
+              <button class="tempo-chip active" data-bpm="120">120 Standard</button>
+              <button class="tempo-chip" data-bpm="138">138 Dance</button>
+              <button class="tempo-chip" data-bpm="165">165 Fast</button>
+            </div>
+          </div>
+
+          <!-- Intro Style -->
+          <div class="control-group">
+            <label class="control-label">
+              <span>Intro Style</span>
+              <span class="label-info">Node 1: intro_style</span>
+            </label>
+            <div class="select-wrapper">
+              <select id="select-intro" class="studio-select"></select>
+            </div>
+          </div>
+
+          <!-- Custom Style / Musical Direction -->
+          <div class="control-group">
+            <label class="control-label">
+              <span>Custom Style & Acoustic Direction</span>
+              <span class="label-info">Node 1: custom_style</span>
+            </label>
+            <textarea id="input-custom-style" class="studio-textarea compact" rows="2" placeholder="e.g. Style of Bruno Mars song Risk It All, funk bassline, soaring brass"></textarea>
+          </div>
+
+          <!-- Co-Producer Action (Node 3) -->
+          <div class="control-group action-group">
+            <label class="control-label">
+              <span>LLM Co-Producer Action</span>
+              <span class="label-info">Node 3: action</span>
+            </label>
+            <div class="select-wrapper">
+              <select id="select-action" class="studio-select accent-select"></select>
+            </div>
+          </div>
+
+          <!-- Audio Engine Advanced Settings Collapsible -->
+          <div class="advanced-section">
+            <button id="btn-toggle-advanced" class="btn-toggle-accordion">
+              <span>⚡ Synthesis Engine Settings (Node 4 & 5)</span>
+              <span class="accordion-arrow">▼</span>
+            </button>
+            <div id="advanced-drawer" class="advanced-drawer collapsed">
+              <div class="drawer-row">
+                <label class="drawer-label">Randomize Seed:</label>
+                <input type="checkbox" id="check-random-seed" class="studio-checkbox" checked>
+              </div>
+              <div class="drawer-row" id="seed-input-row" style="display: none;">
+                <label class="drawer-label">Seed Value:</label>
+                <input type="number" id="input-seed" class="studio-number-input" placeholder="Random">
+              </div>
+              <div class="drawer-row">
+                <label class="drawer-label">Exact Edited Lyrics Direct:</label>
+                <input type="checkbox" id="check-direct-lyrics" class="studio-checkbox" title="Route edited lyrics directly into synthesis, preserving exact line adjustments without LLM re-formatting.">
+              </div>
+              <div class="drawer-row">
+                <label class="drawer-label">ODE Synthesis Steps:</label>
+                <select id="select-ode-steps" class="studio-select mini">
+                  <option value="16">16 (Fast 2x)</option>
+                  <option value="24" selected>24 (Standard 1.3x)</option>
+                  <option value="32">32 (Studio Reference)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Lyrics Studio & Master Audio Stage -->
+      <section class="panel lyrics-audio-panel">
+        <div class="panel-header">
+          <div class="panel-tabs">
+            <button id="tab-lyrics" class="tab-btn active">
+              <span class="tab-icon">📝</span>
+              <span>Interactive Lyrics Editor</span>
+            </button>
+            <button id="tab-node14" class="tab-btn">
+              <span class="tab-icon">👁️</span>
+              <span>Node 14 Output Viewer</span>
+              <span class="tab-badge" id="node14-badge">Ready</span>
+            </button>
+          </div>
+          <div class="editor-quick-actions">
+            <button id="btn-copy-lyrics" class="btn-tool" title="Copy Current Lyrics">📋 Copy</button>
+            <button id="btn-clear-lyrics" class="btn-tool" title="Reset to Default">↺ Reset</button>
+          </div>
+        </div>
+
+        <!-- Lyrics View Container -->
+        <div class="lyrics-workspace-view" id="view-lyrics">
+          <!-- Structure Tag Injection Bar -->
+          <div class="structure-toolbar">
+            <span class="toolbar-title">Insert Tag:</span>
+            <div class="tag-buttons">
+              <button class="tag-btn" data-tag="[Hook]">[Hook]</button>
+              <button class="tag-btn" data-tag="[Verse 1]">[Verse 1]</button>
+              <button class="tag-btn" data-tag="[Verse 2]">[Verse 2]</button>
+              <button class="tag-btn" data-tag="[Pre-Chorus]">[Pre-Chorus]</button>
+              <button class="tag-btn" data-tag="[Chorus]">[Chorus]</button>
+              <button class="tag-btn" data-tag="[Bridge]">[Bridge]</button>
+              <button class="tag-btn" data-tag="[Outro]">[Outro]</button>
+              <button class="tag-btn" data-tag="[Instrumental]">[Instrumental]</button>
+              <button class="tag-btn" data-tag="[End]">[End]</button>
+            </div>
+          </div>
+
+          <!-- Lyrics Textarea -->
+          <div class="editor-wrapper">
+            <textarea id="editor-lyrics" class="lyrics-editor-area" spellcheck="false" placeholder="Write or generate lyrics here with [Verse], [Chorus], [Hook] structure tags..."></textarea>
+          </div>
+
+          <div class="editor-footer">
+            <span id="lyrics-char-count">0 characters | 0 lines</span>
+            <span class="footer-hint">Tip: Click 'Generate Lyrics' to co-produce with LLM, then tweak here before final audio generation.</span>
+          </div>
+        </div>
+
+        <!-- Node 14 Output Viewer Tab -->
+        <div class="node14-workspace-view hidden" id="view-node14">
+          <div class="node14-header-bar">
+            <div class="node14-meta">
+              <span class="meta-title">ShowText|pysssss (Node 14)</span>
+              <span class="meta-desc">Raw output generated by YuE2 LLM Co-Producer & Polisher</span>
+            </div>
+            <button id="btn-apply-to-editor" class="btn btn-apply" title="Replace Lyrics in Editor with this Node 14 output">
+              <span>✍️ Apply to Editor</span>
+            </button>
+          </div>
+          <div class="node14-content-wrapper">
+            <pre id="node14-text-display">No lyrics generated yet. Click '✨ Generate Lyrics' to run Node 1 -> Node 3 -> Node 14.</pre>
+          </div>
+        </div>
+
+        <!-- Master Audio Player Section (Node 6) -->
+        <div class="master-player-section" id="master-player-section">
+          <div class="player-top-row">
+            <div class="track-info">
+              <span class="track-badge">MASTER OUTPUT (NODE 6)</span>
+              <span class="track-name" id="track-title">YuE2 Studio Master Track</span>
+            </div>
+            <div class="player-metrics">
+              <span id="player-time-current">0:00</span> / <span id="player-time-total">0:00</span>
+            </div>
+          </div>
+
+          <!-- Visual Waveform Canvas -->
+          <div class="waveform-container">
+            <canvas id="waveform-canvas"></canvas>
+            <div class="playback-scrubber" id="playback-scrubber"></div>
+          </div>
+
+          <!-- Player Controls Bar -->
+          <div class="player-controls-row">
+            <button id="btn-play-pause" class="player-btn btn-play" title="Play / Pause" disabled>
+              <span id="play-icon">▶</span>
+            </button>
+
+            <!-- Seek Slider -->
+            <input type="range" id="player-seek" class="player-seek-slider" min="0" max="100" value="0" step="0.1" disabled>
+
+            <!-- Volume -->
+            <div class="volume-container">
+              <span class="vol-icon">🔊</span>
+              <input type="range" id="player-vol" class="vol-slider" min="0" max="1" value="0.85" step="0.01">
+            </div>
+
+            <!-- Download Button -->
+            <button id="btn-download-audio" class="btn-player-action" title="Download Master MP3" disabled>
+              <span>⬇️ Download MP3</span>
+            </button>
+
+            <!-- Copy Link Button -->
+            <button id="btn-copy-audio-link" class="btn-player-action" title="Copy Audio URL" disabled>
+              <span>🔗 Link</span>
+            </button>
+          </div>
+
+          <!-- Hidden Native Audio Element -->
+          <audio id="native-audio" preload="metadata"></audio>
+        </div>
+      </section>
+    </main>
+
+    <!-- Real-time Progress & Status Modal Overlay -->
+    <div id="progress-overlay" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-icon-pulse">
+            <span id="modal-spinner-icon">🎵</span>
+          </div>
+          <h3 id="modal-title" class="modal-title">Generating Song...</h3>
+        </div>
+
+        <p id="modal-desc" class="modal-desc">Synthesizing acoustic layers with YuE2 Neural Song Generator...</p>
+
+        <!-- Progress Track -->
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill" style="width: 15%;"></div>
+        </div>
+
+        <div class="progress-stats">
+          <span id="progress-stage-text">Step: Initializing</span>
+          <span id="progress-percent-text">15%</span>
+        </div>
+
+        <div class="pipeline-steps">
+          <div class="pipeline-step active" id="step-llm">
+            <span class="step-num">1</span>
+            <span class="step-name">LLM Lyrics</span>
+          </div>
+          <div class="pipeline-step" id="step-synth">
+            <span class="step-num">2</span>
+            <span class="step-name">Neural Diffusion</span>
+          </div>
+          <div class="pipeline-step" id="step-export">
+            <span class="step-num">3</span>
+            <span class="step-name">Audio Master</span>
+          </div>
+        </div>
+
+        <button id="btn-dismiss-overlay" class="btn-dismiss hidden">Close & View Track</button>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden">
+      <span id="toast-message">Notification</span>
+    </div>
+  </div>
+
+  <script src="/music/static/app.js"></script>
+</body>
+</html>

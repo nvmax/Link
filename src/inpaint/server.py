@@ -34,6 +34,14 @@ app.add_middleware(
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+# Music Studio Static and Router
+MUSIC_STATIC_DIR = os.path.join(Config.BASE_DIR, "src", "music_studio", "static")
+if os.path.exists(MUSIC_STATIC_DIR):
+    app.mount("/music/static", StaticFiles(directory=MUSIC_STATIC_DIR), name="music_static")
+
+from src.music_studio.server import router as music_router
+app.include_router(music_router)
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_inpaint_app():
     index_path = os.path.join(STATIC_DIR, "index.html")

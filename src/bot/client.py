@@ -130,7 +130,8 @@ class LinkBot(commands.Bot):
                     needs_lora_picker = bool(manifest_data.get('lora_list')) and has_dynamic_loras
                     needs_ai_review = manifest_data.get('ai_prompt', {}).get('enabled', False)
                     needs_inpaint = any(input_cfg.get('type') == 'inpaint' for input_cfg in manifest_data.get('inputs', []))
-                    is_ephemeral = needs_lora_picker or needs_ai_review or needs_inpaint
+                    is_music_studio = (wf_name == "yue2_full_producer_studio_workflow" or manifest_data.get("discord_command") == "music")
+                    is_ephemeral = needs_lora_picker or needs_ai_review or needs_inpaint or is_music_studio
 
                     # Defer — ephemeral if LoRA picker, AI review, or inpaint is needed (keeps interaction private)
                     try:
