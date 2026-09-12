@@ -49,13 +49,13 @@
 
       <!-- Main Action Buttons -->
       <div class="master-actions">
-        <button id="btn-generate-lyrics" class="btn btn-secondary" title="Disables neural audio generation (Node 5). Generates lyrics concept & structure using LLM (Node 3) and views output in Node 14.">
+        <button id="btn-generate-lyrics" class="btn btn-secondary" title="Generates lyrics concept & structure using LLM (Node 3) and views output in Node 14 without invoking neural audio synthesis.">
           <span class="btn-icon">✨</span>
           <span class="btn-text">Generate Lyrics</span>
           <span class="btn-subtext">Node 14 (Fast)</span>
         </button>
 
-        <button id="btn-generate-song" class="btn btn-primary" title="Runs full workflow including YuE2 Neural Song Generator (Node 5) and produces master MP3 audio (Node 6).">
+        <button id="btn-generate-song" class="btn btn-primary" title="Runs full workflow including Native YuE2 Song Generator (Node 16) and produces master MP3 audio (Node 6).">
           <span class="btn-icon">🚀</span>
           <span class="btn-text">Generate Final Song</span>
           <span class="btn-subtext">Node 6 Audio</span>
@@ -180,7 +180,7 @@
           <!-- Audio Engine Advanced Settings Collapsible -->
           <div class="advanced-section">
             <button id="btn-toggle-advanced" class="btn-toggle-accordion">
-              <span>⚡ Synthesis Engine Settings (Node 4 & 5)</span>
+              <span>⚡ Synthesis Engine Settings (Node 16 Native)</span>
               <span class="accordion-arrow">▼</span>
             </button>
             <div id="advanced-drawer" class="advanced-drawer collapsed">
@@ -197,11 +197,19 @@
                 <input type="checkbox" id="check-direct-lyrics" class="studio-checkbox" title="Route edited lyrics directly into synthesis, preserving exact line adjustments without LLM re-formatting.">
               </div>
               <div class="drawer-row">
-                <label class="drawer-label">ODE Synthesis Steps:</label>
+                <label class="drawer-label">Score CoT Mode:</label>
+                <select id="select-cot" class="studio-select mini" title="Controls score generation: Full generates chords & melody, Melody generates vocal melody, Off runs direct diffusion.">
+                  <option value="full" selected>Full (Melody & Chords)</option>
+                  <option value="melody">Melody Only (Covers)</option>
+                  <option value="off">Off (Direct Diffusion)</option>
+                </select>
+              </div>
+              <div class="drawer-row">
+                <label class="drawer-label">Diffusion Steps:</label>
                 <select id="select-ode-steps" class="studio-select mini">
-                  <option value="16">16 (Fast 2x)</option>
-                  <option value="24" selected>24 (Standard 1.3x)</option>
-                  <option value="32">32 (Studio Reference)</option>
+                  <option value="32" selected>32 (Studio Reference)</option>
+                  <option value="24">24 (Fast 1.5x)</option>
+                  <option value="16">16 (Draft 2x)</option>
                 </select>
               </div>
             </div>

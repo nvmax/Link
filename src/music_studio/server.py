@@ -337,6 +337,10 @@ async def get_music_options():
         "default_vocal": "Warm Smooth Baritone (Male)",
         "default_intro": "None",
         "default_action": "Generate Full Song Concept",
+        "default_ode_steps": 32,
+        "default_checkpoint": "yue2_3b_bf16.safetensors",
+        "cot_modes": ["full", "melody", "off"],
+        "default_cot": "full",
     }
 
 
@@ -429,9 +433,11 @@ async def generate_lyrics(req: GenerateLyricsRequest):
             wf["3"]["inputs"]["api_key"] = api_key
         
         # 3. Lean prompt payload: ONLY Node 1, 3, 14
-        # Node 5 and 6 are omitted, completely disabling audio generation
+        # Generator and audio saver nodes are omitted, completely disabling audio generation
         # Ensure Node 14 outputs Node 3's LLM-generated lyrics
         wf["14"]["inputs"]["text"] = ["3", 0]
+        if "text_0" in wf["14"]["inputs"]:
+            wf["14"]["inputs"].pop("text_0", None)
         lyrics_prompt = {
             "1": wf["1"],
             "3": wf["3"],
@@ -538,7 +544,12 @@ class GenerateSongRequest(BaseModel):
     action: str = "Generate Full Song Concept"
     direct_lyrics: bool = False
     seed: Optional[int] = None
-    ode_steps: Optional[int] = 24
+    ode_steps: Optional[int] = 32
+    cot: Optional[str] = "full"
+    checkpoint: Optional[str] = "yue2_3b_bf16.safetensors"
+    sampler_name: Optional[str] = "dpm_2"
+    scheduler: Optional[str] = "sgm_uniform"
+    max_duration: Optional[float] = 360.0
     provider: Optional[str] = None
     model: Optional[str] = None
     base_url: Optional[str] = None
@@ -586,28 +597,57 @@ async def generate_song(req: GenerateSongRequest):
         wf["1"]["inputs"]["custom_style"] = req.custom_style
         wf["1"]["inputs"]["lyrics"] = lyrics_text
         
-        # 2. Seed Handling (Node 4)
+        # 2. Seed Handling
         if req.seed is not None and req.seed >= 0:
             final_seed = int(req.seed)
         else:
             final_seed = random.randint(100000000000, 999999999999)
-        wf["4"]["inputs"]["seed"] = final_seed
+
+        # 3. Dynamic Generator Node Discovery & Parameter Injection
+        # Finds whichever node is YuE2SongGenerator (e.g. Node 16 or Node 5)
+        gen_node_id = None
+        for nid, node in wf.items():
+            if isinstance(node, dict) and node.get("class_type") == "YuE2SongGenerator":
+                gen_node_id = nid
+                break
+
+        if gen_node_id and gen_node_id in wf:
+            gen_inputs = wf[gen_node_id].setdefault("inputs", {})
+            gen_inputs["seed"] = final_seed
+            if req.ode_steps and 12 <= req.ode_steps <= 64:
+                gen_inputs["ode_steps"] = int(req.ode_steps)
+            if req.cot in ["full", "melody", "off"]:
+                gen_inputs["cot"] = req.cot
+            if req.checkpoint:
+                gen_inputs["checkpoint"] = req.checkpoint
+            if req.sampler_name:
+                gen_inputs["sampler_name"] = req.sampler_name
+            if req.scheduler:
+                gen_inputs["scheduler"] = req.scheduler
+            if req.max_duration:
+                gen_inputs["max_duration"] = float(req.max_duration)
+            logger.info(f"Configured generator Node {gen_node_id} (YuE2SongGenerator): seed={final_seed}, ode_steps={gen_inputs.get('ode_steps')}, cot={gen_inputs.get('cot')}")
+
+        # Support legacy Node 4 and Node 5 if present in older custom workflows
+        if "4" in wf and "inputs" in wf["4"]:
+            wf["4"]["inputs"]["seed"] = final_seed
+        if "5" in wf and "inputs" in wf["5"] and req.ode_steps and 12 <= req.ode_steps <= 64:
+            wf["5"]["inputs"]["ode_steps"] = int(req.ode_steps)
 
         # 4. Routing: Disables LLM (Node 3) so generated lyrics are NEVER overwritten
         # Route Node 1's custom style & acoustic direction directly to Node 12 (Style Switch)
-        wf["12"]["inputs"]["any_01"] = ["1", 0]
+        if "12" in wf and "inputs" in wf["12"]:
+            wf["12"]["inputs"]["any_01"] = ["1", 0]
         # Route Node 1's lyrics (from editor / generated lyrics) directly to Node 13 (Lyrics Switch)
-        wf["13"]["inputs"]["any_01"] = ["1", 1]
+        if "13" in wf and "inputs" in wf["13"]:
+            wf["13"]["inputs"]["any_01"] = ["1", 1]
         # Route Node 13 directly to Node 14 so Output Lyrics captures the exact synthesized lyrics
         if "14" in wf and "inputs" in wf["14"]:
             wf["14"]["inputs"]["text"] = ["13", 0]
+            wf["14"]["inputs"].pop("text_0", None)
         # Disconnect and remove Node 3 completely so ComfyUI NEVER runs the LLM during song generation
         wf.pop("3", None)
-        logger.info("Song generation: Node 3 (LLM) disabled. Node 1 style -> Node 12, Node 1 lyrics -> Node 13 -> Node 14 -> Node 5")
-
-        # 5. ODE Steps if specified
-        if req.ode_steps and 12 <= req.ode_steps <= 64:
-            wf["5"]["inputs"]["ode_steps"] = int(req.ode_steps)
+        logger.info(f"Song generation: Node 3 (LLM) disabled. Node 1 style -> Node 12, Node 1 lyrics -> Node 13 -> Node 14 -> Node {gen_node_id or '16'}")
 
         client_id = f"music_studio_{uuid.uuid4().hex[:8]}"
         

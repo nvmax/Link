@@ -20,6 +20,7 @@
   const seedInputRow = document.getElementById('seed-input-row');
   const inputSeed = document.getElementById('input-seed');
   const checkDirectLyrics = document.getElementById('check-direct-lyrics');
+  const selectCot = document.getElementById('select-cot');
   const selectOdeSteps = document.getElementById('select-ode-steps');
 
   const editorLyrics = document.getElementById('editor-lyrics');
@@ -485,12 +486,13 @@
       action: selectAction.value,
       direct_lyrics: true,
       seed: seedVal,
-      ode_steps: parseInt(selectOdeSteps.value) || 24
+      cot: selectCot ? selectCot.value : "full",
+      ode_steps: parseInt(selectOdeSteps.value) || 32
     };
 
     showProgressModal(
       "Producing Full Studio Track...",
-      "Running complete YuE2 pipeline: Node 1 -> Node 3 -> Node 5 (Neural Generator) -> Node 6 (Audio Saver)."
+      "Running complete YuE2 pipeline: Node 1 -> Node 16 (Native Neural Generator) -> Node 6 (Audio Saver)."
     );
     updateProgressModal(10, "Submitting to ComfyUI...", "Queuing prompt and reserving GPU memory...");
 
