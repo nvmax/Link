@@ -1351,6 +1351,7 @@ class GenerationCog(commands.Cog):
             channel_id=str(interaction.channel_id),
             guild_id=str(interaction.guild_id) if interaction.guild_id else None,
             custom_style=merged.get("custom_style", "Style of Bruno Mars song Risk It All"),
+            song_title=merged.get("song_title", ""),
             lyrics=merged.get("lyrics", ""),
             genre_preset=merged.get("genre_preset", "Custom / Keep Only Lyrics"),
             vocal_profile=merged.get("vocal_profile", "Warm Smooth Baritone (Male)"),

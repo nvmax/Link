@@ -2,6 +2,7 @@
 
 (async function () {
   // --- DOM References ---
+  const inputSongTitle = document.getElementById('input-song-title');
   const selectGenre = document.getElementById('select-genre');
   const genreQuickChips = document.getElementById('genre-quick-chips');
   const selectVocal = document.getElementById('select-vocal');
@@ -211,6 +212,7 @@
       const res = await fetch(`/api/music/session/${token}`);
       if (res.ok) {
         const s = await res.json();
+        if (s.song_title && inputSongTitle) inputSongTitle.value = s.song_title;
         if (s.genre_preset) selectGenre.value = s.genre_preset;
         if (s.vocal_profile) selectVocal.value = s.vocal_profile;
         if (s.bpm) {
@@ -224,7 +226,7 @@
         updateCharCount();
         showToast(`Loaded Discord session for ${s.user_name || 'User'}`);
         if (s.audio_url) {
-          loadAudioTrack(s.audio_url, "Discord Session Track");
+          loadAudioTrack(s.audio_url, s.song_title || "Discord Session Track");
         }
       }
     } catch (e) {
@@ -463,8 +465,10 @@
       seedVal = parseInt(inputSeed.value);
     }
 
+    const songTitleVal = inputSongTitle ? inputSongTitle.value.trim() : "";
     const payload = {
       token: sessionToken,
+      song_title: songTitleVal,
       genre_preset: selectGenre.value,
       vocal_profile: selectVocal.value,
       bpm: parseInt(bpmSlider.value),
@@ -530,7 +534,8 @@
           }
 
           if (info.audio_url) {
-            loadAudioTrack(info.audio_url, info.filename || "YuE2 Studio Master Track");
+            const trackName = info.song_title || (inputSongTitle && inputSongTitle.value.trim()) || info.clean_title || "YuE2 Studio Master Track";
+            loadAudioTrack(info.audio_url, trackName, info.clean_title);
           }
 
           setTimeout(() => {
@@ -564,9 +569,19 @@
   // ==========================================================================
   // MASTER AUDIO PLAYER & WAVEFORM VISUALIZER
   // ==========================================================================
-  function loadAudioTrack(audioUrl, title = "Master Track") {
+  let currentDownloadFilename = "YuE2_Studio_Master_Track.mp3";
+
+  function loadAudioTrack(audioUrl, title = "Master Track", downloadName = null) {
     currentAudioUrl = audioUrl;
     trackTitle.textContent = title;
+    
+    if (downloadName) {
+      currentDownloadFilename = downloadName.endsWith('.mp3') ? downloadName : `${downloadName}.mp3`;
+    } else {
+      const sanitized = title.replace(/[^\w\s-]/g, '').trim().replace(/[-\s]+/g, '_');
+      currentDownloadFilename = `${sanitized || 'YuE2_Studio_Master_Track'}.mp3`;
+    }
+
     nativeAudio.src = audioUrl;
 
     btnPlayPause.disabled = false;
@@ -629,7 +644,7 @@
     if (!currentAudioUrl) return;
     const a = document.createElement('a');
     a.href = currentAudioUrl;
-    a.download = trackTitle.textContent.replace(/\s+/g, '_') + '.mp3';
+    a.download = currentDownloadFilename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

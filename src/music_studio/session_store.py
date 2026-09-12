@@ -19,6 +19,7 @@ class MusicSession:
     bpm: int = 120
     intro_style: str = "None"
     custom_style: str = "Style of Bruno Mars song Risk It All"
+    song_title: str = ""
     lyrics: str = ""
     action: str = "Generate Full Song Concept"
     audio_url: Optional[str] = None
@@ -44,6 +45,7 @@ class MusicSessionStore:
         guild_id: Optional[str] = None,
         message_id: Optional[str] = None,
         custom_style: str = "",
+        song_title: str = "",
         lyrics: str = "",
         genre_preset: str = "Custom / Keep Only Lyrics",
         vocal_profile: str = "Warm Smooth Baritone (Male)",
@@ -65,6 +67,7 @@ class MusicSessionStore:
             bpm=bpm,
             intro_style=intro_style,
             custom_style=custom_style or "Style of Bruno Mars song Risk It All",
+            song_title=song_title,
             lyrics=lyrics,
             action=action,
         )

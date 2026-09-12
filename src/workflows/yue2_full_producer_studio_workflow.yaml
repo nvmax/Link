@@ -37,6 +37,10 @@ mapping:
     - inputs
     - action
 inputs:
+  - id: song_title
+    type: text
+    label: Song Title / Track Name
+    required: false
   - id: custom_style
     type: text
     label: Song Style & Musical Direction
@@ -97,6 +101,12 @@ inputs:
 discord:
   command: music
   inputs:
+    - id: song_title
+      nodeId: '6'
+      field: filename_prefix
+      type: text
+      label: Song Title / Track Name
+      required: false
     - id: custom_style
       nodeId: '1'
       field: custom_style

@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import yaml
 import uuid
@@ -27,6 +28,17 @@ WORKFLOW_PATH = os.path.join(Config.WORKFLOWS_DIR, "yue2_full_producer_studio_wo
 
 # In-memory progress tracking for prompt IDs
 prompt_progress: Dict[str, Dict[str, Any]] = {}
+
+
+def sanitize_song_title(title: Optional[str], fallback: str = "YuE2_Master_Track") -> str:
+    """Sanitizes user-specified song title for safe file naming and ComfyUI prefixing."""
+    if not title:
+        return fallback
+    clean = re.sub(r'[\\/*?:"<>|]', '', str(title)).strip()
+    clean = re.sub(r'[\s\-]+', '_', clean)
+    clean = clean.strip('._')
+    clean = clean[:60]
+    return clean or fallback
 
 GENRE_PRESETS = [
     "Custom / Keep Only Lyrics",
@@ -286,6 +298,7 @@ async def get_session(token: str):
         "token": session.token,
         "user_id": session.user_id,
         "user_name": session.user_name,
+        "song_title": getattr(session, "song_title", ""),
         "genre_preset": session.genre_preset,
         "vocal_profile": session.vocal_profile,
         "bpm": session.bpm,
@@ -456,6 +469,7 @@ async def generate_lyrics(req: GenerateLyricsRequest):
 
 class GenerateSongRequest(BaseModel):
     token: Optional[str] = None
+    song_title: Optional[str] = ""
     genre_preset: str = "Custom / Keep Only Lyrics"
     vocal_profile: str = "Warm Smooth Baritone (Male)"
     bpm: int = 120
@@ -481,6 +495,24 @@ async def generate_song(req: GenerateSongRequest):
     """
     try:
         wf = _load_base_workflow()
+
+        # Update session with current values if token present
+        if req.token:
+            session = music_session_store.get_session(req.token)
+            if session:
+                if req.song_title:
+                    session.song_title = req.song_title
+                session.custom_style = req.custom_style
+                session.genre_preset = req.genre_preset
+                session.vocal_profile = req.vocal_profile
+                session.bpm = int(req.bpm)
+                session.intro_style = req.intro_style
+                session.action = req.action
+
+        # Update Node 6 filename prefix so ComfyUI outputs clean song name
+        clean_prefix = sanitize_song_title(req.song_title, fallback="studio_song")
+        if "6" in wf and "inputs" in wf["6"]:
+            wf["6"]["inputs"]["filename_prefix"] = f"YuE2/{clean_prefix}"
         
         # 1. Update Node 1
         lyrics_text = req.lyrics if req.lyrics.strip() else DEFAULT_LYRICS
@@ -628,8 +660,11 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest):
                                 if v_resp.status == 200:
                                     audio_bytes = await v_resp.read()
                                     
-                                    # Save to assets directory
-                                    local_filename = f"music_{prompt_id}_{os.path.basename(filename)}"
+                                    clean_name = sanitize_song_title(req.song_title, fallback="studio_song")
+                                    display_title = (req.song_title or "").strip() or "YuE2 Studio Master Track"
+                                    
+                                    # Save to assets directory with clean name + prompt id suffix for disk uniqueness
+                                    local_filename = f"{clean_name}_{prompt_id[:8]}.mp3"
                                     local_path = os.path.join(Config.ASSETS_DIR, local_filename)
                                     async with aiofiles.open(local_path, "wb") as f:
                                         await f.write(audio_bytes)
@@ -647,6 +682,8 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest):
                                         "status": "Song generated successfully!",
                                         "audio_url": audio_serve_url,
                                         "filename": local_filename,
+                                        "song_title": display_title,
+                                        "clean_title": clean_name,
                                         "lyrics": output_lyrics or req.lyrics,
                                         "completed_at": time.time()
                                     }
@@ -707,36 +744,47 @@ async def _dispatch_discord_completion(token: str, local_path: str, filename: st
             logger.error(f"Channel {session.channel_id} not found for music delivery")
             return
 
+        clean_name = sanitize_song_title(req.song_title, fallback="YuE2_Master_Track")
+        display_title = (req.song_title or "").strip() or "YuE2 Studio Master Track"
+
+        desc_lines = []
+        if req.song_title and req.song_title.strip():
+            desc_lines.append(f"🎶 **Track**: **{display_title}**")
+        desc_lines.extend([
+            f"**Producer**: <@{session.user_id}>",
+            f"**Genre**: `{req.genre_preset}`",
+            f"**Vocal Profile**: `{req.vocal_profile}`",
+            f"**Tempo**: `{req.bpm} BPM`",
+            f"**Intro**: `{req.intro_style}`",
+            f"**Style**: *{req.custom_style[:120]}*",
+            "",
+            "🎧 **Listen to your master track below!**"
+        ])
+
         embed = discord.Embed(
             title="🎵 LINK Music Studio — Song Generated!",
-            description=(
-                f"**Producer**: <@{session.user_id}>\n"
-                f"**Genre**: `{req.genre_preset}`\n"
-                f"**Vocal Profile**: `{req.vocal_profile}`\n"
-                f"**Tempo**: `{req.bpm} BPM`\n"
-                f"**Intro**: `{req.intro_style}`\n"
-                f"**Style**: *{req.custom_style[:120]}*\n\n"
-                f"🎧 **Listen to your master track below!**"
-            ),
+            description="\n".join(desc_lines),
             color=discord.Color.from_rgb(168, 85, 247) # Vibrant Purple
         )
         embed.set_footer(text="YuE2 Neural Music Generator & Studio")
 
-        file_to_send = discord.File(local_path, filename=filename)
+        discord_filename = f"{clean_name}.mp3"
+        file_to_send = discord.File(local_path, filename=discord_filename)
         
         # If there's an original interaction message, edit or send to channel
+        msg_content = f"🎵 <@{session.user_id}>, your song **{display_title}** is ready!" if (req.song_title and req.song_title.strip()) else f"🎵 <@{session.user_id}>, your song is ready!"
         if session.message_id:
             try:
                 orig_msg = await channel.fetch_message(int(session.message_id))
-                await orig_msg.edit(content=f"🎵 <@{session.user_id}>, your song is ready!", embed=embed, view=None)
+                await orig_msg.edit(content=msg_content, embed=embed, view=None)
                 await channel.send(file=file_to_send)
             except Exception:
-                await channel.send(content=f"🎵 <@{session.user_id}>, your song is ready!", embed=embed, file=file_to_send)
+                await channel.send(content=msg_content, embed=embed, file=file_to_send)
         else:
-            await channel.send(content=f"🎵 <@{session.user_id}>, your song is ready!", embed=embed, file=file_to_send)
+            await channel.send(content=msg_content, embed=embed, file=file_to_send)
 
         music_session_store.mark_completed(token, f"/api/music/audio/{filename}")
-        logger.info(f"Dispatched music completion to Discord channel {session.channel_id}")
+        logger.info(f"Dispatched music completion to Discord channel {session.channel_id} with file {discord_filename}")
 
     except Exception as e:
         logger.error(f"Failed to dispatch music to Discord: {e}", exc_info=True)
