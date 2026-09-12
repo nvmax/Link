@@ -405,32 +405,37 @@ async def serve_music_static(filename: str):
 
 @router.get("/api/music/options")
 async def get_music_options():
-    """Returns available options, presets, defaults, and live detected LLM models for the studio interface."""
-    comfy_ok = False
-    try:
-        async with aiohttp.ClientSession() as sess:
-            async with sess.get(f"{Config.COMFY_URL}/system_stats", timeout=aiohttp.ClientTimeout(total=2)) as resp:
-                comfy_ok = (resp.status == 200)
-    except Exception:
-        pass
-
+    """Returns available options, presets, defaults, and connection status for the studio interface."""
     lm_cfg = _get_lmstudio_config()
-    live_models, is_live, working_base = await _fetch_live_models(
-        provider=lm_cfg["provider"], 
-        base_url=lm_cfg["base_url"]
-    )
-    lmstudio_ok = is_live
-    active_model = live_models[0] if live_models else lm_cfg["model"]
+
+    async def check_comfy():
+        try:
+            async with aiohttp.ClientSession() as sess:
+                async with sess.get(f"{Config.COMFY_URL}/system_stats", timeout=aiohttp.ClientTimeout(total=0.4)) as resp:
+                    return resp.status == 200
+        except Exception:
+            return False
+
+    async def check_lm():
+        try:
+            target_url = lm_cfg.get("base_url", "http://192.168.1.174:1234/v1").rstrip("/")
+            async with aiohttp.ClientSession() as sess:
+                async with sess.get(f"{target_url}/models", timeout=aiohttp.ClientTimeout(total=0.4)) as resp:
+                    return resp.status == 200
+        except Exception:
+            return False
+
+    results = await asyncio.gather(check_comfy(), check_lm(), return_exceptions=True)
+    comfy_ok = bool(results[0]) if not isinstance(results[0], Exception) else False
+    lmstudio_ok = bool(results[1]) if not isinstance(results[1], Exception) else False
 
     return {
         "status": "ok",
         "comfy_connected": comfy_ok,
         "lmstudio_connected": lmstudio_ok,
         "lm_provider": lm_cfg["provider"],
-        "lm_model": active_model,
-        "lm_models": live_models,
-        "lm_models_live": is_live,
-        "lm_base_url": working_base if lmstudio_ok else lm_cfg["base_url"],
+        "lm_model": lm_cfg["model"],
+        "lm_base_url": lm_cfg["base_url"],
         "genre_presets": GENRE_PRESETS,
         "vocal_profiles": VOCAL_PROFILES,
         "intro_styles": INTRO_STYLES,

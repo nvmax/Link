@@ -96,6 +96,9 @@ inputs:
       - Velvety Mezzo-Soprano (Female)
       - Smoky Deep Alto (Female)
       - Male & Female Duet (Baritone + Soprano)
+      - Male Trio Harmonies (Tenor Lead + Backing)
+      - Female Pop Harmony Group
+      - Emotional Ballad Duo
       - None / Pure Instrumental
     required: false
   - id: bpm

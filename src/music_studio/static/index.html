@@ -99,10 +99,55 @@
               <span class="label-info">Node 1: genre_preset</span>
             </label>
             <div class="select-wrapper">
-              <select id="select-genre" class="studio-select"></select>
+              <select id="select-genre" class="studio-select">
+                <option value="Custom / Keep Typed Style">Custom / Keep Typed Style</option>
+                <option value="Custom / Keep Only Lyrics" selected>Custom / Keep Only Lyrics</option>
+                <option value="Rock / Classic Rock">Rock / Classic Rock</option>
+                <option value="Rock / Indie Rock">Rock / Indie Rock</option>
+                <option value="Rock / Arena Rock">Rock / Arena Rock</option>
+                <option value="Pop / Pop Funk">Pop / Pop Funk</option>
+                <option value="Pop / Indie Pop">Pop / Indie Pop</option>
+                <option value="Pop / Dance Pop">Pop / Dance Pop</option>
+                <option value="Ballad / Power Ballad">Ballad / Power Ballad</option>
+                <option value="Country / Modern Country">Country / Modern Country</option>
+                <option value="Country / Country Pop">Country / Country Pop</option>
+                <option value="Country / Country Americana">Country / Country Americana</option>
+                <option value="Country / Outlaw Country">Country / Outlaw Country</option>
+                <option value="Hip-Hop / Rap">Hip-Hop / Rap</option>
+                <option value="Hip-Hop / Trap">Hip-Hop / Trap</option>
+                <option value="Hip-Hop / Conscious Rap">Hip-Hop / Conscious Rap</option>
+                <option value="Hip-Hop / Melodic Rap">Hip-Hop / Melodic Rap</option>
+                <option value="Hip-Hop / West Coast">Hip-Hop / West Coast</option>
+                <option value="Hip-Hop / Golden Age 90s">Hip-Hop / Golden Age 90s</option>
+                <option value="Cinematic / Epic Orchestral">Cinematic / Epic Orchestral</option>
+                <option value="R&B / Neo-Soul">R&B / Neo-Soul</option>
+                <option value="Alternative / 90s Alternative">Alternative / 90s Alternative</option>
+                <option value="Lo-Fi / Chillhop">Lo-Fi / Chillhop</option>
+                <option value="Metal / Heavy Metal">Metal / Heavy Metal</option>
+                <option value="Metal / Thrash Metal">Metal / Thrash Metal</option>
+                <option value="Metal / Symphonic Metal">Metal / Symphonic Metal</option>
+                <option value="Grunge / 90s Seattle Sound">Grunge / 90s Seattle Sound</option>
+                <option value="Britpop / 90s UK Anthem">Britpop / 90s UK Anthem</option>
+                <option value="College Rock / 80s-90s Jangle">College Rock / 80s-90s Jangle</option>
+                <option value="Synthwave / Retro 80s Electro">Synthwave / Retro 80s Electro</option>
+                <option value="EDM / Melodic Progressive House">EDM / Melodic Progressive House</option>
+                <option value="Jazz / Modern Smooth Jazz">Jazz / Modern Smooth Jazz</option>
+                <option value="Folk / Acoustic Indie Folk">Folk / Acoustic Indie Folk</option>
+                <option value="Reggae / Modern Dub Pop">Reggae / Modern Dub Pop</option>
+                <option value="Punk / High-Energy Pop Punk">Punk / High-Energy Pop Punk</option>
+              </select>
             </div>
             <div class="quick-chips" id="genre-quick-chips">
-              <!-- Populated via JS -->
+                <button type="button" class="chip" data-genre="Custom / Keep Typed Style">Typed Style</button>
+                <button type="button" class="chip active" data-genre="Custom / Keep Only Lyrics">Keep Lyrics</button>
+                <button type="button" class="chip" data-genre="Rock / Classic Rock">Classic Rock</button>
+                <button type="button" class="chip" data-genre="Pop / Pop Funk">Pop Funk</button>
+                <button type="button" class="chip" data-genre="Ballad / Power Ballad">Power Ballad</button>
+                <button type="button" class="chip" data-genre="Hip-Hop / Rap">Rap</button>
+                <button type="button" class="chip" data-genre="Synthwave / Retro 80s Electro">Synthwave</button>
+                <button type="button" class="chip" data-genre="EDM / Melodic Progressive House">EDM</button>
+                <button type="button" class="chip" data-genre="R&B / Neo-Soul">Neo-Soul</button>
+                <button type="button" class="chip" data-genre="Metal / Heavy Metal">Heavy Metal</button>
             </div>
           </div>
 
@@ -113,7 +158,19 @@
               <span class="label-info">Node 1: vocal_profile</span>
             </label>
             <div class="select-wrapper">
-              <select id="select-vocal" class="studio-select"></select>
+              <select id="select-vocal" class="studio-select">
+                <option value="Warm Smooth Baritone (Male)" selected>Warm Smooth Baritone (Male)</option>
+                <option value="Bright Soaring Tenor (Male)">Bright Soaring Tenor (Male)</option>
+                <option value="Deep Resonant Bass (Male)">Deep Resonant Bass (Male)</option>
+                <option value="Airy Crystalline Soprano (Female)">Airy Crystalline Soprano (Female)</option>
+                <option value="Velvety Mezzo-Soprano (Female)">Velvety Mezzo-Soprano (Female)</option>
+                <option value="Smoky Deep Alto (Female)">Smoky Deep Alto (Female)</option>
+                <option value="Male & Female Duet (Baritone + Soprano)">Male & Female Duet (Baritone + Soprano)</option>
+                <option value="Male Trio Harmonies (Tenor Lead + Backing)">Male Trio Harmonies (Tenor Lead + Backing)</option>
+                <option value="Female Pop Harmony Group">Female Pop Harmony Group</option>
+                <option value="Emotional Ballad Duo">Emotional Ballad Duo</option>
+                <option value="None / Pure Instrumental">None / Pure Instrumental</option>
+              </select>
             </div>
           </div>
 
@@ -153,7 +210,26 @@
               <span class="label-info">Node 1: intro_style</span>
             </label>
             <div class="select-wrapper">
-              <select id="select-intro" class="studio-select"></select>
+              <select id="select-intro" class="studio-select">
+                <option value="None" selected>None</option>
+                <option value="Instrumental Intro">Instrumental Intro</option>
+                <option value="Vamp / Groove Intro">Vamp / Groove Intro</option>
+                <option value="Vocal/Lyrical Hook Intro">Vocal/Lyrical Hook Intro</option>
+                <option value="Vocal / Lyrical Hook Intro">Vocal / Lyrical Hook Intro</option>
+                <option value="Turnaround Intro">Turnaround Intro</option>
+                <option value="Stand-Alone Instrumental">Stand-Alone Instrumental</option>
+                <option value="The &quot;Cold Start&quot; (No Intro / Attacca)">The &quot;Cold Start&quot; (No Intro / Attacca)</option>
+                <option value="Acapella Intro">Acapella Intro</option>
+                <option value="Drone / Ambient Pad Intro">Drone / Ambient Pad Intro</option>
+                <option value="Solo Instrument Feature">Solo Instrument Feature</option>
+                <option value="Drum / Percussion Groove">Drum / Percussion Groove</option>
+                <option value="Count-In / Dialogue Intro">Count-In / Dialogue Intro</option>
+                <option value="SFX / Found Sound Intro">SFX / Found Sound Intro</option>
+                <option value="Modulating Intro">Modulating Intro</option>
+                <option value="Crescendo / Fade-In Intro">Crescendo / Fade-In Intro</option>
+                <option value="Ambient Nature Intro">Ambient Nature Intro</option>
+                <option value="Immediate Vocal Entry (No Intro)">Immediate Vocal Entry (No Intro)</option>
+              </select>
             </div>
           </div>
 
@@ -164,28 +240,6 @@
               <span class="label-info">Node 1: custom_style</span>
             </label>
             <textarea id="input-custom-style" class="studio-textarea compact" rows="2" placeholder="e.g. Style of Bruno Mars song Risk It All, funk bassline, soaring brass"></textarea>
-          </div>
-
-          <!-- Co-Producer Action (Node 3) -->
-          <div class="control-group action-group">
-            <label class="control-label">
-              <span>LLM Co-Producer Action</span>
-              <span class="label-info">Node 3: action</span>
-            </label>
-            <div class="select-wrapper">
-              <select id="select-action" class="studio-select accent-select"></select>
-            </div>
-          </div>
-
-          <!-- LLM Co-Producer Model (Node 3: live models from LM Studio) -->
-          <div class="control-group model-group">
-            <label class="control-label" for="select-model">
-              <span>LLM Co-Producer Model</span>
-              <span class="label-info" id="model-live-indicator">Node 3: model</span>
-            </label>
-            <div class="select-wrapper">
-              <select id="select-model" class="studio-select accent-select"></select>
-            </div>
           </div>
 
           <!-- Audio Engine Advanced Settings Collapsible -->

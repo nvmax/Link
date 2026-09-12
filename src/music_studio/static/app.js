@@ -12,9 +12,6 @@
   const tempoChips = document.querySelectorAll('.tempo-chip');
   const selectIntro = document.getElementById('select-intro');
   const inputCustomStyle = document.getElementById('input-custom-style');
-  const selectAction = document.getElementById('select-action');
-  const selectModel = document.getElementById('select-model');
-  const modelLiveIndicator = document.getElementById('model-live-indicator');
   
   const btnToggleAdvanced = document.getElementById('btn-toggle-advanced');
   const advancedDrawer = document.getElementById('advanced-drawer');
@@ -69,6 +66,77 @@
   const toast = document.getElementById('toast');
   const toastMessage = document.getElementById('toast-message');
 
+  // --- Music Studio Preset Fallbacks ---
+  const FALLBACK_GENRES = [
+    "Custom / Keep Typed Style", "Custom / Keep Only Lyrics", "Rock / Classic Rock", "Rock / Indie Rock",
+    "Rock / Arena Rock", "Pop / Pop Funk", "Pop / Indie Pop", "Pop / Dance Pop", "Ballad / Power Ballad",
+    "Country / Modern Country", "Country / Country Pop", "Country / Country Americana", "Country / Outlaw Country",
+    "Hip-Hop / Rap", "Hip-Hop / Trap", "Hip-Hop / Conscious Rap", "Hip-Hop / Melodic Rap", "Hip-Hop / West Coast",
+    "Hip-Hop / Golden Age 90s", "Cinematic / Epic Orchestral", "R&B / Neo-Soul", "Alternative / 90s Alternative",
+    "Lo-Fi / Chillhop", "Metal / Heavy Metal", "Metal / Thrash Metal", "Metal / Symphonic Metal",
+    "Grunge / 90s Seattle Sound", "Britpop / 90s UK Anthem", "College Rock / 80s-90s Jangle",
+    "Synthwave / Retro 80s Electro", "EDM / Melodic Progressive House", "Jazz / Modern Smooth Jazz",
+    "Folk / Acoustic Indie Folk", "Reggae / Modern Dub Pop", "Punk / High-Energy Pop Punk"
+  ];
+
+  const FALLBACK_VOCALS = [
+    "Warm Smooth Baritone (Male)", "Bright Soaring Tenor (Male)", "Deep Resonant Bass (Male)",
+    "Airy Crystalline Soprano (Female)", "Velvety Mezzo-Soprano (Female)", "Smoky Deep Alto (Female)",
+    "Male & Female Duet (Baritone + Soprano)", "Male Trio Harmonies (Tenor Lead + Backing)",
+    "Female Pop Harmony Group", "Emotional Ballad Duo", "None / Pure Instrumental"
+  ];
+
+  const FALLBACK_INTROS = [
+    "None", "Instrumental Intro", "Vamp / Groove Intro", "Vocal/Lyrical Hook Intro",
+    "Vocal / Lyrical Hook Intro", "Turnaround Intro", "Stand-Alone Instrumental",
+    'The "Cold Start" (No Intro / Attacca)', "Acapella Intro", "Drone / Ambient Pad Intro",
+    "Solo Instrument Feature", "Drum / Percussion Groove", "Count-In / Dialogue Intro",
+    "SFX / Found Sound Intro", "Modulating Intro", "Crescendo / Fade-In Intro",
+    "Ambient Nature Intro", "Immediate Vocal Entry (No Intro)"
+  ];
+
+  const FEATURED_CHIPS = [
+    "Custom / Keep Typed Style", "Custom / Keep Only Lyrics", "Rock / Classic Rock",
+    "Pop / Pop Funk", "Ballad / Power Ballad", "Hip-Hop / Rap",
+    "Synthwave / Retro 80s Electro", "EDM / Melodic Progressive House",
+    "R&B / Neo-Soul", "Metal / Heavy Metal"
+  ];
+
+  function populateSelect(selectEl, items, selectedVal) {
+    if (!selectEl) return;
+    const currentVal = selectedVal || selectEl.value;
+    selectEl.innerHTML = '';
+    items.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item;
+      opt.textContent = item;
+      if (item === currentVal) opt.selected = true;
+      selectEl.appendChild(opt);
+    });
+    if (!selectEl.value && items.length > 0) {
+      selectEl.value = items[0];
+    }
+  }
+
+  function setupQuickChips(chipsList, activeVal) {
+    if (!genreQuickChips) return;
+    genreQuickChips.innerHTML = '';
+    chipsList.forEach(chipName => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip' + (chipName === activeVal ? ' active' : '');
+      btn.textContent = chipName.split('/')[1] ? chipName.split('/')[1].trim() : chipName;
+      btn.addEventListener('click', () => {
+        if (selectGenre) {
+          selectGenre.value = chipName;
+          document.querySelectorAll('#genre-quick-chips .chip').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+        }
+      });
+      genreQuickChips.appendChild(btn);
+    });
+  }
+
   // --- State Variables ---
   const urlParams = new URLSearchParams(window.location.search);
   const sessionToken = urlParams.get('token');
@@ -95,125 +163,80 @@
 
   // --- Initial Data Load ---
   async function initStudio() {
+    // 1. Ensure presets and quick chips are immediately active in DOM
+    if (selectGenre && selectGenre.options.length === 0) {
+      populateSelect(selectGenre, FALLBACK_GENRES, "Custom / Keep Only Lyrics");
+    }
+    if (selectVocal && selectVocal.options.length === 0) {
+      populateSelect(selectVocal, FALLBACK_VOCALS, "Warm Smooth Baritone (Male)");
+    }
+    if (selectIntro && selectIntro.options.length === 0) {
+      populateSelect(selectIntro, FALLBACK_INTROS, "None");
+    }
+    setupQuickChips(FEATURED_CHIPS, selectGenre ? selectGenre.value : "Custom / Keep Only Lyrics");
+
+    if (selectGenre) {
+      selectGenre.addEventListener('change', () => {
+        document.querySelectorAll('#genre-quick-chips .chip').forEach(c => {
+          const chipLabel = c.textContent.trim();
+          const genrePart = selectGenre.value.split('/')[1] ? selectGenre.value.split('/')[1].trim() : selectGenre.value;
+          c.classList.toggle('active', chipLabel === genrePart);
+        });
+      });
+    }
+
     try {
       const res = await fetch('/api/music/options');
       if (!res.ok) throw new Error("Failed to load options");
       const data = await res.json();
 
       // Update monitor badges
-      if (data.comfy_connected) {
-        badgeComfy.querySelector('.indicator-dot').className = 'indicator-dot online';
-        statusComfyText.textContent = "Online";
-      } else {
-        badgeComfy.querySelector('.indicator-dot').className = 'indicator-dot offline';
-        statusComfyText.textContent = "Offline";
-      }
-
-      if (data.lmstudio_connected) {
-        badgeLlm.querySelector('.indicator-dot').className = 'indicator-dot online';
-        statusLlmText.textContent = data.lm_model ? `Online (${data.lm_model})` : "Online";
-        badgeLlm.title = `Connected to ${data.lm_base_url || 'LM Studio'}`;
-      } else {
-        badgeLlm.querySelector('.indicator-dot').className = 'indicator-dot offline';
-        statusLlmText.textContent = "Offline";
-        badgeLlm.title = `Cannot reach LM Studio at ${data.lm_base_url || 'port 1234'}`;
-      }
-
-      // Populate Genres
-      selectGenre.innerHTML = '';
-      data.genre_presets.forEach(g => {
-        const opt = document.createElement('option');
-        opt.value = g;
-        opt.textContent = g;
-        if (g === data.default_genre) opt.selected = true;
-        selectGenre.appendChild(opt);
-      });
-
-      // Populate Quick Chips
-      const featuredChips = [
-        "Custom / Keep Typed Style",
-        "Custom / Keep Only Lyrics",
-        "Rock / Classic Rock",
-        "Pop / Pop Funk",
-        "Ballad / Power Ballad",
-        "Hip-Hop / Rap",
-        "Synthwave / Retro 80s Electro",
-        "EDM / Melodic Progressive House",
-        "R&B / Neo-Soul",
-        "Metal / Heavy Metal"
-      ];
-      genreQuickChips.innerHTML = '';
-      featuredChips.forEach(chipName => {
-        const btn = document.createElement('button');
-        btn.className = 'chip' + (chipName === data.default_genre ? ' active' : '');
-        btn.textContent = chipName.split('/')[1] ? chipName.split('/')[1].trim() : chipName;
-        btn.addEventListener('click', () => {
-          selectGenre.value = chipName;
-          document.querySelectorAll('#genre-quick-chips .chip').forEach(c => c.classList.remove('active'));
-          btn.classList.add('active');
-        });
-        genreQuickChips.appendChild(btn);
-      });
-
-      // Populate Vocal Profiles
-      selectVocal.innerHTML = '';
-      data.vocal_profiles.forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        if (v === data.default_vocal) opt.selected = true;
-        selectVocal.appendChild(opt);
-      });
-
-      // Populate Intro Styles
-      selectIntro.innerHTML = '';
-      data.intro_styles.forEach(i => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = i;
-        if (i === data.default_intro) opt.selected = true;
-        selectIntro.appendChild(opt);
-      });
-
-      // Populate Actions
-      selectAction.innerHTML = '';
-      data.actions.forEach(a => {
-        const opt = document.createElement('option');
-        opt.value = a;
-        opt.textContent = a;
-        if (a === data.default_action) opt.selected = true;
-        selectAction.appendChild(opt);
-      });
-
-      // Populate Live Models from LM Studio / ComfyUI
-      if (selectModel) {
-        selectModel.innerHTML = '';
-        const modelsList = (data.lm_models && data.lm_models.length > 0) ? data.lm_models : [data.lm_model || "gemma-4-e4b-it"];
-        modelsList.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m;
-          opt.textContent = m;
-          if (m === data.lm_model) opt.selected = true;
-          selectModel.appendChild(opt);
-        });
-        if (modelLiveIndicator) {
-          modelLiveIndicator.textContent = data.lm_models_live ? `Live (${modelsList.length} models)` : `Node 3: model`;
-          if (data.lm_models_live) modelLiveIndicator.style.color = 'var(--accent-emerald)';
+      if (badgeComfy && statusComfyText) {
+        if (data.comfy_connected) {
+          badgeComfy.querySelector('.indicator-dot').className = 'indicator-dot online';
+          statusComfyText.textContent = "Online";
+        } else {
+          badgeComfy.querySelector('.indicator-dot').className = 'indicator-dot offline';
+          statusComfyText.textContent = "Offline";
         }
-        selectModel.addEventListener('change', () => {
-          if (statusLlmText) {
-            statusLlmText.textContent = selectModel.value ? `Online (${selectModel.value})` : "Online";
-          }
-          showToast(`Co-Producer model: ${selectModel.value}`);
-        });
       }
 
-      // Set defaults
-      bpmSlider.value = data.bpm_default || 120;
-      bpmVal.textContent = data.bpm_default || 120;
-      inputCustomStyle.value = data.default_custom_style || "Style of Bruno Mars song Risk It All";
-      editorLyrics.value = data.default_lyrics || "";
-      updateCharCount();
+      if (badgeLlm && statusLlmText) {
+        if (data.lmstudio_connected) {
+          badgeLlm.querySelector('.indicator-dot').className = 'indicator-dot online';
+          statusLlmText.textContent = data.lm_model ? `Online (${data.lm_model})` : "Online";
+          badgeLlm.title = `Connected to ${data.lm_base_url || 'LM Studio'}`;
+        } else {
+          badgeLlm.querySelector('.indicator-dot').className = 'indicator-dot offline';
+          statusLlmText.textContent = "Offline";
+          badgeLlm.title = `Cannot reach LM Studio at ${data.lm_base_url || 'port 1234'}`;
+        }
+      }
+
+      // Sync Presets from backend
+      if (data.genre_presets && data.genre_presets.length > 0) {
+        populateSelect(selectGenre, data.genre_presets, selectGenre.value || data.default_genre);
+      }
+      if (data.vocal_profiles && data.vocal_profiles.length > 0) {
+        populateSelect(selectVocal, data.vocal_profiles, selectVocal.value || data.default_vocal);
+      }
+      if (data.intro_styles && data.intro_styles.length > 0) {
+        populateSelect(selectIntro, data.intro_styles, selectIntro.value || data.default_intro);
+      }
+      setupQuickChips(FEATURED_CHIPS, selectGenre ? selectGenre.value : (data.default_genre || "Custom / Keep Only Lyrics"));
+
+      // Set defaults if empty
+      if (bpmSlider && !bpmSlider.value) {
+        bpmSlider.value = data.bpm_default || 120;
+        if (bpmVal) bpmVal.textContent = data.bpm_default || 120;
+      }
+      if (inputCustomStyle && !inputCustomStyle.value) {
+        inputCustomStyle.value = data.default_custom_style || "Style of Bruno Mars song Risk It All";
+      }
+      if (editorLyrics && !editorLyrics.value) {
+        editorLyrics.value = data.default_lyrics || "";
+        updateCharCount();
+      }
 
       // Check for Discord Session
       if (sessionToken) {
@@ -221,8 +244,12 @@
       }
 
     } catch (e) {
-      console.error("Init studio error:", e);
-      showToast("Could not connect to studio server. Please verify backend is running.");
+      console.warn("Init studio options fetch warning:", e);
+      // Even if fetch fails or network delays, UI presets are 100% functional via fallbacks!
+      if (editorLyrics && !editorLyrics.value) {
+        editorLyrics.value = "";
+        updateCharCount();
+      }
     }
   }
 
@@ -241,7 +268,6 @@
         if (s.intro_style) selectIntro.value = s.intro_style;
         if (s.custom_style) inputCustomStyle.value = s.custom_style;
         if (s.lyrics) editorLyrics.value = s.lyrics;
-        if (s.action) selectAction.value = s.action;
         updateCharCount();
         showToast(`Loaded Discord session for ${s.user_name || 'User'}`);
         if (s.audio_url) {
@@ -423,22 +449,20 @@
     const payload = {
       token: sessionToken,
       song_title: songTitleVal,
-      genre_preset: selectGenre.value,
-      vocal_profile: selectVocal.value,
-      bpm: parseInt(bpmSlider.value),
-      intro_style: selectIntro.value,
-      custom_style: inputCustomStyle.value,
-      lyrics: editorLyrics.value,
-      action: selectAction.value,
-      model: selectModel ? selectModel.value : null
+      genre_preset: selectGenre ? selectGenre.value : "Custom / Keep Only Lyrics",
+      vocal_profile: selectVocal ? selectVocal.value : "Warm Smooth Baritone (Male)",
+      bpm: parseInt(bpmSlider ? bpmSlider.value : 120),
+      intro_style: selectIntro ? selectIntro.value : "None",
+      custom_style: inputCustomStyle ? inputCustomStyle.value : "",
+      lyrics: editorLyrics ? editorLyrics.value : "",
+      action: "Generate Full Song Concept"
     };
 
-    const activeModelName = (selectModel && selectModel.value) ? selectModel.value : "LLM Co-Producer";
     showProgressModal(
       "Co-Producing Lyrics...",
-      `Executing Node 1 (Studio) & Node 3 (${activeModelName}). Node 5 Neural Audio is DISABLED.`
+      "Executing AI lyric generation and structure. Neural Audio is DISABLED."
     );
-    updateProgressModal(25, "Reasoning & Arranging...", `${activeModelName} is analyzing your concept and lyrics structure...`);
+    updateProgressModal(25, "Reasoning & Arranging...", "AI Co-Producer is analyzing your concept and lyrics structure...");
 
     try {
       const res = await fetch('/api/music/lyrics', {
@@ -525,7 +549,7 @@
       intro_style: selectIntro.value,
       custom_style: inputCustomStyle.value,
       lyrics: editorLyrics.value,
-      action: selectAction.value,
+      action: "Generate Full Song Concept",
       direct_lyrics: true,
       seed: seedVal,
       cot: selectCot ? selectCot.value : "full",
@@ -696,8 +720,7 @@
         genre_preset: selectGenre.value,
         vocal_profile: selectVocal.value,
         bpm: parseInt(bpmSlider.value),
-        custom_style: inputCustomStyle.value,
-        model: selectModel ? selectModel.value : null
+        custom_style: inputCustomStyle ? inputCustomStyle.value : ""
       };
 
       const res = await fetch('/api/music/revise', {
