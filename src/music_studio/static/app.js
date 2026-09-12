@@ -358,6 +358,9 @@
       if (inputCustomStyle && !inputCustomStyle.value) {
         inputCustomStyle.value = data.default_custom_style || "Style of Bruno Mars song Risk It All";
       }
+      if (selectOdeSteps && !selectOdeSteps.value) {
+        selectOdeSteps.value = String(data.default_ode_steps || 24);
+      }
       // Keep empty if user starts fresh so placeholder shows and bottom chat can create a song
       updateCharCount();
 
@@ -553,6 +556,7 @@
         }
         if (s.custom_style && inputCustomStyle) inputCustomStyle.value = s.custom_style;
         if (s.lyrics && editorLyrics) editorLyrics.value = s.lyrics;
+        if (s.ode_steps && selectOdeSteps) selectOdeSteps.value = String(s.ode_steps);
         updateCharCount();
         if (s.take_count) {
           currentTake = parseInt(s.take_count) || 1;
@@ -929,7 +933,7 @@
       direct_lyrics: true,
       seed: seedVal,
       cot: selectCot ? selectCot.value : "full",
-      ode_steps: parseInt(selectOdeSteps ? selectOdeSteps.value : 32) || 32
+      ode_steps: parseInt(selectOdeSteps ? selectOdeSteps.value : 24) || 24
     };
 
     showProgressModal(

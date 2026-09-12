@@ -141,7 +141,7 @@
       "keep_model_loaded": true,
       "abc": "",
       "track_id": "comfy_song",
-      "ode_steps": 32,
+      "ode_steps": 24,
       "sampler_name": "dpm_2",
       "scheduler": "sgm_uniform",
       "max_duration": 360,
