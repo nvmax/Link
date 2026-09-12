@@ -142,15 +142,99 @@
       btn.type = 'button';
       btn.className = 'chip' + (chipName === activeVal ? ' active' : '');
       btn.textContent = chipName.split('/')[1] ? chipName.split('/')[1].trim() : chipName;
+      btn.dataset.genre = chipName;
       btn.addEventListener('click', () => {
-        if (selectGenre) {
-          selectGenre.value = chipName;
-          document.querySelectorAll('#genre-quick-chips .chip').forEach(c => c.classList.remove('active'));
-          btn.classList.add('active');
-        }
+        onGenrePresetSelected(chipName);
       });
       genreQuickChips.appendChild(btn);
     });
+  }
+
+  let isEnhancingPreset = false;
+  async function enhanceLyricsWithPreset(genreName) {
+    if (isEnhancingPreset) return;
+    const currentText = editorLyrics ? editorLyrics.value.trim() : "";
+    if (!currentText || currentText === "No lyrics generated yet.") return;
+
+    isEnhancingPreset = true;
+    const genreShort = genreName.split('/')[1] ? genreName.split('/')[1].trim() : genreName;
+    showToast(`✨ Enhancing lyrics with ${genreShort} arrangement tags... (Your lyrics preserved)`, 3000);
+
+    try {
+      const titleInput = document.getElementById('input-song-title') || inputSongTitle;
+      const payload = {
+        token: sessionToken,
+        song_title: titleInput ? titleInput.value.trim() : "",
+        genre_preset: genreName,
+        vocal_profile: selectVocal ? selectVocal.value : "Warm Smooth Baritone (Male)",
+        bpm: parseInt(bpmSlider ? bpmSlider.value : 120),
+        intro_style: selectIntro ? selectIntro.value : "None",
+        custom_style: inputCustomStyle ? inputCustomStyle.value : "",
+        lyrics: currentText,
+        action: "Polish & Arrange Lyrics"
+      };
+
+      const res = await fetch('/api/music/lyrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) return;
+
+      const result = await res.json();
+      if (result.lyrics && editorLyrics) {
+        editorLyrics.value = result.lyrics;
+        updateCharCount();
+        if (node14TextDisplay) {
+          node14TextDisplay.textContent = result.lyrics;
+        }
+
+        if (editorLyrics.parentElement) {
+          editorLyrics.parentElement.classList.remove('live-updated-glow');
+          void editorLyrics.parentElement.offsetWidth;
+          editorLyrics.parentElement.classList.add('live-updated-glow');
+          setTimeout(() => editorLyrics.parentElement.classList.remove('live-updated-glow'), 1900);
+        }
+
+        if (titleInput && !titleInput.value.trim() && result.suggested_title) {
+          titleInput.value = result.suggested_title;
+        }
+
+        appendChatBubble('ai', `Applied **${genreName}** acoustic & vocal arrangement tags! Every single word of your original lyrics is 100% preserved.`, {
+          changedSection: "Arrangement Tags"
+        });
+        showToast(`✨ ${genreShort} style tags applied! Your lyrics preserved.`);
+      }
+    } catch (e) {
+      console.warn("Enhance preset error:", e);
+    } finally {
+      isEnhancingPreset = false;
+    }
+  }
+
+  async function onGenrePresetSelected(genreName) {
+    if (!selectGenre) return;
+    selectGenre.value = genreName;
+
+    // Sync quick chip active states
+    document.querySelectorAll('#genre-quick-chips .chip').forEach(c => {
+      const chipLabel = c.textContent.trim();
+      const genrePart = genreName.split('/')[1] ? genreName.split('/')[1].trim() : genreName;
+      c.classList.toggle('active', chipLabel === genrePart || c.dataset.genre === genreName);
+    });
+
+    // Check if Custom / Keep Only Lyrics
+    if (genreName === "Custom / Keep Only Lyrics") {
+      showToast("🎵 Custom / Keep Only Lyrics: Your lyrics will remain 100% untouched.");
+      return;
+    }
+
+    // Check if there are user lyrics in editor
+    const text = editorLyrics ? editorLyrics.value.trim() : "";
+    if (text && text.length > 20) {
+      await enhanceLyricsWithPreset(genreName);
+    }
   }
 
   // --- State Variables ---
@@ -171,10 +255,36 @@
   }
 
   function updateCharCount() {
-    const text = editorLyrics.value || '';
+    const text = editorLyrics ? editorLyrics.value || '' : '';
     const chars = text.length;
     const lines = text ? text.split('\n').length : 0;
-    lyricsCharCount.textContent = `${chars.toLocaleString()} characters | ${lines} lines`;
+    if (lyricsCharCount) {
+      lyricsCharCount.textContent = `${chars.toLocaleString()} characters | ${lines} lines`;
+    }
+
+    // Dynamic button label & subtext based on whether user has lyrics
+    if (btnGenerateLyrics) {
+      const textSpan = btnGenerateLyrics.querySelector('.btn-text');
+      const subSpan = btnGenerateLyrics.querySelector('.btn-subtext');
+      if (text.trim().length > 0) {
+        if (textSpan) textSpan.textContent = "Enhance Lyrics";
+        if (subSpan) subSpan.textContent = "Keep User Lyrics";
+        btnGenerateLyrics.title = "Enhance your lyrics with acoustic & vocal performance tags without changing your words.";
+      } else {
+        if (textSpan) textSpan.textContent = "Generate Lyrics";
+        if (subSpan) subSpan.textContent = "From Scratch";
+        btnGenerateLyrics.title = "Generate a complete song concept & lyrics structure from scratch.";
+      }
+    }
+
+    // Dynamic chat input placeholder
+    if (inputRevisionPrompt) {
+      if (text.trim().length === 0) {
+        inputRevisionPrompt.placeholder = "Tell the AI what song to create (e.g. 'Write an indie pop song with 2 verses, chorus, bridge, and outro')...";
+      } else {
+        inputRevisionPrompt.placeholder = "Tell the AI what to change (e.g. 'Change verse 2 out for something different' or 'Make chorus more dramatic')...";
+      }
+    }
   }
 
   // --- Initial Data Load ---
@@ -193,11 +303,7 @@
 
     if (selectGenre) {
       selectGenre.addEventListener('change', () => {
-        document.querySelectorAll('#genre-quick-chips .chip').forEach(c => {
-          const chipLabel = c.textContent.trim();
-          const genrePart = selectGenre.value.split('/')[1] ? selectGenre.value.split('/')[1].trim() : selectGenre.value;
-          c.classList.toggle('active', chipLabel === genrePart);
-        });
+        onGenrePresetSelected(selectGenre.value);
       });
     }
     try {
@@ -252,10 +358,8 @@
       if (inputCustomStyle && !inputCustomStyle.value) {
         inputCustomStyle.value = data.default_custom_style || "Style of Bruno Mars song Risk It All";
       }
-      if (editorLyrics && !editorLyrics.value) {
-        editorLyrics.value = data.default_lyrics || "";
-        updateCharCount();
-      }
+      // Keep empty if user starts fresh so placeholder shows and bottom chat can create a song
+      updateCharCount();
 
     } catch (e) {
       console.warn("Init studio options fetch warning:", e);
@@ -672,87 +776,124 @@
   // ==========================================================================
   if (btnGenerateLyrics) {
     btnGenerateLyrics.addEventListener('click', async () => {
-    const titleInput = document.getElementById('input-song-title') || inputSongTitle;
-    const songTitleVal = titleInput ? titleInput.value.trim() : "";
-    const payload = {
-      token: sessionToken,
-      song_title: songTitleVal,
-      genre_preset: selectGenre ? selectGenre.value : "Custom / Keep Only Lyrics",
-      vocal_profile: selectVocal ? selectVocal.value : "Warm Smooth Baritone (Male)",
-      bpm: parseInt(bpmSlider ? bpmSlider.value : 120),
-      intro_style: selectIntro ? selectIntro.value : "None",
-      custom_style: inputCustomStyle ? inputCustomStyle.value : "",
-      lyrics: editorLyrics ? editorLyrics.value : "",
-      action: "Generate Full Song Concept"
-    };
-
-    showProgressModal(
-      "Co-Producing Lyrics...",
-      "Executing AI lyric generation and structure. Neural Audio is DISABLED."
-    );
-    updateProgressModal(25, "Reasoning & Arranging...", "AI Co-Producer is analyzing your concept and lyrics structure...");
-
-    try {
-      const res = await fetch('/api/music/lyrics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
-        throw new Error(err.detail || "Lyrics generation failed");
-      }
-
-      const result = await res.json();
-      const generatedLyrics = result.lyrics;
-
-      updateProgressModal(100, "Lyrics Complete!", "Node 14 captured full output lyrics.");
-      
-      // Update Node 14 viewer
-      node14TextDisplay.textContent = generatedLyrics;
-      node14Badge.textContent = "New!";
-      node14Badge.style.background = "rgba(16, 185, 129, 0.2)";
-      node14Badge.style.color = "#10b981";
-
-      // Update editor lyrics and keep focus on main lyrics sheet so user sees it live
-      editorLyrics.value = generatedLyrics;
-      updateCharCount();
-      if (tabLyrics) tabLyrics.click();
-      if (checkDirectLyrics) checkDirectLyrics.checked = true;
-
-      // Visual flash on screen
-      if (editorLyrics.parentElement) {
-        editorLyrics.parentElement.classList.remove('live-updated-glow');
-        void editorLyrics.parentElement.offsetWidth;
-        editorLyrics.parentElement.classList.add('live-updated-glow');
-        setTimeout(() => editorLyrics.parentElement.classList.remove('live-updated-glow'), 1900);
-      }
-
-      // Smart Song Title Auto-Population (if not already set by user)
       const titleInput = document.getElementById('input-song-title') || inputSongTitle;
-      if (titleInput && !titleInput.value.trim() && result.suggested_title) {
-        titleInput.value = result.suggested_title;
-        console.log("[YuE2 Studio] Auto-populated song title with:", result.suggested_title);
+      const songTitleVal = titleInput ? titleInput.value.trim() : "";
+      const currentLyrics = editorLyrics ? editorLyrics.value.trim() : "";
+      const hasExistingLyrics = Boolean(currentLyrics && currentLyrics !== "No lyrics generated yet.");
+      const isKeepOnly = (selectGenre ? selectGenre.value : "") === "Custom / Keep Only Lyrics";
+
+      // If Custom / Keep Only Lyrics and user has lyrics, preserve verbatim immediately!
+      if (isKeepOnly && hasExistingLyrics) {
+        let cleanText = currentLyrics;
+        if (!cleanText.match(/\[End\]\s*$/i)) {
+          cleanText = cleanText + "\n\n[End]";
+          editorLyrics.value = cleanText;
+          updateCharCount();
+        }
+        if (node14TextDisplay) node14TextDisplay.textContent = cleanText;
+        showToast("🎵 Preserved your lyrics verbatim (Custom / Keep Only Lyrics).");
+        appendChatBubble('ai', "Your lyrics are preserved 100% untouched for Custom / Keep Only Lyrics mode. Concluded with [End] marker.", {
+          changedSection: "Keep Only Lyrics"
+        });
+        return;
       }
 
-      // Add AI Co-Producer notification to revision console
-      const activeTitle = (titleInput && titleInput.value.trim()) || "your track";
-      appendChatBubble('ai', `Generated song lyrics for "${activeTitle}"! What would you like to refine? You can ask me to change a specific verse, add sections, or adjust themes.`, {
-        changedSection: "Full Song Lyrics",
-        allowPushToSong: true
-      });
+      const payload = {
+        token: sessionToken,
+        song_title: songTitleVal,
+        genre_preset: selectGenre ? selectGenre.value : "Custom / Keep Only Lyrics",
+        vocal_profile: selectVocal ? selectVocal.value : "Warm Smooth Baritone (Male)",
+        bpm: parseInt(bpmSlider ? bpmSlider.value : 120),
+        intro_style: selectIntro ? selectIntro.value : "None",
+        custom_style: inputCustomStyle ? inputCustomStyle.value : "",
+        lyrics: currentLyrics,
+        action: hasExistingLyrics ? "Polish & Arrange Lyrics" : "Generate Full Song Concept"
+      };
 
-      setTimeout(() => {
+      if (hasExistingLyrics) {
+        showProgressModal(
+          "Enhancing Lyrics Structure...",
+          "Injecting acoustic and vocal production tags matching your genre preset while keeping your lyrics 100% intact."
+        );
+        updateProgressModal(35, "Arranging Production Tags...", "Injecting [Instrumentation: ...] and [Vocal: ...] tags above each verse...");
+      } else {
+        showProgressModal(
+          "Co-Producing Full Song...",
+          "Generating complete song concept and structure from scratch..."
+        );
+        updateProgressModal(35, "Composing Concept...", "Structuring verse, chorus, bridge, and vocal hooks...");
+      }
+
+      try {
+        const res = await fetch('/api/music/lyrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+          throw new Error(err.detail || "Lyrics generation failed");
+        }
+
+        const result = await res.json();
+        const generatedLyrics = result.lyrics;
+
+        updateProgressModal(100, hasExistingLyrics ? "Lyrics Enhanced!" : "Lyrics Complete!", "Node 14 captured full output lyrics.");
+        
+        // Update Node 14 viewer
+        if (node14TextDisplay) node14TextDisplay.textContent = generatedLyrics;
+        if (node14Badge) {
+          node14Badge.textContent = "New!";
+          node14Badge.style.background = "rgba(16, 185, 129, 0.2)";
+          node14Badge.style.color = "#10b981";
+        }
+
+        // Update editor lyrics and keep focus on main lyrics sheet so user sees it live
+        if (editorLyrics) {
+          editorLyrics.value = generatedLyrics;
+          updateCharCount();
+        }
+        if (tabLyrics) tabLyrics.click();
+        if (checkDirectLyrics) checkDirectLyrics.checked = true;
+
+        // Visual flash on screen
+        if (editorLyrics && editorLyrics.parentElement) {
+          editorLyrics.parentElement.classList.remove('live-updated-glow');
+          void editorLyrics.parentElement.offsetWidth;
+          editorLyrics.parentElement.classList.add('live-updated-glow');
+          setTimeout(() => editorLyrics.parentElement.classList.remove('live-updated-glow'), 1900);
+        }
+
+        // Smart Song Title Auto-Population (if not already set by user)
+        if (titleInput && !titleInput.value.trim() && result.suggested_title) {
+          titleInput.value = result.suggested_title;
+        }
+
+        // Add AI Co-Producer notification to revision console
+        const activeTitle = (titleInput && titleInput.value.trim()) || "your track";
+        if (hasExistingLyrics) {
+          appendChatBubble('ai', `Enhanced lyrics for "${activeTitle}" with acoustic & vocal arrangement tags! Every single word of your original lyrics has been preserved. What would you like to refine?`, {
+            changedSection: "Arrangement Tags",
+            allowPushToSong: true
+          });
+        } else {
+          appendChatBubble('ai', `Generated full song lyrics for "${activeTitle}"! What would you like to refine? You can chat with me below to adjust any section, or select a genre preset above.`, {
+            changedSection: "Full Song Lyrics",
+            allowPushToSong: true
+          });
+        }
+
+        setTimeout(() => {
+          hideProgressModal();
+          showToast(hasExistingLyrics ? "✨ Enhanced lyrics on screen! (Your lyrics preserved)" : "✨ Lyrics generated on screen!");
+        }, 700);
+
+      } catch (e) {
+        console.error("Lyrics generation error:", e);
+        alert(`Lyrics generation error: ${e.message}`);
         hideProgressModal();
-        showToast("✨ Lyrics generated on screen! Ready for Co-Producer chat.");
-      }, 700);
-
-    } catch (e) {
-      console.error("Lyrics generation error:", e);
-      alert(`Lyrics generation error: ${e.message}`);
-      hideProgressModal();
-    }
+      }
     });
   }
 

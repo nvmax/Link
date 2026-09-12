@@ -662,28 +662,71 @@ async def _query_llm_direct(provider: str, model: str, base_url: str, api_key: s
         raise HTTPException(status_code=400, detail=f"Unsupported LLM provider: {provider}")
 
 
-YUE2_LYRICS_SYS_PROMPT = """You are an elite hit songwriter, topline producer, and lyricist specializing in the YuE2 Neural Music Generation format.
-Your task is to write complete, radio-ready song lyrics crafted for neural audio synthesis, including structural section headers and acoustic performance tags.
+YUE2_ENHANCE_EXISTING_LYRICS_SYS_PROMPT = """You are an elite AI Music Producer and Audio Director specializing in the YuE2 Neural Audio Engine.
+The user has provided their own custom song lyrics. Your ONLY task is to enhance their lyrics for neural audio synthesis by injecting structural performance markers, instrumentation cues, and vocal styling tags above each section.
 
-════ ARCHITECTURE & FORMATTING RULES ════
-1. SECTION HEADERS:
-   - Use standard bracketed section markers: [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Verse 2], [Chorus], [Bridge], [Chorus], [Outro], [End].
-   - Every song MUST conclude with [End] on its own line.
-   - Include performance cue sub-tags inside brackets where appropriate: e.g. [Energy: High], [Vocal: Soulful belt], [Drums enter], [Acoustic piano only].
+════ ABSOLUTE SACRED RULES ════
+1. NEVER REPLACE, REWRITE, DELETE, OR TRANSLATE THE USER'S ACTUAL LYRICAL WORDS OR LINES.
+2. Every single sung word and line written by the user MUST be preserved 100% VERBATIM in the exact order written.
+3. The user's lyrics may be in English, Danish, Spanish, or any other language. DO NOT translate them.
+4. DO NOT invent or substitute new sung lyric words for what the user wrote.
+
+════ PRODUCTION ENHANCEMENT TAGS TO INJECT AT EACH SECTION ════
+At the start of every section (e.g. [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Verse 2], [Bridge], [Final Chorus], [Outro]), inject precise acoustic production tags matching the requested Genre, Vocal Profile, BPM, and Style:
+
+1. SECTION & VOCAL HEADER:
+   e.g. [Intro], [Verse 1 - Male Vocal], [Pre-Chorus - Male Vocal], [Chorus - Full Band], [Final Chorus - Male Vocal], [Outro]
+
+2. INSTRUMENTATION TAG [Instrumentation: ...]:
+   Detail the exact arrangement, dynamic intensity, and instrument layers for that section.
+   Example:
+   [Instrumentation: Biggest section. Full drums, deep melodic bass, wide synths, Rhodes, muted guitar accents, stacked harmonies, tasteful vocal ad-libs.]
+
+3. VOCAL STYLING TAG [Vocal: ...]:
+   Detail the vocal timbre, delivery intensity, backing harmonies, runs, or ad-libs for that section.
+   Example:
+   [Vocal: Strongest delivery of the song, still controlled and intimate; add tasteful runs only on the final two lines.]
+
+4. USER'S EXACT LYRICS:
+   Place the user's exact original lyrics for that section immediately below the tags.
+
+5. CONCLUDING MARKER:
+   The song MUST conclude with [End] on its own line.
+
+════ RESPONSE FORMAT ════
+Output a valid JSON object strictly matching this schema:
+{
+  "suggested_title": "Catchy Song Title based on lyrics or hook",
+  "lyrics": "The full enhanced lyrics containing all production tags and the user's 100% verbatim lyrics, ending with [End]."
+}
+IMPORTANT: Output ONLY the raw JSON object. No Markdown code fences, no extra text."""
+
+
+YUE2_GENERATE_FROM_SCRATCH_SYS_PROMPT = """You are an elite hit songwriter, topline producer, and lyricist specializing in the YuE2 Neural Audio Engine.
+The user wants a complete, radio-ready song crafted from scratch for neural audio synthesis, including structural section headers and acoustic performance tags.
+
+════ ARCHITECTURE & TAGGING RULES ════
+1. SECTION HEADERS & TAGS:
+   For every section ([Intro], [Verse 1], [Pre-Chorus], [Chorus], [Verse 2], [Bridge], [Final Chorus], [Outro], [End]):
+   - Include section name and vocal role: e.g. [Verse 1 - Male Vocal], [Final Chorus - Male Vocal]
+   - Include [Instrumentation: ...] tag detailing arrangement, instruments, and dynamics matching the Genre and BPM.
+   - Include [Vocal: ...] tag detailing vocal delivery, tone, and harmony.
+   - Example structure for a chorus:
+     [Final Chorus - Male Vocal]
+     [Instrumentation: Biggest section. Full drums, deep melodic bass, wide synths, Rhodes, muted guitar accents, stacked harmonies, tasteful vocal ad-libs.]
+     [Vocal: Strongest delivery of the song, still controlled and intimate; add tasteful runs only on the final two lines.]
+     (Singable chorus lyrics...)
+   - The song MUST conclude with [End] on its own line.
 
 2. RHYTHM & METER:
-   - Write lyrics that rhythmically groove at the requested BPM and genre.
-   - Use punchy, singable vowel sounds on chorus sustained notes.
-   - Ensure strong rhyme schemes with vivid, emotional sensory imagery.
-
-3. SMART SUGGESTED TITLE:
-   - Provide a catchy, punchy 1-5 word song title that captures the hook.
+   - Write lyrics that groove tightly at the requested BPM and genre.
+   - Strong rhyme schemes and vivid emotional imagery.
 
 ════ OUTPUT REQUIREMENT ════
 Output a valid JSON object strictly matching this schema:
 {
   "suggested_title": "Catchy Song Title",
-  "lyrics": "Full song lyrics with [Verse 1], [Chorus], etc., ending with [End]."
+  "lyrics": "Full song lyrics with [Verse 1 - ...], [Instrumentation: ...], [Vocal: ...], [Chorus - ...], ending with [End]."
 }
 IMPORTANT: Output ONLY the raw JSON object. No Markdown code fences, no extra text."""
 
@@ -691,10 +734,58 @@ IMPORTANT: Output ONLY the raw JSON object. No Markdown code fences, no extra te
 @router.post("/api/music/lyrics")
 async def generate_lyrics(req: GenerateLyricsRequest):
     """
-    Generates structured YuE2 song lyrics directly via LLM (LM Studio / Gemini / OpenAI),
-    bypassing ComfyUI node validation limits so ANY loaded model can be used freely.
+    Generates or enhances structured YuE2 song lyrics directly via LLM (LM Studio / Gemini / OpenAI).
+    
+    RULES:
+    1. If genre_preset == 'Custom / Keep Only Lyrics':
+       Preserves the user's lyrics 100% verbatim without any LLM alteration.
+    2. If req.lyrics contains user lyrics:
+       ENHANCES them by injecting acoustic tags ([Section - Vocal Profile], [Instrumentation: ...], [Vocal: ...])
+       matching the genre and style, while preserving ALL user lyrics 100% verbatim.
+    3. If req.lyrics is empty:
+       Generates a complete song concept from scratch matching the genre, vocal profile, BPM, and acoustic direction.
     """
     try:
+        user_lyrics = (req.lyrics or "").strip()
+        has_existing_lyrics = bool(user_lyrics and user_lyrics != DEFAULT_LYRICS)
+        is_keep_only = (req.genre_preset or "").strip() == "Custom / Keep Only Lyrics"
+        prompt_id = f"lyrics_{uuid.uuid4().hex[:10]}"
+
+        # Case 1: Custom / Keep Only Lyrics -> Preserve user's text 100% untouched
+        if is_keep_only and has_existing_lyrics:
+            clean_lyrics = user_lyrics
+            if not re.search(r'\[End\]\s*$', clean_lyrics, re.IGNORECASE):
+                clean_lyrics = f"{clean_lyrics}\n\n[End]"
+            
+            # Extract suggested title from lyrics if not provided
+            suggested_title = req.song_title or ""
+            if not suggested_title:
+                m_tag = re.search(r'(?:^|\n)\s*\[?(?:Title|Song|Track)\s*[:=]\s*([^\]\n\r]+)\]?', clean_lyrics, re.IGNORECASE)
+                if m_tag and m_tag.group(1).strip():
+                    suggested_title = m_tag.group(1).strip()
+            
+            prompt_progress[prompt_id] = {
+                "stage": "completed",
+                "percent": 100,
+                "status": "Lyrics preserved verbatim (Keep Only Lyrics).",
+                "lyrics": clean_lyrics,
+                "suggested_title": suggested_title
+            }
+            if req.token:
+                session = music_session_store.get_session(req.token)
+                if session:
+                    if suggested_title:
+                        session.song_title = suggested_title
+                    session.lyrics = clean_lyrics
+            
+            logger.info(f"Preserved user lyrics verbatim for Custom / Keep Only Lyrics ({len(clean_lyrics)} chars)")
+            return {
+                "status": "success",
+                "prompt_id": prompt_id,
+                "lyrics": clean_lyrics,
+                "suggested_title": suggested_title
+            }
+
         # Resolve Provider & Model Settings
         lm_cfg = _get_lmstudio_config()
         provider = req.provider or lm_cfg["provider"]
@@ -728,25 +819,44 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         if (provider in ["google", "gemini"]) and not api_key:
             api_key = os.getenv("GEMINI_API_KEY", "")
 
-        # Build prompt
-        prompt_lines = [
-            f"Genre / Style: {req.genre_preset}",
-            f"Vocal Profile: {req.vocal_profile}",
-            f"Tempo: {req.bpm} BPM",
-            f"Intro Style: {req.intro_style}",
-            f"Action: {req.action}"
-        ]
-        if req.custom_style:
-            prompt_lines.append(f"Acoustic Direction / Theme: {req.custom_style}")
-        if req.song_title:
-            prompt_lines.append(f"Song Title / Concept: {req.song_title}")
-        if req.lyrics and req.lyrics.strip() and req.lyrics.strip() != DEFAULT_LYRICS:
-            prompt_lines.append(f"Initial Lyrics / Concept Seed:\n{req.lyrics.strip()}")
+        # Case 2: User has existing lyrics -> ENHANCE them with production tags (NEVER replace words)
+        if has_existing_lyrics:
+            sys_prompt = YUE2_ENHANCE_EXISTING_LYRICS_SYS_PROMPT
+            user_prompt = (
+                f"════ MUSICAL ARRANGEMENT TARGETS ════\n"
+                f"Genre Preset: {req.genre_preset}\n"
+                f"Vocal Profile: {req.vocal_profile}\n"
+                f"Tempo: {req.bpm} BPM\n"
+                f"Intro Style: {req.intro_style}\n"
+                f"Custom Style & Direction: {req.custom_style or 'Match genre aesthetic'}\n"
+                f"Song Title: {req.song_title or '(Derive from lyrics)'}\n\n"
+                f"════ USER'S ORIGINAL LYRICS (MUST BE KEPT 100% VERBATIM) ════\n"
+                f"{user_lyrics}\n\n"
+                f"════ INSTRUCTIONS ════\n"
+                f"1. Inject section & vocal headers: e.g. [Verse 1 - {req.vocal_profile}], [Chorus - Full Band], [Final Chorus - {req.vocal_profile}], [Outro].\n"
+                f"2. Inject [Instrumentation: ...] tag for each section with specific instruments, dynamics, and arrangement for {req.genre_preset} at {req.bpm} BPM.\n"
+                f"3. Inject [Vocal: ...] tag for each section with vocal delivery cues.\n"
+                f"4. KEEP EVERY SINGLE WORD AND LINE OF THE USER'S LYRICS 100% VERBATIM. DO NOT CHANGE, DELETE, OR REWRITE THEIR LYRICS.\n"
+                f"5. End with [End] on its own line.\n"
+                f"Output raw JSON matching the schema."
+            )
+            logger.info(f"Enhancing user lyrics with production tags: genre={req.genre_preset}, vocal={req.vocal_profile}, bpm={req.bpm}")
         else:
-            prompt_lines.append("Write a complete, emotionally powerful full song from scratch.")
-
-        user_prompt = "\n".join(prompt_lines)
-        logger.info(f"Generating lyrics via direct LLM: provider={provider}, model={model}, action={req.action}")
+            # Case 3: No existing lyrics -> Generate complete song from scratch
+            sys_prompt = YUE2_GENERATE_FROM_SCRATCH_SYS_PROMPT
+            prompt_lines = [
+                f"Genre / Style: {req.genre_preset}",
+                f"Vocal Profile: {req.vocal_profile}",
+                f"Tempo: {req.bpm} BPM",
+                f"Intro Style: {req.intro_style}",
+                f"Action: Generate complete song with full structure and lyrics from scratch."
+            ]
+            if req.custom_style:
+                prompt_lines.append(f"Acoustic Direction / Theme: {req.custom_style}")
+            if req.song_title:
+                prompt_lines.append(f"Song Title / Concept: {req.song_title}")
+            user_prompt = "\n".join(prompt_lines)
+            logger.info(f"Generating full song concept from scratch: genre={req.genre_preset}, model={model}")
 
         # Direct LLM generation
         raw_output = await _query_llm_direct(
@@ -754,9 +864,9 @@ async def generate_lyrics(req: GenerateLyricsRequest):
             model=model,
             base_url=base_url,
             api_key=api_key,
-            sys_prompt=YUE2_LYRICS_SYS_PROMPT,
+            sys_prompt=sys_prompt,
             user_prompt=user_prompt,
-            temperature=0.75,
+            temperature=0.72,
             max_tokens=4096
         )
 
@@ -764,11 +874,10 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         if not generated_lyrics:
             raise HTTPException(status_code=500, detail="LLM returned empty lyrics response.")
 
-        prompt_id = f"lyrics_{uuid.uuid4().hex[:10]}"
         prompt_progress[prompt_id] = {
             "stage": "completed",
             "percent": 100,
-            "status": "Lyrics generated successfully!",
+            "status": "Lyrics processed successfully!",
             "lyrics": generated_lyrics,
             "suggested_title": suggested_title
         }
@@ -818,32 +927,41 @@ class ReviseLyricsRequest(BaseModel):
 
 
 REVISION_SYS_PROMPT = """You are an elite AI Music Co-Producer, Topline Writer, and Lyricist in the LINK YuE2 Music Studio.
-The user wants to revise their song lyrics or brainstorm adjustments (e.g. "change verse 2 out for something different", "rewrite the hook to be catchy", "add a bridge", "make the chorus more dramatic").
+The user is chatting with you in the Studio Control Room to either:
+1. CREATE A BRAND NEW SONG FROM SCRATCH (when no lyrics exist or user asks for a new song with specific structure).
+2. SURGICALLY REFINE OR ENHANCE AN EXISTING SONG (modifying a specific section or adding audio production tags while keeping user's lyrics).
 
-════ CORE SURGICAL REVISION RULES ════
-1. SURGICAL SECTION MODIFICATION:
-   - If the user asks to modify a SPECIFIC section (e.g. "change verse 2", "rewrite verse 1", "punch up the chorus", "add a bridge"), you MUST modify ONLY that section.
-   - All other sections, verses, choruses, and structure markers MUST remain 100% UNCHANGED and VERBATIM.
-   - If the user asks for a global change (e.g. "make the whole song punchier", "rewrite all verses from a female perspective"), revise accordingly while maintaining standard YuE2 song architecture.
+════ CASE A: CREATING A NEW SONG FROM SCRATCH ════
+If the user asks to write or create a song (or if the lyric sheet is empty):
+- Produce a full song strictly matching the structure requested by the user (e.g. Intro, Verse 1, Chorus, Verse 2, Chorus, Bridge, Final Chorus, Outro, or whatever stanzas they ask for).
+- Include rich audio tags at each section:
+  [Section Name - Vocal Profile]
+  [Instrumentation: Dynamic arrangement, instruments, and energy matching the genre and tempo]
+  [Vocal: Delivery style, harmonies, ad-libs]
+  Example for a chorus:
+  [Final Chorus - Male Vocal]
+  [Instrumentation: Biggest section. Full drums, deep melodic bass, wide synths, Rhodes, muted guitar accents, stacked harmonies, tasteful vocal ad-libs.]
+  [Vocal: Strongest delivery of the song, still controlled and intimate; add tasteful runs only on the final two lines.]
+- Always conclude with [End] on its own line.
+- Suggest a punchy song title.
+- In 'producer_note', describe the song structure you built.
 
-2. PRESERVE TECHNICAL YUE2 FORMATTING:
-   - Maintain all bracketed structural markers: [Verse 1], [Verse 2], [Pre-Chorus], [Chorus], [Bridge], [Outro], [Instrumental], [End].
-   - Preserve performance sub-tags when present: [Energy: ...], [Voice: ...], [Vocal: ...], [Tempo: XX BPM].
-   - Ensure the song concludes with [End] on its own separate line.
-
-3. CONVERSATIONAL PRODUCER NOTE:
-   - In 'producer_note', speak naturally and warmly like a collaborative hit record producer in the control room (e.g., "I reworked Verse 2 with moody late-night driving imagery and dialed in the internal rhymes, keeping Verse 1, the Chorus, and the Outro untouched. Take a look at the updated lyrics on screen!").
-
-4. SMART SONG TITLE:
-   - Suggest a punchy 1-4 word song title if not already established.
+════ CASE B: REVISING AN EXISTING SONG ════
+If existing lyrics are provided:
+- If user requests a change to a SPECIFIC section (e.g. "change verse 2", "rewrite the hook", "add a bridge"):
+  You MUST modify ONLY that section. All other sections, verses, and lines MUST remain 100% UNCHANGED and VERBATIM.
+- If user requests to enhance or add instrumentation/vocal tags:
+  Inject the tags above each section while keeping ALL existing user lyric lines 100% VERBATIM.
+- Always conclude with [End] on its own line.
+- In 'producer_note', explain what was modified in a warm, collaborative studio producer tone.
 
 ════ RESPONSE FORMAT ════
 You MUST respond with a valid JSON object strictly matching this schema:
 {
-  "producer_note": "Friendly, conversational producer explanation of what you changed.",
-  "changed_section": "Name of section modified, e.g., 'Verse 2' (or 'Multiple Sections' / 'Global')",
+  "producer_note": "Friendly, conversational producer explanation of what you created or changed.",
+  "changed_section": "Name of section modified, e.g. 'Verse 2', 'Full Song Structure', or 'Arrangement Tags'",
   "suggested_title": "A punchy 1-4 word song title (or empty string if title already established)",
-  "revised_lyrics": "The complete, fully assembled song lyrics including the untouched sections and the revised section, ready to drop into the DAW editor."
+  "revised_lyrics": "The complete assembled lyrics ready to drop directly into the DAW editor, ending with [End]."
 }
 IMPORTANT: Output ONLY the raw JSON object. No Markdown code fences, no extra text."""
 
@@ -851,8 +969,8 @@ IMPORTANT: Output ONLY the raw JSON object. No Markdown code fences, no extra te
 @router.post("/api/music/revise")
 async def revise_lyrics(req: ReviseLyricsRequest):
     """
-    Surgically revises existing song lyrics according to user advice/instruction,
-    preserving non-targeted verses and sections verbatim.
+    Surgically revises existing song lyrics or produces new structured songs via Co-Producer chat,
+    preserving non-targeted verses and user lyrics verbatim.
     """
     instruction = req.instruction.strip()
     current_lyrics = (req.current_lyrics or "").strip()
@@ -874,7 +992,9 @@ async def revise_lyrics(req: ReviseLyricsRequest):
         else:
             model = lm_cfg.get("model") or "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp"
 
-    if current_lyrics:
+    is_scratch_creation = not current_lyrics or current_lyrics == DEFAULT_LYRICS
+
+    if not is_scratch_creation:
         user_prompt = (
             f"════ MUSICAL CONTEXT ════\n"
             f"Song Title: {req.song_title or '(Not set yet)'}\n"
@@ -886,10 +1006,12 @@ async def revise_lyrics(req: ReviseLyricsRequest):
             f"{current_lyrics}\n\n"
             f"════ USER INSTRUCTION / CHANGE REQUEST ════\n"
             f"The user says: \"{instruction}\"\n\n"
-            f"Look closely at the CURRENT SONG LYRICS above and execute this requested change. "
-            f"If the user specified a particular section (e.g. 'change verse 2 out for something different', 'rewrite the chorus', 'add a bridge'), "
-            f"you MUST modify ONLY that section and leave ALL other verses, choruses, and structure markers 100% UNTOUCHED and VERBATIM. "
-            f"Respond with raw JSON strictly adhering to the schema."
+            f"Look closely at the CURRENT SONG LYRICS above and execute this requested change.\n"
+            f"RULES:\n"
+            f"- If the user specified a particular section (e.g. 'change verse 2 out for something different', 'rewrite the chorus', 'add a bridge'), "
+            f"you MUST modify ONLY that section and leave ALL other verses, choruses, and structure markers 100% UNTOUCHED and VERBATIM.\n"
+            f"- If the user asks to enhance lyrics with instrumentation/vocal tags, add tags while preserving user words 100%.\n"
+            f"- Ensure the song concludes with [End]. Respond with raw JSON strictly matching the schema."
         )
     else:
         user_prompt = (
@@ -899,10 +1021,12 @@ async def revise_lyrics(req: ReviseLyricsRequest):
             f"Vocal Profile: {req.vocal_profile}\n"
             f"Tempo: {req.bpm} BPM\n"
             f"Style / Direction: {req.custom_style}\n\n"
-            f"════ USER SONG INSTRUCTION ════\n"
+            f"════ USER SONG INSTRUCTION (CREATE FROM SCRATCH) ════\n"
             f"The user says: \"{instruction}\"\n\n"
-            f"Generate a full set of song lyrics adhering to standard YuE2 architecture ([Verse 1], [Chorus], [Verse 2], [Chorus], [Bridge], [Chorus], [Outro], [End]), "
-            f"suggest a catchy song title, and write a friendly producer note. Respond with raw JSON."
+            f"Create a complete song from scratch with the exact structure and theme requested by the user. "
+            f"Include section headers ([Verse 1 - {req.vocal_profile}], [Chorus - Full Band], etc.) and "
+            f"[Instrumentation: ...] and [Vocal: ...] tags at the start of each section. "
+            f"Ensure the song concludes with [End]. Suggest a catchy song title, and write a friendly producer note. Respond with raw JSON."
         )
 
     raw_resp = await _query_llm_direct(provider, model, base_url, api_key, REVISION_SYS_PROMPT, user_prompt)
@@ -925,7 +1049,7 @@ async def revise_lyrics(req: ReviseLyricsRequest):
     revised_lyrics = parsed.get("revised_lyrics", req.current_lyrics)
     producer_note = parsed.get("producer_note", "Lyrics updated on screen!")
     suggested_title = parsed.get("suggested_title", "")
-    changed_section = parsed.get("changed_section", "")
+    changed_section = parsed.get("changed_section", "Song Structure" if is_scratch_creation else "Updated Section")
 
     if not revised_lyrics.rstrip().endswith("[End]"):
         revised_lyrics = revised_lyrics.rstrip() + "\n\n[End]"
