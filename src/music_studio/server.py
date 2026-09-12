@@ -240,6 +240,10 @@ class GenerateLyricsRequest(BaseModel):
     custom_style: str = "Style of Bruno Mars song Risk It All"
     lyrics: str = ""
     action: str = "Generate Full Song Concept"
+    provider: Optional[str] = "LMStudio"
+    model: Optional[str] = "gemma-4-e4b-it"
+    base_url: Optional[str] = "http://127.0.0.1:1234/v1"
+    api_key: Optional[str] = ""
 
 
 @router.post("/api/music/lyrics")
@@ -261,8 +265,45 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         wf["1"]["inputs"]["custom_style"] = req.custom_style
         wf["1"]["inputs"]["lyrics"] = req.lyrics if req.lyrics.strip() else DEFAULT_LYRICS
         
-        # 2. Update Node 3
+        # 2. Update Node 3 & Provider Settings
+        provider = req.provider or "LMStudio"
+        model = req.model or "gemma-4-e4b-it"
+        base_url = req.base_url or "http://127.0.0.1:1234/v1"
+        if "localhost" in base_url:
+            base_url = base_url.replace("localhost", "127.0.0.1")
+        api_key = req.api_key or ""
+
+        # Pre-flight check for LM Studio
+        if provider == "LMStudio":
+            lm_ok = False
+            for check_host in ["http://127.0.0.1:1234/v1/models", "http://localhost:1234/v1/models"]:
+                try:
+                    async with aiohttp.ClientSession() as sess:
+                        async with sess.get(check_host, timeout=aiohttp.ClientTimeout(total=2)) as resp:
+                            if resp.status == 200:
+                                lm_ok = True
+                                break
+                except Exception:
+                    pass
+            if not lm_ok:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "⚠️ LM Studio Local Server is NOT running or stopped! "
+                        "Please open LM Studio, load your model (e.g. gemma-4-e4b-it), "
+                        "click the Local Server tab (<-> icon on left toolbar), and click 'Start Server' on port 1234."
+                    )
+                )
+
+        if (provider in ["google", "gemini"]) and not api_key:
+            api_key = os.getenv("GEMINI_API_KEY", "")
+
         wf["3"]["inputs"]["action"] = req.action
+        wf["3"]["inputs"]["provider"] = provider
+        wf["3"]["inputs"]["model"] = model
+        wf["3"]["inputs"]["base_url"] = base_url
+        if api_key:
+            wf["3"]["inputs"]["api_key"] = api_key
         
         # 3. Lean prompt payload: ONLY Node 1, 3, 14
         # Node 5 and 6 are omitted, completely disabling audio generation
@@ -367,6 +408,10 @@ class GenerateSongRequest(BaseModel):
     direct_lyrics: bool = False
     seed: Optional[int] = None
     ode_steps: Optional[int] = 24
+    provider: Optional[str] = "LMStudio"
+    model: Optional[str] = "gemma-4-e4b-it"
+    base_url: Optional[str] = "http://127.0.0.1:1234/v1"
+    api_key: Optional[str] = ""
 
 
 @router.post("/api/music/generate")
@@ -388,8 +433,22 @@ async def generate_song(req: GenerateSongRequest):
         wf["1"]["inputs"]["custom_style"] = req.custom_style
         wf["1"]["inputs"]["lyrics"] = lyrics_text
         
-        # 2. Update Node 3
+        # 2. Update Node 3 & Provider Settings
+        provider = req.provider or "LMStudio"
+        model = req.model or "gemma-4-e4b-it"
+        base_url = req.base_url or "http://127.0.0.1:1234/v1"
+        if "localhost" in base_url:
+            base_url = base_url.replace("localhost", "127.0.0.1")
+        api_key = req.api_key or ""
+        if (provider in ["google", "gemini"]) and not api_key:
+            api_key = os.getenv("GEMINI_API_KEY", "")
+
         wf["3"]["inputs"]["action"] = req.action
+        wf["3"]["inputs"]["provider"] = provider
+        wf["3"]["inputs"]["model"] = model
+        wf["3"]["inputs"]["base_url"] = base_url
+        if api_key:
+            wf["3"]["inputs"]["api_key"] = api_key
         
         # 3. Seed Handling (Node 4)
         if req.seed is not None and req.seed >= 0:
