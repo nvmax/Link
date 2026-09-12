@@ -1227,7 +1227,10 @@ async def _update_discord_progress(session, req: GenerateSongRequest, prompt_id:
         channel = bot.get_channel(int(session.channel_id))
         if not channel:
             return
-        msg = await channel.fetch_message(int(session.progress_message_id))
+        try:
+            msg = channel.get_partial_message(int(session.progress_message_id))
+        except Exception:
+            msg = await channel.fetch_message(int(session.progress_message_id))
         if not msg:
             return
 
@@ -1289,49 +1292,63 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, cli
         await _send_discord_progress_start(session, req, prompt_id)
     last_discord_update = time.time()
     last_discord_percent = -1
+    consecutive_poll_errors = 0
     
     try:
-        while time.time() - start_time < max_wait_seconds:
-            await asyncio.sleep(1.5)
-            elapsed = time.time() - start_time
-            
-            # Smooth fallback progression if WebSocket ODE steps aren't reported
-            curr = prompt_progress.get(prompt_id)
-            if curr and curr.get("stage") not in ["completed", "failed"]:
-                if "current_step" not in curr:
-                    # Asymptotic curve that rises smoothly towards 93% over 90s without stalling at 88%
-                    sim_pct = int(12 + (81 * (1 - math.exp(-elapsed / 45))))
-                    curr["percent"] = max(curr.get("percent", 12), min(93, sim_pct))
-                    if curr["percent"] < 20:
-                        curr["status"] = f"Conditioning acoustic tokens & lyrics ({int(elapsed)}s elapsed)..."
-                    elif curr["percent"] < 92:
-                        curr["status"] = f"YuE2 ODE Neural Diffusion in progress ({int(elapsed)}s elapsed)..."
-                    else:
-                        curr["status"] = f"Finalizing audio master ({int(elapsed)}s elapsed)..."
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as sess:
+            while time.time() - start_time < max_wait_seconds:
+                await asyncio.sleep(2.0)
+                elapsed = time.time() - start_time
+                
+                # Smooth fallback progression if WebSocket ODE steps aren't reported
+                curr = prompt_progress.get(prompt_id)
+                if curr and curr.get("stage") not in ["completed", "failed"]:
+                    if "current_step" not in curr:
+                        # Asymptotic curve that rises smoothly towards 93% over 90s without stalling at 88%
+                        sim_pct = int(12 + (81 * (1 - math.exp(-elapsed / 45))))
+                        curr["percent"] = max(curr.get("percent", 12), min(93, sim_pct))
+                        if curr["percent"] < 20:
+                            curr["status"] = f"Conditioning acoustic tokens & lyrics ({int(elapsed)}s elapsed)..."
+                        elif curr["percent"] < 92:
+                            curr["status"] = f"YuE2 ODE Neural Diffusion in progress ({int(elapsed)}s elapsed)..."
+                        else:
+                            curr["status"] = f"Finalizing audio master ({int(elapsed)}s elapsed)..."
 
-            # Discord progress update (throttled to every 3.5s or on step milestone)
-            now = time.time()
-            if session and getattr(session, "progress_message_id", None):
-                curr_pct = curr.get("percent", 10) if curr else 10
-                if (now - last_discord_update >= 3.5 and curr_pct != last_discord_percent) or curr_pct >= 94:
-                    last_discord_update = now
-                    last_discord_percent = curr_pct
-                    await _update_discord_progress(session, req, prompt_id, curr or {}, int(elapsed))
+                # Discord progress update (throttled to every 4.0s or on step milestone)
+                now = time.time()
+                if session and getattr(session, "progress_message_id", None):
+                    curr_pct = curr.get("percent", 10) if curr else 10
+                    if (now - last_discord_update >= 4.0 and curr_pct != last_discord_percent) or curr_pct >= 94:
+                        last_discord_update = now
+                        last_discord_percent = curr_pct
+                        try:
+                            await _update_discord_progress(session, req, prompt_id, curr or {}, int(elapsed))
+                        except Exception as prog_e:
+                            logger.debug(f"Discord progress update failed: {prog_e}")
 
-            async with aiohttp.ClientSession() as sess:
-                async with sess.get(f"{Config.COMFY_URL}/history/{prompt_id}", timeout=aiohttp.ClientTimeout(total=5)) as h_resp:
-                    if h_resp.status != 200:
-                        continue
-                    h_data = await h_resp.json()
-                    if prompt_id not in h_data:
-                        continue
-                    
-                    prompt_entry = h_data[prompt_id]
-                    outputs = prompt_entry.get("outputs", {})
-                    
-                    # Check for audio output in Node 6
-                    if "6" in outputs and "audio" in outputs["6"]:
-                        audio_list = outputs["6"]["audio"]
+                # Poll ComfyUI history with dedicated timeout and error catching
+                try:
+                    async with sess.get(f"{Config.COMFY_URL}/history/{prompt_id}") as h_resp:
+                        if h_resp.status != 200:
+                            continue
+                        h_data = await h_resp.json()
+                        if prompt_id not in h_data:
+                            continue
+                        
+                        consecutive_poll_errors = 0
+                        prompt_entry = h_data[prompt_id]
+                        outputs = prompt_entry.get("outputs", {})
+                        
+                        # Check for audio output in Node 6 or any audio-producing node
+                        audio_list = None
+                        if "6" in outputs and "audio" in outputs["6"]:
+                            audio_list = outputs["6"]["audio"]
+                        else:
+                            for n_id, n_out in outputs.items():
+                                if isinstance(n_out, dict) and "audio" in n_out and n_out["audio"]:
+                                    audio_list = n_out["audio"]
+                                    break
+
                         if audio_list:
                             audio_meta = audio_list[0]
                             filename = audio_meta.get("filename")
@@ -1342,74 +1359,94 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, cli
                             
                             # Download audio bytes from ComfyUI
                             audio_url_params = f"?filename={filename}&subfolder={subfolder}&type={folder_type}"
-                            async with sess.get(f"{Config.COMFY_URL}/view{audio_url_params}", timeout=aiohttp.ClientTimeout(total=30)) as v_resp:
-                                if v_resp.status == 200:
-                                    audio_bytes = await v_resp.read()
-                                    
-                                    effective_title = resolve_song_title(req, session)
-                                    clean_name = sanitize_song_title(effective_title, fallback="studio_song")
-                                    display_title = effective_title or "YuE2 Studio Master Track"
-                                    take_num = getattr(session, "take_count", 1) if session else 1
-                                    
-                                    # Save to assets directory with clean name + prompt id suffix for disk uniqueness
-                                    local_filename = f"{clean_name}_{prompt_id[:8]}.mp3"
-                                    local_path = os.path.join(Config.ASSETS_DIR, local_filename)
-                                    async with aiofiles.open(local_path, "wb") as f:
-                                        await f.write(audio_bytes)
-                                    
-                                    audio_serve_url = f"/api/music/audio/{local_filename}"
-                                    
-                                    # Check for output lyrics in Node 14
-                                    output_lyrics = ""
-                                    if "14" in outputs and "text" in outputs["14"] and outputs["14"]["text"]:
-                                        output_lyrics = outputs["14"]["text"][0]
-                                    
-                                    prompt_progress[prompt_id] = {
-                                        "stage": "completed",
-                                        "percent": 100,
-                                        "status": "Song generated successfully!",
-                                        "audio_url": audio_serve_url,
-                                        "filename": local_filename,
-                                        "song_title": display_title,
-                                        "clean_title": clean_name,
-                                        "take_count": take_num,
-                                        "lyrics": output_lyrics or req.lyrics,
-                                        "completed_at": time.time()
-                                    }
-                                    
-                                    # Cancel WS task
-                                    if not ws_task.done():
-                                        ws_task.cancel()
-
-                                    # If Discord session exists, notify channel with full audio + persistent Fine-Tune button
-                                    if req.token:
-                                        await _dispatch_discord_completion(req.token, local_path, local_filename, req, output_lyrics)
-                                    
-                                    return
-                    
-                    # Check for errors
-                    status_obj = prompt_entry.get("status", {})
-                    if status_obj.get("status_str") == "error":
-                        err_msg = status_obj.get("messages", "Generation error")
-                        logger.error(f"Song generation error for {prompt_id}: {err_msg}")
-                        prompt_progress[prompt_id] = {
-                            "stage": "failed",
-                            "percent": 0,
-                            "status": f"Generation failed: {err_msg}",
-                            "error": str(err_msg)
-                        }
-                        if not ws_task.done():
-                            ws_task.cancel()
-                        if session and getattr(session, "progress_message_id", None):
+                            audio_bytes = None
                             try:
-                                bot = state.bot_instance
-                                if bot:
-                                    ch = bot.get_channel(int(session.channel_id))
-                                    if ch:
-                                        p_msg = await ch.fetch_message(int(session.progress_message_id))
-                                        await p_msg.edit(content=f"❌ <@{session.user_id}>, song generation failed: `{err_msg}`")
-                            except Exception: pass
-                        return
+                                async with sess.get(f"{Config.COMFY_URL}/view{audio_url_params}", timeout=aiohttp.ClientTimeout(total=60)) as v_resp:
+                                    if v_resp.status == 200:
+                                        audio_bytes = await v_resp.read()
+                            except Exception as dl_e:
+                                logger.warning(f"Error reading audio bytes from ComfyUI: {dl_e}")
+
+                            if audio_bytes:
+                                effective_title = resolve_song_title(req, session)
+                                clean_name = sanitize_song_title(effective_title, fallback="studio_song")
+                                display_title = effective_title or "YuE2 Studio Master Track"
+                                take_num = getattr(session, "take_count", 1) if session else 1
+                                
+                                # Save to assets directory with clean name + prompt id suffix for disk uniqueness
+                                local_filename = f"{clean_name}_{prompt_id[:8]}.mp3"
+                                local_path = os.path.join(Config.ASSETS_DIR, local_filename)
+                                async with aiofiles.open(local_path, "wb") as f:
+                                    await f.write(audio_bytes)
+                                
+                                audio_serve_url = f"/api/music/audio/{local_filename}"
+                                
+                                # Check for output lyrics in Node 14
+                                output_lyrics = ""
+                                if "14" in outputs and "text" in outputs["14"] and outputs["14"]["text"]:
+                                    output_lyrics = outputs["14"]["text"][0]
+                                
+                                prompt_progress[prompt_id] = {
+                                    "stage": "completed",
+                                    "percent": 100,
+                                    "status": "Song generated successfully!",
+                                    "audio_url": audio_serve_url,
+                                    "filename": local_filename,
+                                    "song_title": display_title,
+                                    "clean_title": clean_name,
+                                    "take_count": take_num,
+                                    "lyrics": output_lyrics or req.lyrics,
+                                    "completed_at": time.time()
+                                }
+                                
+                                # Cancel WS task
+                                if not ws_task.done():
+                                    ws_task.cancel()
+
+                                # If Discord session exists, notify channel with full audio + persistent Fine-Tune button
+                                if req.token:
+                                    try:
+                                        await _dispatch_discord_completion(req.token, local_path, local_filename, req, output_lyrics)
+                                    except Exception as disp_e:
+                                        logger.error(f"Error dispatching completion to Discord: {disp_e}", exc_info=True)
+                                
+                                return
+                        
+                        # Check for errors reported by ComfyUI
+                        status_obj = prompt_entry.get("status", {})
+                        if status_obj.get("status_str") == "error":
+                            err_msg = status_obj.get("messages", "Generation error")
+                            logger.error(f"Song generation error for {prompt_id}: {err_msg}")
+                            prompt_progress[prompt_id] = {
+                                "stage": "failed",
+                                "percent": 0,
+                                "status": f"Generation failed: {err_msg}",
+                                "error": str(err_msg)
+                            }
+                            if not ws_task.done():
+                                ws_task.cancel()
+                            if session and getattr(session, "progress_message_id", None):
+                                try:
+                                    bot = state.bot_instance
+                                    if bot:
+                                        ch = bot.get_channel(int(session.channel_id))
+                                        if ch:
+                                            try:
+                                                p_msg = ch.get_partial_message(int(session.progress_message_id))
+                                            except Exception:
+                                                p_msg = await ch.fetch_message(int(session.progress_message_id))
+                                            await p_msg.edit(content=f"❌ <@{session.user_id}>, song generation failed: `{err_msg}`")
+                                except Exception: pass
+                            return
+
+                except (asyncio.TimeoutError, aiohttp.ClientError) as poll_err:
+                    consecutive_poll_errors += 1
+                    if consecutive_poll_errors % 5 == 0:
+                        logger.debug(f"ComfyUI history endpoint busy or slow to respond ({consecutive_poll_errors} consecutive timeouts): {poll_err}")
+                    continue
+                except Exception as loop_e:
+                    logger.warning(f"Transient error in ComfyUI history loop for {prompt_id} (will retry): {loop_e}")
+                    continue
 
         # Timeout reached
         logger.warning(f"Song generation timed out for {prompt_id}")
