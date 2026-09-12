@@ -56,7 +56,13 @@ export function MissingModelsModal({
   // an infinite setState loop.
   const missingModels = useMemo(
     () => missingModelsProp.filter(
-      (m, idx, arr) => arr.findIndex(x => x.filename === m.filename) === idx
+      (m, idx, arr) => {
+        if (!m || !m.filename) return false;
+        const nc = (m.node_class || '').toLowerCase();
+        const f = (m.field || '').toLowerCase();
+        if (nc.includes('llm') || f === 'model' || f === 'custom_model' || f === 'provider') return false;
+        return arr.findIndex(x => x.filename === m.filename) === idx;
+      }
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [missingModelsProp]

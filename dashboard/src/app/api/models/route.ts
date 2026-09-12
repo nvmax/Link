@@ -137,7 +137,7 @@ export async function fetchLiveModelsInternal(
     if (baseUrl && baseUrl.trim()) {
       candidateUrls.push(baseUrl.trim().replace(/\/+$/, ''));
     }
-    const defaults = ['http://localhost:1234/v1', 'http://127.0.0.1:1234/v1'];
+    const defaults = ['http://192.168.1.174:1234/v1', 'http://localhost:1234/v1', 'http://127.0.0.1:1234/v1'];
     for (const d of defaults) {
       if (!candidateUrls.includes(d)) candidateUrls.push(d);
     }

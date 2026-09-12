@@ -699,7 +699,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 showToast(`ComfyUI Validation Error: ${modelData.error}`, 'error');
                 return;
               }
-              const missingMods = modelData.missing || [];
+              const missingMods = (modelData.missing || []).filter((m: any) => {
+                const nc = (m.node_class || '').toLowerCase();
+                const f = (m.field || '').toLowerCase();
+                if (nc.includes('llm') || f === 'model' || f === 'custom_model' || f === 'provider') return false;
+                return true;
+              });
               if (missingMods.length > 0) {
                 console.log('[loadWorkflow] Missing models detected:', missingMods);
                 setMissingModels(missingMods);
@@ -870,7 +875,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
            showToast(`ComfyUI Validation Error: ${modelData.error}`, 'error');
            return false;
          }
-         const missingMods = modelData.missing || [];
+         const missingMods = (modelData.missing || []).filter((m: any) => {
+           const nc = (m.node_class || '').toLowerCase();
+           const f = (m.field || '').toLowerCase();
+           if (nc.includes('llm') || f === 'model' || f === 'custom_model' || f === 'provider') return false;
+           return true;
+         });
          if (missingMods.length > 0) {
            console.log('Missing models detected:', missingMods);
            setMissingModels(missingMods);

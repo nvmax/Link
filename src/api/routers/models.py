@@ -159,6 +159,15 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
                 if not missing_file or not isinstance(missing_file, str):
                     continue
 
+                # Never treat LLM provider model selections or UI combos as downloadable ComfyUI files
+                if (
+                    node_class in ("YuE2LLMProducer", "LLMNode")
+                    or "llm" in node_class.lower()
+                    or field_name in ("model", "custom_model", "provider", "action", "cot_mode", "save_mode", "format", "scheduler", "sampler_name")
+                ):
+                    logger.info(f"Skipping non-file validation combo for {node_class}.{field_name}: '{missing_file}'")
+                    continue
+
                 # Priority 0: ComfyUI ground truth via object_info cache.
                 # This is the folder the node itself declares — 100% accurate
                 # when ComfyUI is online and the cache has been populated.
@@ -206,6 +215,13 @@ async def _check_models_via_comfy_validation(workflow: dict, comfy_url: str) -> 
                 result.append(info)
 
         if not missing_filenames and has_top_level_error:
+            has_other_node_errors = any(
+                n_err.get("class_type") not in ("YuE2LLMProducer", "LLMNode") and "llm" not in n_err.get("class_type", "").lower()
+                for n_err in node_errors.values()
+            )
+            if not has_other_node_errors and node_errors:
+                logger.info("ComfyUI validation error was solely from external LLM nodes. Ignoring for model file check.")
+                return result
             error_info = data["error"]
             err_msg = error_info.get("message") if isinstance(error_info, dict) else str(error_info)
             logger.warning(f"ComfyUI validation error (no missing models found): {error_info}")

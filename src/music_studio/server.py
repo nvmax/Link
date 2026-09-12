@@ -243,7 +243,7 @@ def _get_lmstudio_config() -> Dict[str, Any]:
             return {
                 "provider": node3.get("provider", "LMStudio"),
                 "model": node3.get("model", "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp"),
-                "base_url": (node3.get("base_url") or "http://localhost:1234/v1").rstrip("/")
+                "base_url": (node3.get("base_url") or "http://192.168.1.174:1234/v1").rstrip("/")
             }
     except Exception as e:
         logger.warning(f"Could not read base workflow for LM Studio config: {e}")
@@ -260,7 +260,7 @@ def _get_lmstudio_config() -> Dict[str, Any]:
                     return {
                         "provider": "LMStudio",
                         "model": lm.get("model") or "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp",
-                        "base_url": (lm.get("base_url") or "http://localhost:1234/v1").rstrip("/")
+                        "base_url": (lm.get("base_url") or "http://192.168.1.174:1234/v1").rstrip("/")
                     }
     except Exception as e:
         logger.warning(f"Could not read ai_config.yaml for music studio: {e}")
@@ -268,7 +268,7 @@ def _get_lmstudio_config() -> Dict[str, Any]:
     return {
         "provider": "LMStudio",
         "model": "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp",
-        "base_url": "http://localhost:1234/v1"
+        "base_url": "http://192.168.1.174:1234/v1"
     }
 
 
@@ -280,7 +280,7 @@ async def _check_lmstudio_reachability(base_url: Optional[str] = None) -> tuple[
     candidates = []
     if base_url:
         candidates.append(base_url.rstrip("/"))
-    for fb in ["http://localhost:1234/v1", "http://127.0.0.1:1234/v1", "http://192.168.1.174:1234/v1"]:
+    for fb in ["http://192.168.1.174:1234/v1", "http://localhost:1234/v1", "http://127.0.0.1:1234/v1"]:
         if fb not in candidates:
             candidates.append(fb)
 
