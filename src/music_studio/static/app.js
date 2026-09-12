@@ -368,12 +368,12 @@
     progressStageText.textContent = stageText;
     if (desc) modalDesc.textContent = desc;
 
-    // Step indicators
-    if (percent < 35) {
+    // Step indicators matching 3-stage studio pipeline
+    if (percent < 20) {
       stepLlm.className = 'pipeline-step active';
       stepSynth.className = 'pipeline-step';
       stepExport.className = 'pipeline-step';
-    } else if (percent < 90) {
+    } else if (percent < 93) {
       stepLlm.className = 'pipeline-step';
       stepSynth.className = 'pipeline-step active';
       stepExport.className = 'pipeline-step';
@@ -546,6 +546,7 @@
   function pollSongProgress(promptId) {
     if (pollInterval) clearInterval(pollInterval);
     let pollCount = 0;
+    let lastPercent = 10;
 
     pollInterval = setInterval(async () => {
       pollCount++;
@@ -580,13 +581,27 @@
           return;
         }
 
-        // Incremental visual progress during long synthesis
-        let simulatedPercent = Math.min(88, 15 + pollCount * 3);
-        updateProgressModal(
-          simulatedPercent,
-          info.status || "YuE2 ODE Neural Diffusion in progress...",
-          `Synthesizing vocal harmony and instrument stems (${pollCount * 2}s elapsed)...`
-        );
+        // Determine accurate progress percentage
+        let targetPercent = lastPercent;
+        if (typeof info.percent === 'number' && info.percent > 0) {
+          targetPercent = Math.max(lastPercent, info.percent);
+        } else {
+          // Asymptotic progress that smoothly approaches 93% over time without stalling at 88%
+          const asymptotic = Math.round(12 + (81 * (1 - Math.exp(-pollCount / 30))));
+          targetPercent = Math.max(lastPercent, Math.min(93, asymptotic));
+        }
+        lastPercent = targetPercent;
+
+        // Dynamic status & description
+        let stageLabel = info.status || "YuE2 ODE Neural Diffusion in progress...";
+        let descLabel = `Synthesizing vocal harmony and instrument stems (${pollCount * 2}s elapsed)...`;
+        if (info.current_step && info.total_steps) {
+          const stepPct = Math.round((info.current_step / info.total_steps) * 100);
+          stageLabel = `Neural Diffusion: Step ${info.current_step}/${info.total_steps} (${stepPct}%)`;
+          descLabel = `ODE Step ${info.current_step} of ${info.total_steps} • Synthesizing vocal timbre and instrument layers (${pollCount * 2}s elapsed)...`;
+        }
+
+        updateProgressModal(targetPercent, stageLabel, descLabel);
 
       } catch (err) {
         console.warn("Poll status error:", err);

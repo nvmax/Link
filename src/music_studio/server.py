@@ -4,6 +4,7 @@ import json
 import yaml
 import uuid
 import time
+import math
 import asyncio
 import random
 import aiohttp
@@ -917,16 +918,17 @@ async def generate_song(req: GenerateSongRequest):
 
         prompt_progress[prompt_id] = {
             "stage": "starting",
-            "percent": 5,
+            "percent": 8,
             "status": "Starting full music generation pipeline...",
             "started_at": time.time(),
             "seed": final_seed,
             "lyrics": lyrics_text,
-            "token": req.token
+            "token": req.token,
+            "client_id": client_id
         }
 
         # Launch background monitor to track execution, save audio, and notify Discord if applicable
-        asyncio.create_task(_monitor_song_generation(prompt_id, req))
+        asyncio.create_task(_monitor_song_generation(prompt_id, req, client_id))
 
         return {
             "status": "queued",
@@ -942,16 +944,101 @@ async def generate_song(req: GenerateSongRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest):
-    """Background monitor that waits for ComfyUI to produce audio, saves it locally, and posts to Discord."""
-    logger.info(f"Monitoring song generation for prompt {prompt_id}")
+async def _track_comfy_ws(prompt_id: str, client_id: str):
+    """Listens to ComfyUI WebSocket events for live execution step and diffusion progress."""
+    ws_url = f"{Config.COMFY_WS_URL}?clientId={client_id}"
+    logger.info(f"Connecting to ComfyUI WebSocket for prompt {prompt_id}: {ws_url}")
+    try:
+        async with aiohttp.ClientSession() as sess:
+            async with sess.ws_connect(ws_url, timeout=aiohttp.ClientTimeout(total=10)) as ws:
+                async for msg in ws:
+                    curr = prompt_progress.get(prompt_id)
+                    if not curr or curr.get("stage") in ["completed", "failed"]:
+                        break
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        try:
+                            payload = json.loads(msg.data)
+                            m_type = payload.get("type")
+                            m_data = payload.get("data", {})
+
+                            if m_data.get("prompt_id") and m_data.get("prompt_id") != prompt_id:
+                                continue
+
+                            if m_type == "execution_start":
+                                curr["stage"] = "executing"
+                                curr["percent"] = max(curr.get("percent", 8), 12)
+                                curr["status"] = "ComfyUI pipeline initialized..."
+                            
+                            elif m_type == "executing":
+                                node = str(m_data.get("node"))
+                                if node in ["1", "12", "13", "14"]:
+                                    curr["stage"] = "executing"
+                                    curr["percent"] = max(curr.get("percent", 8), 16)
+                                    curr["status"] = "Conditioning acoustic tokens & lyrics..."
+                                elif node in ["16", "5", "4"]:
+                                    curr["stage"] = "executing"
+                                    curr["percent"] = max(curr.get("percent", 8), 20)
+                                    curr["status"] = "YuE2 ODE Neural Diffusion running..."
+                                elif node == "6":
+                                    curr["stage"] = "executing"
+                                    curr["percent"] = max(curr.get("percent", 8), 94)
+                                    curr["status"] = "Encoding 24-bit studio MP3 master..."
+
+                            elif m_type == "progress":
+                                val = m_data.get("value", 0)
+                                max_val = m_data.get("max", 1)
+                                if max_val > 0:
+                                    diff_pct = val / max_val
+                                    # Scale diffusion smoothly between 20% and 92%
+                                    overall_pct = int(20 + diff_pct * 72)
+                                    curr["stage"] = "executing"
+                                    curr["percent"] = max(curr.get("percent", 20), min(92, overall_pct))
+                                    curr["current_step"] = val
+                                    curr["total_steps"] = max_val
+                                    curr["status"] = f"Neural Diffusion: Step {val}/{max_val} ({int(diff_pct * 100)}%)"
+
+                            elif m_type == "execution_error":
+                                curr["stage"] = "failed"
+                                curr["error"] = m_data.get("exception_message", "ComfyUI execution error")
+                                curr["status"] = f"Execution failed: {curr['error']}"
+                                break
+
+                        except Exception:
+                            pass
+                    elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                        break
+    except Exception as e:
+        logger.debug(f"ComfyUI WS listener connection skipped or ended for {prompt_id}: {e}")
+
+
+async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, client_id: str):
+    """Background monitor that tracks ComfyUI execution, saves audio, and posts to Discord."""
+    logger.info(f"Monitoring song generation for prompt {prompt_id} (client_id={client_id})")
     max_wait_seconds = 600 # 10 minutes maximum for neural audio synthesis
     start_time = time.time()
     
+    # Start real-time WebSocket progress tracker
+    ws_task = asyncio.create_task(_track_comfy_ws(prompt_id, client_id))
+    
     try:
         while time.time() - start_time < max_wait_seconds:
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(1.5)
+            elapsed = time.time() - start_time
             
+            # Smooth fallback progression if WebSocket ODE steps aren't reported
+            curr = prompt_progress.get(prompt_id)
+            if curr and curr.get("stage") not in ["completed", "failed"]:
+                if "current_step" not in curr:
+                    # Asymptotic curve that rises smoothly towards 93% over 90s without stalling at 88%
+                    sim_pct = int(12 + (81 * (1 - math.exp(-elapsed / 45))))
+                    curr["percent"] = max(curr.get("percent", 12), min(93, sim_pct))
+                    if curr["percent"] < 20:
+                        curr["status"] = f"Conditioning acoustic tokens & lyrics ({int(elapsed)}s elapsed)..."
+                    elif curr["percent"] < 92:
+                        curr["status"] = f"YuE2 ODE Neural Diffusion in progress ({int(elapsed)}s elapsed)..."
+                    else:
+                        curr["status"] = f"Finalizing audio master ({int(elapsed)}s elapsed)..."
+
             async with aiohttp.ClientSession() as sess:
                 async with sess.get(f"{Config.COMFY_URL}/history/{prompt_id}", timeout=aiohttp.ClientTimeout(total=5)) as h_resp:
                     if h_resp.status != 200:
@@ -1010,6 +1097,10 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest):
                                         "completed_at": time.time()
                                     }
                                     
+                                    # Cancel WS task
+                                    if not ws_task.done():
+                                        ws_task.cancel()
+
                                     # If Discord session exists, notify channel
                                     if req.token:
                                         await _dispatch_discord_completion(req.token, local_path, local_filename, req, output_lyrics)
@@ -1027,6 +1118,8 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest):
                             "status": f"Generation failed: {err_msg}",
                             "error": str(err_msg)
                         }
+                        if not ws_task.done():
+                            ws_task.cancel()
                         return
 
         # Timeout reached
@@ -1037,6 +1130,8 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest):
             "status": "Song generation timed out after 10 minutes.",
             "error": "Timeout"
         }
+        if not ws_task.done():
+            ws_task.cancel()
 
     except Exception as e:
         logger.error(f"Song monitor error for {prompt_id}: {e}", exc_info=True)
@@ -1046,6 +1141,8 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest):
             "status": f"Monitoring error: {e}",
             "error": str(e)
         }
+        if not ws_task.done():
+            ws_task.cancel()
 
 
 async def _dispatch_discord_completion(token: str, local_path: str, filename: str, req: GenerateSongRequest, lyrics: str):
