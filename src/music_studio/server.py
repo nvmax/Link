@@ -466,7 +466,7 @@ async def get_music_options():
         "default_vocal": "Warm Smooth Baritone (Male)",
         "default_intro": "None",
         "default_action": "Generate Full Song Concept",
-        "default_ode_steps": 32,
+        "default_ode_steps": 24,
         "default_checkpoint": "yue2_3b_bf16.safetensors",
         "cot_modes": ["full", "melody", "off"],
         "default_cot": "full",
@@ -943,7 +943,7 @@ class GenerateSongRequest(BaseModel):
     action: str = "Generate Full Song Concept"
     direct_lyrics: bool = False
     seed: Optional[int] = None
-    ode_steps: Optional[int] = 32
+    ode_steps: Optional[int] = 24
     cot: Optional[str] = "full"
     checkpoint: Optional[str] = "yue2_3b_bf16.safetensors"
     sampler_name: Optional[str] = "dpm_2"
