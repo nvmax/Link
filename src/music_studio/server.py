@@ -5,6 +5,7 @@ import yaml
 import uuid
 import time
 import math
+import urllib.parse
 import asyncio
 import random
 import aiohttp
@@ -295,6 +296,90 @@ async def _check_lmstudio_reachability(base_url: Optional[str] = None) -> tuple[
     return False, base_url or "http://192.168.1.174:1234/v1"
 
 
+async def _fetch_live_models(provider: str = "LMStudio", base_url: Optional[str] = None, api_key: str = "") -> tuple[list[str], bool, str]:
+    """
+    Dynamically fetches available models for the LLM provider.
+    1. Tries ComfyUI's /yue2/models endpoint (from nodes_llm.py).
+    2. Directly queries LM Studio / Ollama / OpenAI / OpenRouter endpoints.
+    Returns (models_list, is_live, working_base_url).
+    """
+    p = str(provider or "LMStudio").strip()
+    p_lower = p.lower()
+
+    # 1. Try ComfyUI /yue2/models
+    try:
+        query_params = f"?provider={urllib.parse.quote(p)}"
+        if base_url:
+            query_params += f"&base_url={urllib.parse.quote(base_url)}"
+        if api_key:
+            query_params += f"&api_key={urllib.parse.quote(api_key)}"
+        async with aiohttp.ClientSession() as sess:
+            async with sess.get(f"{Config.COMFY_URL}/yue2/models{query_params}", timeout=aiohttp.ClientTimeout(total=2)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    mods = data.get("models", [])
+                    if mods:
+                        return mods, data.get("live", True), base_url or ""
+    except Exception:
+        pass
+
+    # 2. Direct provider fetch
+    if p_lower == "lmstudio":
+        candidates = []
+        if base_url:
+            candidates.append(base_url.rstrip("/"))
+        for fb in ["http://localhost:1234/v1", "http://127.0.0.1:1234/v1", "http://192.168.1.174:1234/v1"]:
+            if fb not in candidates:
+                candidates.append(fb)
+
+        for host in candidates:
+            try:
+                async with aiohttp.ClientSession() as sess:
+                    async with sess.get(f"{host}/models", timeout=aiohttp.ClientTimeout(total=2)) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            raw_models = [m.get("id") for m in data.get("data", []) if m.get("id")]
+                            if raw_models:
+                                chat_models = [m for m in raw_models if "embed" not in m.lower()]
+                                embed_models = [m for m in raw_models if "embed" in m.lower()]
+                                return chat_models + embed_models, True, host
+            except Exception:
+                pass
+        return ["gemma-4-e4b-it", "qwen2.5:7b", "llama-3.2-3b"], False, candidates[0]
+
+    elif p_lower == "ollama":
+        url = (base_url or "http://localhost:11434").rstrip("/")
+        try:
+            async with aiohttp.ClientSession() as sess:
+                async with sess.get(f"{url}/api/tags", timeout=aiohttp.ClientTimeout(total=2)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        mods = [m.get("name") for m in data.get("models", []) if m.get("name")]
+                        if mods:
+                            return mods, True, url
+        except Exception:
+            pass
+        return ["qwen2.5:7b", "llama3.2:latest"], False, url
+
+    elif p_lower in ("openai", "openrouter", "deepseek", "grok"):
+        key = api_key or os.getenv("OPENAI_API_KEY", "")
+        if key:
+            url = (base_url or ("https://openrouter.ai/api/v1" if p_lower == "openrouter" else "https://api.openai.com/v1")).rstrip("/")
+            try:
+                headers = {"Authorization": f"Bearer {key}"}
+                async with aiohttp.ClientSession() as sess:
+                    async with sess.get(f"{url}/models", headers=headers, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            mods = [m.get("id") for m in data.get("data", []) if m.get("id")]
+                            if mods:
+                                return mods, True, url
+            except Exception:
+                pass
+
+    return ["gemma-4-e4b-it"], False, base_url or ""
+
+
 @router.get("/music", response_class=HTMLResponse)
 @router.get("/music/", response_class=HTMLResponse)
 async def serve_music_studio():
@@ -320,7 +405,7 @@ async def serve_music_static(filename: str):
 
 @router.get("/api/music/options")
 async def get_music_options():
-    """Returns available options, presets, and defaults for the studio interface."""
+    """Returns available options, presets, defaults, and live detected LLM models for the studio interface."""
     comfy_ok = False
     try:
         async with aiohttp.ClientSession() as sess:
@@ -330,14 +415,21 @@ async def get_music_options():
         pass
 
     lm_cfg = _get_lmstudio_config()
-    lmstudio_ok, working_base = await _check_lmstudio_reachability(lm_cfg["base_url"])
+    live_models, is_live, working_base = await _fetch_live_models(
+        provider=lm_cfg["provider"], 
+        base_url=lm_cfg["base_url"]
+    )
+    lmstudio_ok = is_live
+    active_model = live_models[0] if live_models else lm_cfg["model"]
 
     return {
         "status": "ok",
         "comfy_connected": comfy_ok,
         "lmstudio_connected": lmstudio_ok,
         "lm_provider": lm_cfg["provider"],
-        "lm_model": lm_cfg["model"],
+        "lm_model": active_model,
+        "lm_models": live_models,
+        "lm_models_live": is_live,
         "lm_base_url": working_base if lmstudio_ok else lm_cfg["base_url"],
         "genre_presets": GENRE_PRESETS,
         "vocal_profiles": VOCAL_PROFILES,
@@ -356,6 +448,23 @@ async def get_music_options():
         "default_checkpoint": "yue2_3b_bf16.safetensors",
         "cot_modes": ["full", "melody", "off"],
         "default_cot": "full",
+    }
+
+
+@router.get("/api/music/models")
+async def get_live_models(provider: str = "LMStudio", base_url: Optional[str] = None, api_key: Optional[str] = ""):
+    """Returns live models available from the LLM provider (or ComfyUI's /yue2/models endpoint)."""
+    lm_cfg = _get_lmstudio_config()
+    target_base = base_url or lm_cfg["base_url"]
+    models, is_live, working_base = await _fetch_live_models(provider=provider, base_url=target_base, api_key=api_key or "")
+    active_model = models[0] if models else "gemma-4-e4b-it"
+    return {
+        "status": "ok",
+        "provider": provider,
+        "models": models,
+        "active_model": active_model,
+        "live": is_live,
+        "base_url": working_base
     }
 
 
@@ -419,9 +528,12 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         # 2. Update Node 3 & Provider Settings
         lm_cfg = _get_lmstudio_config()
         provider = req.provider or lm_cfg["provider"]
-        model = req.model or lm_cfg["model"]
         base_url = req.base_url or lm_cfg["base_url"]
         api_key = req.api_key or ""
+        model = req.model
+        if not model:
+            live_mods, is_live, _ = await _fetch_live_models(provider, base_url, api_key)
+            model = live_mods[0] if (is_live and live_mods) else lm_cfg["model"]
 
         # Pre-flight check for LM Studio
         if provider == "LMStudio":
@@ -444,6 +556,7 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         wf["3"]["inputs"]["provider"] = provider
         wf["3"]["inputs"]["model"] = model
         wf["3"]["inputs"]["base_url"] = base_url
+        wf["3"]["inputs"].pop("refresh_models_btn", None)
         if api_key:
             wf["3"]["inputs"]["api_key"] = api_key
         
@@ -708,9 +821,12 @@ async def revise_lyrics(req: ReviseLyricsRequest):
 
     lm_cfg = _get_lmstudio_config()
     provider = req.provider or lm_cfg["provider"]
-    model = req.model or lm_cfg["model"]
     base_url = req.base_url or lm_cfg["base_url"]
     api_key = req.api_key or ""
+    model = req.model
+    if not model:
+        live_mods, is_live, _ = await _fetch_live_models(provider, base_url, api_key)
+        model = live_mods[0] if (is_live and live_mods) else lm_cfg["model"]
 
     if current_lyrics:
         user_prompt = (

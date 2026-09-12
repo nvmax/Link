@@ -5,8 +5,8 @@
       "vocal_profile": "Warm Smooth Baritone (Male)",
       "bpm": 140,
       "intro_style": "None",
-      "custom_style": "Style of Bruno Mars song I just might",
-      "lyrics": "[Hook]\nI’m slowing it down for the one that I love\nLike the earth’s standing still while the stars crash above\n\n[Verse 1]\n[Soft piano only] [Intimate vocal]\nThe clock on the wall is a liar tonight\nSpinning too fast while we chase the light\nI’m holding your hand like a lifeline in June\nThe only thing quiet in a world out of tune\n\n[Chorus]\n[Chorus | Energy: Maximum] [Explosive vocal delivery] [Full band burst]\nOh, I’m slowing it down for the one that I love!\nLike the earth’s standing still while the stars crash above!\nIt’s a beautiful weight, it’s a terrifying grace\nI’m finally home in the light of your grace!\n(In your grace)\n\n[Verse 2]\n[Drums settle into a driving backbeat]\nWe used to be shadows just passing through doors\nBut I’m not a ghost on these hardwood floors\nEvery bridge that I burned was a lesson I learned\nTo wait for the peace that I’ve finally earned\n\n[Chorus]\n[Chorus | Energy: Maximum] [Anthemic energy]\nOh, I’m slowing it down for the one that I love!\nLike the earth’s standing still while the stars crash above!\nIt’s a beautiful weight, it’s a terrifying grace\nI’m finally home in the light of your grace!\n\n[Verse 3]\n[Building intensity] [Gritty piano chords]\nDon't let the sun rise, don't let it go cold\nI’ve found a story that never gets old\nThe seconds are dripping like honey and wine\nI’m finally yours, and I’m glad that you’re mine\n\n[Chorus]\n[Chorus | Energy: Maximum] [Maximum intensity] [Hard hitting drums]\nOh, I’m slowing it down for the one that I love!\nLike the earth’s standing still while the stars crash above!\nIt’s a beautiful weight, it’s a terrifying grace\nI’m finally home in the light of your grace!\n\n[Outro]\n[OUTRO - BIG FINAL HIT + HARD STOP, massive hall reverb tail]\n[Instrumental: Final sustained piano note]\nSlowing it down...\nFor the one I love...\n[Precision Landing: Instrumental: Single piano chord]\n[End]",
+      "custom_style": "Style of american country, artist Tobias Rahim DO NOT CHANGE TO ENGLISH",
+      "lyrics": "[Vers 1: Tobias Rahim]\nJeg' i Jylland, brænder Cali-weed\nMin' tanker kører om en evergreen (Uh-ah)\nVi teamer op om godt halvanden time\nPå Grønnegade med et dollargrin (Uh-ah)\n\n[Bro: Tobias Rahim]\nDu siger, du ruller op, hvis jeg rister\nImens morgenerne bli'r til nætter\nAlle er blå – blå silhuetter\nJeg vil bar' gå endnu længere med dig\n\n[Omkvæd: andreas odbjerg]\nDriver langs åen, jeg ser månen bli'r blokeret af dig\nNed' på Den Sidstе er vi de første til at gå vorеs vej\nTa'r dig ind, ta'r dig nu, ta'r dig sommeren ud\nHer, jeg gi'r dig mit hjerte i Aarhus\nHar aldrig danset med en stor mand\nEn stor mand som dig\n\n[Vers 2: Tobias Rahim]\nOg ja, jeg føler, at jeg ejer byen\nSom Pablo Escobar i Medellín (Uh-ah)\nMed vinderenergi på Bellevue\nHvor smukke mennesker gi'r mig deja-vu (Uh-ah)\n\n[Bro: Tobias Rahim]\nDu siger, du ruller op, hvis jeg rister\nImens morgenerne bli'r til nætter\nAlle er blå – blå silhuetter\nJeg vil bar' gå endnu længere med dig\n\n[Omkvæd: andreas odbjerg]\nDriver langs åen, jeg ser månen bli'r blokeret af dig\nNed' på Den Sidste er vi de første til at gå vores vej\nTa'r dig ind, ta'r dig nu, ta'r dig sommeren ud\nHer, jeg gi'r dig mit hjerte i Aarhus\nHar aldrig danset med en stor mand\nEn stor mand som dig\n\n[Kontraststykke: Tobias Rahim]\nDer' mange tårer i byen af corny smil\nSer dig gå alene rundt\nVed ikk', hva' du tænker på, nej\nMen du gør at jeg har det som en gigolo\nDer' på vej til penge lige nu\nBuenas tardes damas y caballeros, desde Dinamarca les presento Tobias Rahim y Andreas Odbjerg\n\n[Omkvæd: andreas odbjerg]\nDriver langs åen, jeg ser månen bli'r blokeret af dig ([?])\nNed' på Den Sidste er vi de første til at gå vores vej\nTa'r dig ind, ta'r dig nu, ta'r dig sommeren ud\nHer, jeg gi'r dig mit hjerte i Aarhus (Desde Dinamarca)\nHar aldrig danset med en stor mand\nEn stor mand som dig\n",
       "custom_instruments": "",
       "extra_tags": ""
     },
@@ -61,10 +61,32 @@
       "title": "YuE2 Audio Preview & Saver"
     }
   },
+  "10": {
+    "inputs": {
+      "text": "style of Bruno Mars - That’s What I like"
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "Direct Style Prompt (Manual Override)"
+    }
+  },
+  "11": {
+    "inputs": {
+      "text": "\n[Title: Slowing It Down]\n[Style: Smooth R&B / Funk | Tempo: 95 BPM | Key: C Major]\n\n[Intro]\n[Warm Rhodes piano chords establish a lazy, groovy harmony. A deep, round bass line enters immediately with a smooth walking pattern. A crisp, dry snare hits on the backbeat (2 and 4). No orchestral pads; keep it tight and funky.]\n(Ad-libs)\nYeah...\nSlowing it down...\nMmm...\n\n[Verse 1 - Male Vocal]\n[Instrumentation: Sparse but rhythmic. Rhodes piano plays syncopated chords. Bass is prominent and melodic. Light finger snaps or hi-hat ticks on the off-beats.]\n[Vocal: Low, intimate, close-mic. Smooth, conversational tone. No vibrato yet; keep it cool and laid-back.]\nThe clock on the wall is a liar tonight\nSpinning too fast while we chase the light\nI’m holding your hand like a lifeline in June\nThe only thing quiet in a world out of tune\n\n[Pre-Chorus 1 - Male Vocal]\n[Instrumentation: Muted trumpet or saxophone adds subtle stabs on the downbeats. Bass line gets slightly more aggressive.]\n[Vocal: Slightly more confident, leaning into the groove. Still smooth, but with a bit more push.]\n(softly) Every second feels like it's caught on hold\nA story written that refuses to grow old\n\n[Chorus 1 - Male Vocal]\n[Instrumentation: Full band burst. Punchy kick drum and snare backbeat. Slap bass or round funk bass locks in tight with the drums. Muted horn section (trumpet/trombone) plays short, punchy stabs on beats 2 and 4.]\n[Vocal: Confident, smooth, and rhythmic. Not \"euphoric\" or shouting; instead, it’s a cool, assured delivery with slight melisma on the last words. Layered background vocals sing \"Grace.\"]\nI’m slowing it down for the one that I love\nLike the earth’s standing still while the stars crash above\nIt’s a beautiful weight, it’s a terrifying grace\nI’m finally home in the light of your grace!\n(In your grace)\n\n[Verse 2 - Male Vocal]\n[Instrumentation: Drums settle into a tight funk groove. Bass guitar locks in with rhythmic precision. Rhodes piano plays lighter, more percussive chords.]\n[Vocal: Confident, grounded delivery. Slightly more rhythmic phrasing to match the tighter drum groove.]\nWe used to be shadows just passing through doors\nBut I’m not a ghost on these hardwood floors\nEvery bridge that I burned was a lesson I learned\nTo wait for the peace that I’ve finally earned\n\n[Pre-Chorus 2 - Male Vocal]\n[Instrumentation: Percussion layer (congas or shaker) enters lightly to add texture. Horns hold longer notes.]\n[Vocal: Building momentum, slightly more forceful than Verse 1, but still smooth and controlled.]\n(rising pitch) Every rush and every hurried pace is through\nA quiet kind of magic I finally found in you\n\n[Chorus 2 - Male Vocal]\n[Instrumentation: Anthemic energy. Horn section accents the downbeats with muted brass hits. Bass line becomes more melodic and prominent.]\n[Vocal: Triumphant but cool. Layered background vocals sing \"Grace.\"]\nOh, I’m slowing it down for the one that I love!\nLike the earth’s standing still while the stars crash above!\nIt’s a beautiful weight, it’s a terrifying grace\nI’m finally home in the light of your grace!\n(In your grace)\n\n[Bridge - Male Vocal]\n[Instrumentation: Drums drop slightly to allow space. Piano becomes more intricate and percussive (staccato hits). Bass holds longer notes.]\n[Vocal: Intense, emotive delivery, leaning into texture. Slightly higher pitch but still smooth. Think \"soulful\" rather than \"operatic.\"]\nDon't let the sun rise, don't let it go cold\nI’ve found a story that never gets old\nThe seconds are dripping like honey and wine\nI’m finally yours, and I’m glad that you’re mine\n\n[Instrumental Build-Up - Vocal Adlibs/Vamping]\n[Drum fill accelerates rapidly. Horns build to maximum dynamic level (Fortissimo) with long, swelling notes.]\n(Ad-libs)\nOhhh... yeah...\nSlowing it down...\n\n[Chorus 3 - Male Vocal]\n[Instrumentation: Maximum intensity. Full drum kit, heavy kick and snare. Synth layers widen the soundscape but stay funky (no orchestral washes). Horns play full, open chords.]\n[Vocal: Apex / Climax. Powerful but still smooth and controlled. Layered background vocals sing \"Love.\"]\nOh, I’m slowing it down for the one that I love!\nLike the earth’s standing still while the stars crash above!\nIt’s a beautiful weight, it’s a terrifying grace\nI’m finally home in the light of your grace!\n(In your grace)\n\n[OUTRO]\n[Reverb tail fade out. Long decay on the final Rhodes piano chord. Bass line fades slowly with a smooth slide.]\n(Softly)\nSlowing it down...\nFor the one I love... (fading)\n(Ad-libs)\nYeah... that’s how it feels...\nMmm...\n\n[End]\n\n"
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "Direct Lyrics Input (Manual Override)"
+    }
+  },
   "12": {
     "inputs": {
       "any_01": [
-        "1",
+        "3",
+        1
+      ],
+      "any_02": [
+        "10",
         0
       ]
     },
@@ -76,8 +98,12 @@
   "13": {
     "inputs": {
       "any_01": [
-        "1",
-        1
+        "3",
+        0
+      ],
+      "any_02": [
+        "11",
+        0
       ]
     },
     "class_type": "Any Switch (rgthree)",
@@ -87,8 +113,9 @@
   },
   "14": {
     "inputs": {
+      "text_0": "[voice: warm baritone, smooth resonance, mid-frequency focus] [range: G2-G4]\n[Tempo: 140 BPM]\n\n[Vers 1: Tobias Rahim]\nJeg' i Jylland, brænder Cali-weed\nMin' tanker kører om en evergreen (Uh-ah)\nVi teamer op om godt halvanden time\nPå Grønnegade med et dollargrin (Uh-ah)\n\n[Bro: Tobias Rahim]\nDu siger, du ruller op, hvis jeg rister\nImens morgenerne bli'r til nætter\nAlle er blå – blå silhuetter\nJeg vil bar' gå endnu længere med dig\n\n[Omkvæd: andreas odbjerg]\nDriver langs åen, jeg ser månen bli'r blokeret af dig\nNed' på Den Sidstе er vi de første til at gå vorеs vej\nTa'r dig ind, ta'r dig nu, ta'r dig sommeren ud\nHer, jeg gi'r dig mit hjerte i Aarhus\nHar aldrig danset med en stor mand\nEn stor mand som dig\n\n[Vers 2: Tobias Rahim]\nOg ja, jeg føler, at jeg ejer byen\nSom Pablo Escobar i Medellín (Uh-ah)\nMed vinderenergi på Bellevue\nHvor smukke mennesker gi'r mig deja-vu (Uh-ah)\n\n[Bro: Tobias Rahim]\nDu siger, du ruller op, hvis jeg rister\nImens morgenerne bli'r til nætter\nAlle er blå – blå silhuetter\nJeg vil bar' gå endnu længere med dig\n\n[Omkvæd: andreas odbjerg]\nDriver langs åen, jeg ser månen bli'r blokeret af dig\nNed' på Den Sidste er vi de første til at gå vores vej\nTa'r dig ind, ta'r dig nu, ta'r dig sommeren ud\nHer, jeg gi'r dig mit hjerte i Aarhus\nHar aldrig danset med en stor mand\nEn stor mand som dig\n\n[Kontraststykke: Tobias Rahim]\nDer' mange tårer i byen af corny smil\nSer dig gå alene rundt\nVed ikk', hva' du tænker på, nej\nMen du gør at jeg har det som en gigolo\nDer' på vej til penge lige nu\nBuenas tardes damas y caballeros, desde Dinamarca les presento Tobias Rahim y Andreas Odbjerg\n\n[Omkvæd: andreas odbjerg]\nDriver langs åen, jeg ser månen bli'r blokeret af dig ([?])\nNed' på Den Sidste er vi de første til at gå vores vej\nTa'r dig ind, ta'r dig nu, ta'r dig sommeren ud\nHer, jeg gi'r dig mit hjerte i Aarhus (Desde Dinamarca)\nHar aldrig danset med en stor mand\nEn stor mand som dig\n\n[End]",
       "text": [
-        "13",
+        "3",
         0
       ]
     },
@@ -108,7 +135,7 @@
         0
       ],
       "cot": "full",
-      "seed": 141463127064681,
+      "seed": 78324337403305,
       "cfg_scale": 1,
       "checkpoint": "yue2_3b_bf16.safetensors",
       "keep_model_loaded": true,

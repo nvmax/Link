@@ -13,6 +13,8 @@
   const selectIntro = document.getElementById('select-intro');
   const inputCustomStyle = document.getElementById('input-custom-style');
   const selectAction = document.getElementById('select-action');
+  const selectModel = document.getElementById('select-model');
+  const modelLiveIndicator = document.getElementById('model-live-indicator');
   
   const btnToggleAdvanced = document.getElementById('btn-toggle-advanced');
   const advancedDrawer = document.getElementById('advanced-drawer');
@@ -27,9 +29,6 @@
   const lyricsCharCount = document.getElementById('lyrics-char-count');
   const btnCopyLyrics = document.getElementById('btn-copy-lyrics');
   const btnClearLyrics = document.getElementById('btn-clear-lyrics');
-  const btnInsertTagDropdown = document.getElementById('btn-insert-tag-dropdown');
-  const tagDropdownMenu = document.getElementById('tag-dropdown-menu');
-  const tagButtons = document.querySelectorAll('.tag-btn');
 
   const tabLyrics = document.getElementById('tab-lyrics');
   const tabNode14 = document.getElementById('tab-node14');
@@ -185,6 +184,29 @@
         if (a === data.default_action) opt.selected = true;
         selectAction.appendChild(opt);
       });
+
+      // Populate Live Models from LM Studio / ComfyUI
+      if (selectModel) {
+        selectModel.innerHTML = '';
+        const modelsList = (data.lm_models && data.lm_models.length > 0) ? data.lm_models : [data.lm_model || "gemma-4-e4b-it"];
+        modelsList.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          if (m === data.lm_model) opt.selected = true;
+          selectModel.appendChild(opt);
+        });
+        if (modelLiveIndicator) {
+          modelLiveIndicator.textContent = data.lm_models_live ? `Live (${modelsList.length} models)` : `Node 3: model`;
+          if (data.lm_models_live) modelLiveIndicator.style.color = 'var(--accent-emerald)';
+        }
+        selectModel.addEventListener('change', () => {
+          if (statusLlmText) {
+            statusLlmText.textContent = selectModel.value ? `Online (${selectModel.value})` : "Online";
+          }
+          showToast(`Co-Producer model: ${selectModel.value}`);
+        });
+      }
 
       // Set defaults
       bpmSlider.value = data.bpm_default || 120;
@@ -407,14 +429,16 @@
       intro_style: selectIntro.value,
       custom_style: inputCustomStyle.value,
       lyrics: editorLyrics.value,
-      action: selectAction.value
+      action: selectAction.value,
+      model: selectModel ? selectModel.value : null
     };
 
+    const activeModelName = (selectModel && selectModel.value) ? selectModel.value : "LLM Co-Producer";
     showProgressModal(
       "Co-Producing Lyrics...",
-      "Executing Node 1 (Studio) & Node 3 (LLM Co-Producer). Node 5 Neural Audio is DISABLED."
+      `Executing Node 1 (Studio) & Node 3 (${activeModelName}). Node 5 Neural Audio is DISABLED.`
     );
-    updateProgressModal(25, "Reasoning & Arranging...", "LM Studio (gemma-4-e4b-it) is analyzing your concept and lyrics structure...");
+    updateProgressModal(25, "Reasoning & Arranging...", `${activeModelName} is analyzing your concept and lyrics structure...`);
 
     try {
       const res = await fetch('/api/music/lyrics', {
@@ -672,7 +696,8 @@
         genre_preset: selectGenre.value,
         vocal_profile: selectVocal.value,
         bpm: parseInt(bpmSlider.value),
-        custom_style: inputCustomStyle.value
+        custom_style: inputCustomStyle.value,
+        model: selectModel ? selectModel.value : null
       };
 
       const res = await fetch('/api/music/revise', {

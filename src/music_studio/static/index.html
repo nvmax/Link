@@ -177,6 +177,17 @@
             </div>
           </div>
 
+          <!-- LLM Co-Producer Model (Node 3: live models from LM Studio) -->
+          <div class="control-group model-group">
+            <label class="control-label" for="select-model">
+              <span>LLM Co-Producer Model</span>
+              <span class="label-info" id="model-live-indicator">Node 3: model</span>
+            </label>
+            <div class="select-wrapper">
+              <select id="select-model" class="studio-select accent-select"></select>
+            </div>
+          </div>
+
           <!-- Audio Engine Advanced Settings Collapsible -->
           <div class="advanced-section">
             <button id="btn-toggle-advanced" class="btn-toggle-accordion">
@@ -364,6 +375,6 @@
     </div>
   </div>
 
-  <script src="/music/static/app.js?v=3.1"></script>
+  <script src="/music/static/app.js?v=3.2"></script>
 </body>
 </html>
