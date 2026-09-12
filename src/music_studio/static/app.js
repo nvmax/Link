@@ -27,6 +27,8 @@
   const lyricsCharCount = document.getElementById('lyrics-char-count');
   const btnCopyLyrics = document.getElementById('btn-copy-lyrics');
   const btnClearLyrics = document.getElementById('btn-clear-lyrics');
+  const btnInsertTagDropdown = document.getElementById('btn-insert-tag-dropdown');
+  const tagDropdownMenu = document.getElementById('tag-dropdown-menu');
   const tagButtons = document.querySelectorAll('.tag-btn');
 
   const tabLyrics = document.getElementById('tab-lyrics');
@@ -39,6 +41,7 @@
 
   const btnGenerateLyrics = document.getElementById('btn-generate-lyrics');
   const btnGenerateSong = document.getElementById('btn-generate-song');
+  const btnPushEditorSong = document.getElementById('btn-push-editor-song');
 
   const progressOverlay = document.getElementById('progress-overlay');
   const modalTitle = document.getElementById('modal-title');
@@ -63,6 +66,8 @@
   const btnSendRevision = document.getElementById('btn-send-revision');
   const btnClearRevisionInput = document.getElementById('btn-clear-revision-input');
   const revisionChips = document.querySelectorAll('.rev-chip');
+  const chatTypingIndicator = document.getElementById('chat-typing-indicator');
+  const btnClearChat = document.getElementById('btn-clear-chat');
 
   const toast = document.getElementById('toast');
   const toastMessage = document.getElementById('toast-message');
@@ -436,11 +441,19 @@
       node14Badge.style.background = "rgba(16, 185, 129, 0.2)";
       node14Badge.style.color = "#10b981";
 
-      // Also update editor and switch to Node 14 tab so user can review immediately
+      // Update editor lyrics and keep focus on main lyrics sheet so user sees it live
       editorLyrics.value = generatedLyrics;
       updateCharCount();
-      tabNode14.click();
+      if (tabLyrics) tabLyrics.click();
       if (checkDirectLyrics) checkDirectLyrics.checked = true;
+
+      // Visual flash on screen
+      if (editorLyrics.parentElement) {
+        editorLyrics.parentElement.classList.remove('live-updated-glow');
+        void editorLyrics.parentElement.offsetWidth;
+        editorLyrics.parentElement.classList.add('live-updated-glow');
+        setTimeout(() => editorLyrics.parentElement.classList.remove('live-updated-glow'), 1900);
+      }
 
       // Smart Song Title Auto-Population (if not already set by user)
       const titleInput = document.getElementById('input-song-title') || inputSongTitle;
@@ -451,11 +464,14 @@
 
       // Add AI Co-Producer notification to revision console
       const activeTitle = (titleInput && titleInput.value.trim()) || "your track";
-      appendChatBubble('ai', `Generated song lyrics for "${activeTitle}"! What would you like to refine? You can ask me to change a specific verse, add sections, or adjust themes.`);
+      appendChatBubble('ai', `Generated song lyrics for "${activeTitle}"! What would you like to refine? You can ask me to change a specific verse, add sections, or adjust themes.`, {
+        changedSection: "Full Song Lyrics",
+        allowPushToSong: true
+      });
 
       setTimeout(() => {
         hideProgressModal();
-        showToast("✨ Lyrics generated! The editor and AI Co-Producer are ready.");
+        showToast("✨ Lyrics generated on screen! Ready for Co-Producer chat.");
       }, 700);
 
     } catch (e) {
@@ -468,7 +484,7 @@
   // ==========================================================================
   // BUTTON 2: 🚀 GENERATE FINAL SONG (Runs Full Workflow)
   // ==========================================================================
-  btnGenerateSong.addEventListener('click', async () => {
+  async function runSongGeneration() {
     let seedVal = null;
     if (!checkRandomSeed.checked && inputSeed.value) {
       seedVal = parseInt(inputSeed.value);
@@ -524,7 +540,10 @@
       alert(`Song generation error: ${e.message}`);
       hideProgressModal();
     }
-  });
+  }
+
+  btnGenerateSong.addEventListener('click', runSongGeneration);
+  if (btnPushEditorSong) btnPushEditorSong.addEventListener('click', runSongGeneration);
 
   function pollSongProgress(promptId) {
     if (pollInterval) clearInterval(pollInterval);
@@ -580,21 +599,43 @@
   // ==========================================================================
   // AI CO-PRODUCER LYRICS REVISION CHAT CONTROLLER
   // ==========================================================================
-  function appendChatBubble(role, text) {
+  function appendChatBubble(role, text, options = {}) {
     if (!revisionChatLog) return;
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${role === 'user' ? 'user-bubble' : 'ai-bubble'}`;
     
+    const header = document.createElement('div');
+    header.className = 'bubble-header';
+
     const sender = document.createElement('span');
     sender.className = 'bubble-sender';
-    sender.textContent = role === 'user' ? 'You' : 'AI Producer';
-    
-    const body = document.createElement('span');
+    sender.textContent = role === 'user' ? 'You' : 'AI Co-Producer';
+    header.appendChild(sender);
+
+    if (role === 'ai') {
+      const tag = document.createElement('span');
+      tag.className = 'bubble-tag';
+      tag.textContent = options.changedSection ? `✨ ${options.changedSection} on Screen` : 'Co-Producer';
+      header.appendChild(tag);
+    }
+    bubble.appendChild(header);
+
+    const body = document.createElement('div');
     body.className = 'bubble-text';
     body.innerHTML = text.replace(/\n/g, '<br>');
-    
-    bubble.appendChild(sender);
     bubble.appendChild(body);
+
+    if (role === 'ai' && options.allowPushToSong) {
+      const actionRow = document.createElement('div');
+      actionRow.className = 'bubble-action-row';
+      const ctaBtn = document.createElement('button');
+      ctaBtn.className = 'bubble-cta-btn';
+      ctaBtn.innerHTML = '<span>🚀 Push to Final Song</span>';
+      ctaBtn.addEventListener('click', () => runSongGeneration());
+      actionRow.appendChild(ctaBtn);
+      bubble.appendChild(actionRow);
+    }
+
     revisionChatLog.appendChild(bubble);
     revisionChatLog.scrollTop = revisionChatLog.scrollHeight;
   }
@@ -611,14 +652,18 @@
     }
 
     appendChatBubble('user', text);
-    if (inputRevisionPrompt) inputRevisionPrompt.value = "";
-    if (btnClearRevisionInput) btnClearRevisionInput.style.display = "none";
-
-    const origBtnText = btnSendRevision ? btnSendRevision.innerHTML : "";
-    if (btnSendRevision) {
-      btnSendRevision.disabled = true;
-      btnSendRevision.innerHTML = '<span class="btn-icon">⏳</span><span class="btn-text">Revising...</span>';
+    if (inputRevisionPrompt) {
+      inputRevisionPrompt.value = "";
+      inputRevisionPrompt.style.height = 'auto';
     }
+
+    // Show animated typing indicator
+    if (chatTypingIndicator) {
+      chatTypingIndicator.classList.remove('hidden');
+      if (revisionChatLog) revisionChatLog.scrollTop = revisionChatLog.scrollHeight;
+    }
+
+    if (btnSendRevision) btnSendRevision.disabled = true;
 
     try {
       const titleInput = document.getElementById('input-song-title') || inputSongTitle;
@@ -647,6 +692,14 @@
       if (data.revised_lyrics) {
         editorLyrics.value = data.revised_lyrics;
         updateCharCount();
+
+        // Flash visual live update glow on screen
+        if (editorLyrics.parentElement) {
+          editorLyrics.parentElement.classList.remove('live-updated-glow');
+          void editorLyrics.parentElement.offsetWidth;
+          editorLyrics.parentElement.classList.add('live-updated-glow');
+          setTimeout(() => editorLyrics.parentElement.classList.remove('live-updated-glow'), 1900);
+        }
       }
 
       // Smart Song Title Auto-Population if currently empty
@@ -655,19 +708,21 @@
         showToast(`💡 Title suggested: "${data.suggested_title}"`);
       }
 
-      const note = data.producer_note || "Lyrics updated according to your instruction!";
-      appendChatBubble('ai', `✨ ${note}`);
-      showToast("✨ Lyrics updated in editor!");
+      const note = data.producer_note || "Lyrics updated on screen!";
+      appendChatBubble('ai', note, {
+        changedSection: data.changed_section || "Updated Section",
+        allowPushToSong: true
+      });
+      showToast("✨ Lyrics updated on screen!");
 
     } catch (err) {
       console.error("Revision error:", err);
       appendChatBubble('ai', `⚠️ Revision error: ${err.message}`);
       showToast(`⚠️ Revision error: ${err.message}`);
     } finally {
-      if (btnSendRevision) {
-        btnSendRevision.disabled = false;
-        btnSendRevision.innerHTML = origBtnText;
-      }
+      if (chatTypingIndicator) chatTypingIndicator.classList.add('hidden');
+      if (btnSendRevision) btnSendRevision.disabled = false;
+      if (revisionChatLog) revisionChatLog.scrollTop = revisionChatLog.scrollHeight;
     }
   }
 
@@ -690,27 +745,72 @@
   }
 
   if (inputRevisionPrompt) {
+    inputRevisionPrompt.addEventListener('input', () => {
+      inputRevisionPrompt.style.height = 'auto';
+      inputRevisionPrompt.style.height = Math.min(inputRevisionPrompt.scrollHeight, 120) + 'px';
+    });
+
     inputRevisionPrompt.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         submitRevision();
       }
     });
+  }
 
-    inputRevisionPrompt.addEventListener('input', () => {
-      if (btnClearRevisionInput) {
-        btnClearRevisionInput.style.display = inputRevisionPrompt.value ? 'block' : 'none';
+  // Bind Clear Chat Button
+  if (btnClearChat) {
+    btnClearChat.addEventListener('click', () => {
+      if (revisionChatLog) {
+        revisionChatLog.innerHTML = `
+          <div class="chat-bubble ai-bubble welcome-card">
+            <div class="bubble-header">
+              <span class="bubble-sender">AI Co-Producer</span>
+              <span class="bubble-tag">Ready to Collaborate</span>
+            </div>
+            <div class="bubble-text">
+              👋 Chat cleared. Ready for your next lyric instruction!<br><br>
+              Give me advice on verses, rhymes, hooks, or styles and I will revise your lyrics on screen live.
+            </div>
+          </div>
+        `;
+        showToast("💬 Co-Producer chat cleared.");
       }
     });
   }
 
-  if (btnClearRevisionInput) {
-    btnClearRevisionInput.addEventListener('click', () => {
-      if (inputRevisionPrompt) inputRevisionPrompt.value = '';
-      btnClearRevisionInput.style.display = 'none';
-      if (inputRevisionPrompt) inputRevisionPrompt.focus();
+  // Bind Tag Dropdown and Tag Buttons
+  if (btnInsertTagDropdown && tagDropdownMenu) {
+    btnInsertTagDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      tagDropdownMenu.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', () => {
+      if (!tagDropdownMenu.classList.contains('hidden')) {
+        tagDropdownMenu.classList.add('hidden');
+      }
     });
   }
+
+  document.querySelectorAll('.tag-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tag = btn.getAttribute('data-tag');
+      if (tag && editorLyrics) {
+        const start = editorLyrics.selectionStart || editorLyrics.value.length;
+        const end = editorLyrics.selectionEnd || editorLyrics.value.length;
+        const val = editorLyrics.value;
+        const insertText = (start > 0 && val[start - 1] !== '\n' ? '\n\n' : '') + tag + '\n';
+        editorLyrics.value = val.substring(0, start) + insertText + val.substring(end);
+        editorLyrics.focus();
+        editorLyrics.selectionStart = editorLyrics.selectionEnd = start + insertText.length;
+        updateCharCount();
+        if (tagDropdownMenu) tagDropdownMenu.classList.add('hidden');
+        showToast(`Inserted ${tag}`);
+      }
+    });
+  });
 
   // Boot up studio
   initStudio();

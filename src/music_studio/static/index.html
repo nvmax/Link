@@ -217,52 +217,65 @@
         </div>
       </section>
 
-      <!-- Right Panel: Lyrics Studio & Master Audio Stage -->
-      <section class="panel lyrics-audio-panel">
+      <!-- Center Panel: Live Lyrics Arrangement Stage -->
+      <section class="panel lyrics-stage-panel">
         <div class="panel-header">
           <div class="panel-tabs">
             <button id="tab-lyrics" class="tab-btn active">
               <span class="tab-icon">📝</span>
-              <span>Interactive Lyrics Editor</span>
+              <span>Song Lyrics Sheet</span>
             </button>
             <button id="tab-node14" class="tab-btn">
               <span class="tab-icon">👁️</span>
-              <span>Node 14 Output Viewer</span>
+              <span>Node 14 Raw Output</span>
               <span class="tab-badge" id="node14-badge">Ready</span>
             </button>
           </div>
           <div class="editor-quick-actions">
+            <!-- Space-saving Section Tag Dropdown -->
+            <div class="tag-dropdown-wrapper">
+              <button id="btn-insert-tag-dropdown" class="btn-tool dropdown-trigger" title="Insert Song Structure Tag">
+                <span>🏷️ Insert Tag</span>
+                <span class="dropdown-caret">▾</span>
+              </button>
+              <div id="tag-dropdown-menu" class="dropdown-menu hidden">
+                <button class="dropdown-item tag-btn" data-tag="[Hook]">[Hook]</button>
+                <button class="dropdown-item tag-btn" data-tag="[Verse 1]">[Verse 1]</button>
+                <button class="dropdown-item tag-btn" data-tag="[Verse 2]">[Verse 2]</button>
+                <button class="dropdown-item tag-btn" data-tag="[Pre-Chorus]">[Pre-Chorus]</button>
+                <button class="dropdown-item tag-btn" data-tag="[Chorus]">[Chorus]</button>
+                <button class="dropdown-item tag-btn" data-tag="[Bridge]">[Bridge]</button>
+                <button class="dropdown-item tag-btn" data-tag="[Outro]">[Outro]</button>
+                <button class="dropdown-item tag-btn" data-tag="[Instrumental]">[Instrumental]</button>
+                <button class="dropdown-item tag-btn" data-tag="[End]">[End]</button>
+              </div>
+            </div>
             <button id="btn-copy-lyrics" class="btn-tool" title="Copy Current Lyrics">📋 Copy</button>
             <button id="btn-clear-lyrics" class="btn-tool" title="Reset to Default">↺ Reset</button>
           </div>
         </div>
 
-        <!-- Lyrics View Container -->
+        <!-- Lyrics View Container (Full Height) -->
         <div class="lyrics-workspace-view" id="view-lyrics">
-          <!-- Structure Tag Injection Bar -->
-          <div class="structure-toolbar">
-            <span class="toolbar-title">Insert Tag:</span>
-            <div class="tag-buttons">
-              <button class="tag-btn" data-tag="[Hook]">[Hook]</button>
-              <button class="tag-btn" data-tag="[Verse 1]">[Verse 1]</button>
-              <button class="tag-btn" data-tag="[Verse 2]">[Verse 2]</button>
-              <button class="tag-btn" data-tag="[Pre-Chorus]">[Pre-Chorus]</button>
-              <button class="tag-btn" data-tag="[Chorus]">[Chorus]</button>
-              <button class="tag-btn" data-tag="[Bridge]">[Bridge]</button>
-              <button class="tag-btn" data-tag="[Outro]">[Outro]</button>
-              <button class="tag-btn" data-tag="[Instrumental]">[Instrumental]</button>
-              <button class="tag-btn" data-tag="[End]">[End]</button>
-            </div>
-          </div>
-
-          <!-- Lyrics Textarea -->
           <div class="editor-wrapper">
-            <textarea id="editor-lyrics" class="lyrics-editor-area" spellcheck="false" placeholder="Write or generate lyrics here with [Verse], [Chorus], [Hook] structure tags..."></textarea>
+            <textarea 
+              id="editor-lyrics" 
+              class="lyrics-editor-area" 
+              spellcheck="false" 
+              placeholder="Write, paste, or click '✨ Generate Lyrics' to co-produce lyrics here..."
+            ></textarea>
           </div>
 
-          <div class="editor-footer">
-            <span id="lyrics-char-count">0 characters | 0 lines</span>
-            <span class="footer-hint">Tip: Click 'Generate Lyrics' to co-produce with LLM, then tweak here before final audio generation.</span>
+          <!-- Bottom Arrangement Action Bar -->
+          <div class="editor-stage-footer">
+            <div class="stage-footer-stats">
+              <span id="lyrics-char-count">0 characters | 0 lines</span>
+              <span class="screen-sync-badge"><span class="pulse-indicator"></span> Live Screen Sync</span>
+            </div>
+            <button id="btn-push-editor-song" class="btn btn-primary btn-push-final" title="Generate master audio with the exact lyrics currently on screen">
+              <span class="btn-icon">🚀</span>
+              <span class="btn-text">Push to Final Song</span>
+            </button>
           </div>
         </div>
 
@@ -281,60 +294,84 @@
             <pre id="node14-text-display">No lyrics generated yet. Click '✨ Generate Lyrics' to run Node 1 -> Node 3 -> Node 14.</pre>
           </div>
         </div>
+      </section>
 
-        <!-- AI Co-Producer Revision Console -->
-        <div class="coproducer-revision-section" id="coproducer-revision-section">
-          <div class="revision-header">
-            <div class="revision-title-group">
-              <span class="revision-icon">🤖</span>
-              <div class="revision-titles">
-                <span class="revision-title">AI Co-Producer Revision Console</span>
-                <span class="revision-sub">Give advice to surgically revise specific verses, polish rhymes, or update sections without touching the rest</span>
-              </div>
+      <!-- Right Panel: AI Co-Producer Chat Studio (Full Height) -->
+      <section class="panel coproducer-chat-panel" id="coproducer-chat-panel">
+        <div class="panel-header chat-header">
+          <div class="chat-header-identity">
+            <div class="ai-avatar-badge">
+              <span class="avatar-icon">🤖</span>
+              <span class="avatar-status-dot online"></span>
             </div>
-            <div class="revision-status-badge" id="revision-status-badge">
-              <span class="indicator-dot online"></span>
-              <span>Ready</span>
+            <div class="chat-header-titles">
+              <span class="chat-title">AI Co-Producer</span>
+              <span class="chat-subtitle" id="chat-model-info">Conversational Studio Partner</span>
             </div>
           </div>
+          <div class="chat-header-actions">
+            <button id="btn-clear-chat" class="btn-tool icon-only" title="Clear Chat History">↺</button>
+          </div>
+        </div>
 
-          <!-- Chat Conversation Log -->
-          <div class="revision-chat-log" id="revision-chat-log">
-            <div class="chat-bubble ai-bubble">
-              <span class="bubble-sender">AI Producer:</span>
-              <span class="bubble-text">I'm your co-producer. Once your lyrics are generated or typed, you can give me instructions below (e.g. <em>"Change verse 2 out for something different"</em>, <em>"Make the chorus punchier"</em>) and I will revise only that specific section while keeping the rest untouched.</span>
+        <!-- Chat Conversation Log (Full Scrollable Height) -->
+        <div class="chat-conversation-container" id="revision-chat-log">
+          <div class="chat-bubble ai-bubble welcome-card">
+            <div class="bubble-header">
+              <span class="bubble-sender">AI Co-Producer</span>
+              <span class="bubble-tag">Ready to Collaborate</span>
+            </div>
+            <div class="bubble-text">
+              👋 Hey producer! I'm your AI songwriting partner.<br><br>
+              Talk to me naturally about your track:<br>
+              • <em>"Change verse 2 out for something different with fresh imagery"</em><br>
+              • <em>"Rewrite the chorus to be punchier and more memorable"</em><br>
+              • <em>"Add an emotional acoustic bridge section"</em><br><br>
+              I will surgically revise only what you ask and <strong>update your lyrics on screen live</strong>. When you like what you see, hit <strong>Push to Final Song</strong>!
             </div>
           </div>
+        </div>
 
-          <!-- Quick Action Revision Suggestion Chips -->
-          <div class="revision-chips-toolbar">
-            <span class="chips-label">Quick Actions:</span>
-            <div class="revision-chips" id="revision-chips">
-              <button class="rev-chip" data-prompt="Change verse 2 out for something different with fresh imagery">🔄 Rewrite Verse 2</button>
-              <button class="rev-chip" data-prompt="Rewrite verse 1 to be more punchy and setting the scene">🔄 Rewrite Verse 1</button>
-              <button class="rev-chip" data-prompt="Punch up the chorus with more anthemic, memorable hooks">⚡ Punch Up Chorus</button>
-              <button class="rev-chip" data-prompt="Add an emotional bridge section before the final chorus">➕ Add Bridge</button>
-              <button class="rev-chip" data-prompt="Change the outro to a dramatic dynamic fade matching the genre">🎭 Change Outro</button>
-              <button class="rev-chip" data-prompt="Suggest a creative, catchy 1-4 word song title based on these lyrics">💡 Suggest Title</button>
-            </div>
+        <!-- Typing / Thinking Indicator -->
+        <div id="chat-typing-indicator" class="chat-typing-indicator hidden">
+          <div class="typing-bubble">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+          </div>
+          <span class="typing-label">Co-Producer is revising lyrics...</span>
+        </div>
+
+        <!-- Composer & Prompt Area -->
+        <div class="chat-composer-section">
+          <!-- Quick Action Suggestion Chips -->
+          <div class="chat-prompt-suggestions" id="revision-chips">
+            <button class="chat-prompt-chip rev-chip" data-prompt="Change verse 2 out for something different with fresh imagery">🔄 Rewrite Verse 2</button>
+            <button class="chat-prompt-chip rev-chip" data-prompt="Punch up the chorus with more anthemic, memorable hooks">⚡ Punch Up Chorus</button>
+            <button class="chat-prompt-chip rev-chip" data-prompt="Add an emotional bridge section before the final chorus">➕ Add Bridge</button>
+            <button class="chat-prompt-chip rev-chip" data-prompt="Rewrite verse 1 to set a vivid, cinematic scene">🔄 Rewrite Verse 1</button>
+            <button class="chat-prompt-chip rev-chip" data-prompt="Change the outro to a dramatic dynamic fade matching the genre">🎭 Change Outro</button>
+            <button class="chat-prompt-chip rev-chip" data-prompt="Suggest a creative, catchy 1-4 word song title based on these lyrics">💡 Suggest Title</button>
           </div>
 
-          <!-- Revision Prompt Input Row -->
-          <div class="revision-input-row">
-            <div class="revision-input-wrapper">
-              <input 
-                type="text" 
-                id="input-revision-prompt" 
-                class="revision-text-input" 
-                placeholder="Give advice to LLM (e.g. 'Change verse 2 out for something different', 'Add acoustic guitar references')..." 
-                autocomplete="off"
-              >
-              <button id="btn-clear-revision-input" class="btn-clear-rev" title="Clear input" style="display: none;">✕</button>
-            </div>
-            <button id="btn-send-revision" class="btn btn-primary btn-revision-send" title="Send advice to LLM to revise lyrics">
-              <span class="btn-icon">✨</span>
-              <span class="btn-text">Revise Lyrics</span>
+          <!-- Chat Input Row -->
+          <div class="chat-input-wrapper">
+            <textarea 
+              id="input-revision-prompt" 
+              class="chat-textarea" 
+              rows="1" 
+              placeholder="Tell the producer what to change (e.g. 'Change verse 2 to be darker')..."
+              autocomplete="off"
+            ></textarea>
+            <button id="btn-send-revision" class="btn-chat-send" title="Send revision (Enter)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
             </button>
+          </div>
+          <div class="chat-input-hint">
+            <span>Press <strong>Enter</strong> to send • <strong>Shift+Enter</strong> for new line</span>
           </div>
         </div>
       </section>
