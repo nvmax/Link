@@ -27,6 +27,8 @@ class MusicSession:
     created_at: float = 0.0
     completed_at: Optional[float] = None
     expired: bool = False
+    take_count: int = 0
+    progress_message_id: Optional[str] = None
 
     def __post_init__(self):
         if self.created_at == 0.0:

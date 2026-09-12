@@ -512,6 +512,7 @@ async def get_session(token: str):
         "action": session.action,
         "status": session.status,
         "audio_url": session.audio_url,
+        "take_count": getattr(session, "take_count", 0),
     }
 
 
@@ -973,6 +974,8 @@ async def generate_song(req: GenerateSongRequest):
 
         # Update session with current values if token present
         if session:
+            session.take_count = getattr(session, "take_count", 0) + 1
+            session.status = "generating"
             if effective_title:
                 session.song_title = effective_title
             session.custom_style = req.custom_style
@@ -981,6 +984,7 @@ async def generate_song(req: GenerateSongRequest):
             session.bpm = int(req.bpm)
             session.intro_style = req.intro_style
             session.action = req.action
+            session.lyrics = req.lyrics
 
         # Update Node 6 filename prefix so ComfyUI outputs clean song name
         clean_prefix = sanitize_song_title(effective_title, fallback="studio_song")
@@ -1162,14 +1166,129 @@ async def _track_comfy_ws(prompt_id: str, client_id: str):
         logger.debug(f"ComfyUI WS listener connection skipped or ended for {prompt_id}: {e}")
 
 
+async def _send_discord_progress_start(session, req: GenerateSongRequest, prompt_id: str):
+    """Sends an initial real-time progress card into the Discord channel."""
+    bot = state.bot_instance
+    if not bot or not getattr(session, "channel_id", None):
+        return
+    try:
+        import discord
+        channel = bot.get_channel(int(session.channel_id))
+        if not channel:
+            return
+
+        take_num = getattr(session, "take_count", 1)
+        effective_title = resolve_song_title(req, session) or "YuE2 Studio Master Track"
+        take_label = f" (Take #{take_num})" if take_num > 1 else ""
+
+        domain = (Config.INPAINT_SERVER_DOMAIN or "").strip()
+        studio_url = f"https://{domain}/music/?token={session.token}" if domain else f"http://localhost:{Config.INPAINT_SERVER_PORT}/music/?token={session.token}"
+
+        view = discord.ui.View(timeout=None)
+        view.add_item(discord.ui.Button(
+            label="🎛️ View Live in Studio",
+            style=discord.ButtonStyle.link,
+            url=studio_url
+        ))
+
+        empty_bar = "░" * 10
+        embed = discord.Embed(
+            title=f"🎵 Generating: {effective_title}{take_label}",
+            description=(
+                f"**Producer**: <@{session.user_id}>\n"
+                f"**Genre**: `{req.genre_preset}` • **Tempo**: `{req.bpm} BPM`\n"
+                f"**Vocal Profile**: `{req.vocal_profile}`\n\n"
+                f"**Status**: `Starting neural generation pipeline...`\n"
+                f"`[{empty_bar}]` **0%** (0s elapsed)\n\n"
+                f"🎛️ *Synthesizing in YuE2 Studio...*"
+            ),
+            color=discord.Color.from_rgb(139, 92, 246)
+        )
+        embed.set_footer(text="YuE2 Neural Music Generator • Powered by LINK")
+
+        msg = await channel.send(
+            content=f"🎶 <@{session.user_id}> started generating **{effective_title}**{take_label}...",
+            embed=embed,
+            view=view
+        )
+        session.progress_message_id = str(msg.id)
+        logger.info(f"Dispatched initial Discord progress message {msg.id} for prompt {prompt_id}")
+    except Exception as e:
+        logger.warning(f"Failed to post initial Discord progress: {e}")
+
+
+async def _update_discord_progress(session, req: GenerateSongRequest, prompt_id: str, curr_info: dict, elapsed_sec: int):
+    """Edits the active Discord progress card with current percentage and stage."""
+    bot = state.bot_instance
+    if not bot or not getattr(session, "progress_message_id", None):
+        return
+    try:
+        import discord
+        channel = bot.get_channel(int(session.channel_id))
+        if not channel:
+            return
+        msg = await channel.fetch_message(int(session.progress_message_id))
+        if not msg:
+            return
+
+        pct = max(0, min(100, int(curr_info.get("percent", 10))))
+        bar_len = 10
+        filled = int(bar_len * pct // 100)
+        bar = "█" * filled + "░" * (bar_len - filled)
+
+        status_text = curr_info.get("status", "YuE2 ODE Neural Diffusion running...")
+        effective_title = resolve_song_title(req, session) or "YuE2 Studio Master Track"
+        take_num = getattr(session, "take_count", 1)
+        take_label = f" (Take #{take_num})" if take_num > 1 else ""
+
+        domain = (Config.INPAINT_SERVER_DOMAIN or "").strip()
+        studio_url = f"https://{domain}/music/?token={session.token}" if domain else f"http://localhost:{Config.INPAINT_SERVER_PORT}/music/?token={session.token}"
+
+        view = discord.ui.View(timeout=None)
+        view.add_item(discord.ui.Button(
+            label="🎛️ View Live in Studio",
+            style=discord.ButtonStyle.link,
+            url=studio_url
+        ))
+
+        embed = discord.Embed(
+            title=f"🎵 Generating: {effective_title}{take_label}",
+            description=(
+                f"**Producer**: <@{session.user_id}>\n"
+                f"**Genre**: `{req.genre_preset}` • **Tempo**: `{req.bpm} BPM`\n"
+                f"**Vocal Profile**: `{req.vocal_profile}`\n\n"
+                f"**Status**: `{status_text}`\n"
+                f"`[{bar}]` **{pct}%** ({elapsed_sec}s elapsed)\n\n"
+                f"🎛️ *Synthesizing in YuE2 Studio...*"
+            ),
+            color=discord.Color.from_rgb(168, 85, 247)
+        )
+        embed.set_footer(text="YuE2 Neural Music Generator • Powered by LINK")
+
+        await msg.edit(
+            content=f"🎶 <@{session.user_id}> generating **{effective_title}**{take_label}... (`{pct}%`)",
+            embed=embed,
+            view=view
+        )
+    except Exception as e:
+        logger.debug(f"Discord progress update skipped: {e}")
+
+
 async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, client_id: str):
-    """Background monitor that tracks ComfyUI execution, saves audio, and posts to Discord."""
+    """Background monitor that tracks ComfyUI execution, saves audio, and posts live progress to Discord."""
     logger.info(f"Monitoring song generation for prompt {prompt_id} (client_id={client_id})")
     max_wait_seconds = 600 # 10 minutes maximum for neural audio synthesis
     start_time = time.time()
     
     # Start real-time WebSocket progress tracker
     ws_task = asyncio.create_task(_track_comfy_ws(prompt_id, client_id))
+
+    # Send initial Discord progress post
+    session = music_session_store.get_session(req.token) if req.token else None
+    if session:
+        await _send_discord_progress_start(session, req, prompt_id)
+    last_discord_update = time.time()
+    last_discord_percent = -1
     
     try:
         while time.time() - start_time < max_wait_seconds:
@@ -1189,6 +1308,15 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, cli
                         curr["status"] = f"YuE2 ODE Neural Diffusion in progress ({int(elapsed)}s elapsed)..."
                     else:
                         curr["status"] = f"Finalizing audio master ({int(elapsed)}s elapsed)..."
+
+            # Discord progress update (throttled to every 3.5s or on step milestone)
+            now = time.time()
+            if session and getattr(session, "progress_message_id", None):
+                curr_pct = curr.get("percent", 10) if curr else 10
+                if (now - last_discord_update >= 3.5 and curr_pct != last_discord_percent) or curr_pct >= 94:
+                    last_discord_update = now
+                    last_discord_percent = curr_pct
+                    await _update_discord_progress(session, req, prompt_id, curr or {}, int(elapsed))
 
             async with aiohttp.ClientSession() as sess:
                 async with sess.get(f"{Config.COMFY_URL}/history/{prompt_id}", timeout=aiohttp.ClientTimeout(total=5)) as h_resp:
@@ -1218,10 +1346,10 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, cli
                                 if v_resp.status == 200:
                                     audio_bytes = await v_resp.read()
                                     
-                                    session = music_session_store.get_session(req.token) if req.token else None
                                     effective_title = resolve_song_title(req, session)
                                     clean_name = sanitize_song_title(effective_title, fallback="studio_song")
                                     display_title = effective_title or "YuE2 Studio Master Track"
+                                    take_num = getattr(session, "take_count", 1) if session else 1
                                     
                                     # Save to assets directory with clean name + prompt id suffix for disk uniqueness
                                     local_filename = f"{clean_name}_{prompt_id[:8]}.mp3"
@@ -1244,6 +1372,7 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, cli
                                         "filename": local_filename,
                                         "song_title": display_title,
                                         "clean_title": clean_name,
+                                        "take_count": take_num,
                                         "lyrics": output_lyrics or req.lyrics,
                                         "completed_at": time.time()
                                     }
@@ -1252,7 +1381,7 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, cli
                                     if not ws_task.done():
                                         ws_task.cancel()
 
-                                    # If Discord session exists, notify channel
+                                    # If Discord session exists, notify channel with full audio + persistent Fine-Tune button
                                     if req.token:
                                         await _dispatch_discord_completion(req.token, local_path, local_filename, req, output_lyrics)
                                     
@@ -1271,6 +1400,15 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, cli
                         }
                         if not ws_task.done():
                             ws_task.cancel()
+                        if session and getattr(session, "progress_message_id", None):
+                            try:
+                                bot = state.bot_instance
+                                if bot:
+                                    ch = bot.get_channel(int(session.channel_id))
+                                    if ch:
+                                        p_msg = await ch.fetch_message(int(session.progress_message_id))
+                                        await p_msg.edit(content=f"❌ <@{session.user_id}>, song generation failed: `{err_msg}`")
+                            except Exception: pass
                         return
 
         # Timeout reached
@@ -1297,7 +1435,7 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest, cli
 
 
 async def _dispatch_discord_completion(token: str, local_path: str, filename: str, req: GenerateSongRequest, lyrics: str):
-    """Posts the generated audio and lyrics back to the Discord channel."""
+    """Posts the generated audio and lyrics back to the Discord channel with a persistent Fine-Tune button."""
     session = music_session_store.get_session(token)
     if not session:
         return
@@ -1319,10 +1457,15 @@ async def _dispatch_discord_completion(token: str, local_path: str, filename: st
         if effective_title:
             clean_name = sanitize_song_title(effective_title, fallback="YuE2_Master_Track")
         display_title = effective_title or "YuE2 Studio Master Track"
+        take_num = getattr(session, "take_count", 1)
+        take_label = f" (Take #{take_num})" if take_num > 1 else ""
+
+        domain = (Config.INPAINT_SERVER_DOMAIN or "").strip()
+        studio_url = f"https://{domain}/music/?token={session.token}" if domain else f"http://localhost:{Config.INPAINT_SERVER_PORT}/music/?token={session.token}"
 
         desc_lines = []
         if effective_title:
-            desc_lines.append(f"🎶 **Track**: **{display_title}**")
+            desc_lines.append(f"🎶 **Track**: **{display_title}**{take_label}")
         desc_lines.extend([
             f"**Producer**: <@{session.user_id}>",
             f"**Genre**: `{req.genre_preset}`",
@@ -1331,32 +1474,45 @@ async def _dispatch_discord_completion(token: str, local_path: str, filename: st
             f"**Intro**: `{req.intro_style}`",
             f"**Style**: *{req.custom_style[:120]}*",
             "",
-            "🎧 **Listen to your master track below!**"
+            "🎧 **Master audio delivered below! Click below to fine-tune or generate next take.**"
         ])
 
         embed = discord.Embed(
             title="🎵 LINK Music Studio — Song Generated!",
             description="\n".join(desc_lines),
-            color=discord.Color.from_rgb(168, 85, 247) # Vibrant Purple
+            color=discord.Color.from_rgb(16, 185, 129) # Vibrant Emerald Green
         )
-        embed.set_footer(text="YuE2 Neural Music Generator & Studio")
+        embed.set_footer(text="YuE2 Neural Music Generator • Powered by LINK")
 
-        discord_filename = f"{clean_name}.mp3"
+        # Persistent View with studio link to fine-tune & generate again
+        view = discord.ui.View(timeout=None)
+        view.add_item(discord.ui.Button(
+            label="🎛️ Fine-Tune & Generate Next Take",
+            style=discord.ButtonStyle.link,
+            url=studio_url
+        ))
+
+        discord_filename = f"{clean_name}_Take{take_num}.mp3" if take_num > 1 else f"{clean_name}.mp3"
         file_to_send = discord.File(local_path, filename=discord_filename)
-        
-        # If there's an original interaction message, edit or send to channel
-        msg_content = f"🎵 <@{session.user_id}>, your song **{display_title}** is ready!" if effective_title else f"🎵 <@{session.user_id}>, your song is ready!"
-        if session.message_id:
+        msg_content = f"🎵 <@{session.user_id}>, your song **{display_title}**{take_label} is ready!"
+
+        # If a live progress message was created, update it to completion and send the audio file
+        if getattr(session, "progress_message_id", None):
             try:
-                orig_msg = await channel.fetch_message(int(session.message_id))
-                await orig_msg.edit(content=msg_content, embed=embed, view=None)
-                await channel.send(file=file_to_send)
+                prog_msg = await channel.fetch_message(int(session.progress_message_id))
+                await prog_msg.edit(content=msg_content, embed=embed, view=view)
+                await channel.send(
+                    content=f"🎧 **Master Audio Track**{take_label} for **{display_title}**:",
+                    file=file_to_send,
+                    view=view
+                )
             except Exception:
-                await channel.send(content=msg_content, embed=embed, file=file_to_send)
+                await channel.send(content=msg_content, embed=embed, file=file_to_send, view=view)
         else:
-            await channel.send(content=msg_content, embed=embed, file=file_to_send)
+            await channel.send(content=msg_content, embed=embed, file=file_to_send, view=view)
 
         music_session_store.mark_completed(token, f"/api/music/audio/{filename}")
+        session.status = "completed"
         logger.info(f"Dispatched music completion to Discord channel {session.channel_id} with file {discord_filename}")
 
     except Exception as e:

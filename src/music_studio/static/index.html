@@ -63,6 +63,45 @@
       </div>
     </header>
 
+    <!-- Master Audio Audition & Transport Bar -->
+    <section id="master-player-bar" class="master-player-bar hidden">
+      <div class="player-left">
+        <div class="player-badge-group">
+          <span class="player-live-dot"></span>
+          <span id="player-take-badge" class="badge-take">Take #1</span>
+        </div>
+        <div class="player-titles">
+          <span id="player-track-title" class="player-title">Studio Master Audio</span>
+          <span id="player-track-subtitle" class="player-sub">24-bit Studio Master • Ready for Audition & Fine-Tuning</span>
+        </div>
+      </div>
+
+      <div class="player-center">
+        <button id="btn-player-play" class="btn-player-play" title="Play / Pause">
+          <span id="player-play-icon">▶</span>
+        </button>
+        <span id="player-time-current" class="player-time">0:00</span>
+        <div class="timeline-container">
+          <input type="range" id="player-timeline" class="player-timeline" min="0" max="100" value="0" step="0.1" title="Seek">
+        </div>
+        <span id="player-time-duration" class="player-time">0:00</span>
+      </div>
+
+      <div class="player-right">
+        <div class="player-volume-wrapper">
+          <span class="vol-icon">🔊</span>
+          <input type="range" id="player-volume" class="player-volume" min="0" max="1" step="0.05" value="0.9" title="Volume">
+        </div>
+        <a id="btn-player-download" href="#" download class="btn btn-secondary btn-sm" title="Download Master MP3">
+          <span>⬇️ Download MP3</span>
+        </a>
+        <button id="btn-regenerate-take" class="btn btn-primary btn-sm" title="Fine-tune lyrics/settings and generate next take">
+          <span>🚀 Generate Next Take</span>
+        </button>
+      </div>
+      <audio id="audio-master" preload="metadata"></audio>
+    </section>
+
     <!-- Main Studio Workspace Grid -->
     <main class="studio-workspace">
       <!-- Left Panel: Track Architecture & Production Controls (Node 1 & Node 3) -->

@@ -39,6 +39,22 @@
   const btnGenerateSong = document.getElementById('btn-generate-song');
   const btnPushEditorSong = document.getElementById('btn-push-editor-song');
 
+  // Master Audio Transport DOM
+  const masterPlayerBar = document.getElementById('master-player-bar');
+  const playerTakeBadge = document.getElementById('player-take-badge');
+  const playerTrackTitle = document.getElementById('player-track-title');
+  const playerTrackSubtitle = document.getElementById('player-track-subtitle');
+  const btnPlayerPlay = document.getElementById('btn-player-play');
+  const playerPlayIcon = document.getElementById('player-play-icon');
+  const playerTimeCurrent = document.getElementById('player-time-current');
+  const playerTimeDuration = document.getElementById('player-time-duration');
+  const playerTimeline = document.getElementById('player-timeline');
+  const playerVolume = document.getElementById('player-volume');
+  const btnPlayerDownload = document.getElementById('btn-player-download');
+  const btnRegenerateTake = document.getElementById('btn-regenerate-take');
+  const audioMaster = document.getElementById('audio-master');
+  let currentTake = 1;
+
   const progressOverlay = document.getElementById('progress-overlay');
   const modalTitle = document.getElementById('modal-title');
   const modalDesc = document.getElementById('modal-desc');
@@ -290,6 +306,125 @@
     } catch (_) {}
   }, 12000);
 
+  // --- Master Audio Player Management ---
+  function formatTime(seconds) {
+    if (isNaN(seconds) || seconds < 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
+
+  function loadAudioTrack(audioUrl, title, takeNum) {
+    if (!audioMaster) return;
+    try {
+      if (takeNum) currentTake = parseInt(takeNum) || currentTake;
+      audioMaster.src = audioUrl;
+      audioMaster.load();
+
+      if (playerTrackTitle) {
+        playerTrackTitle.textContent = title || "Studio Master Track";
+      }
+      if (playerTakeBadge) {
+        playerTakeBadge.textContent = `Take #${currentTake}`;
+      }
+      if (playerTrackSubtitle) {
+        playerTrackSubtitle.textContent = `24-bit Studio Master • Take #${currentTake} Audition Ready`;
+      }
+      if (btnPlayerDownload) {
+        btnPlayerDownload.href = audioUrl;
+        const cleanTitle = (title || "studio_master").toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+        btnPlayerDownload.download = `${cleanTitle}_Take${currentTake}.mp3`;
+      }
+
+      if (masterPlayerBar) {
+        masterPlayerBar.classList.remove('hidden');
+        masterPlayerBar.classList.remove('just-loaded');
+        void masterPlayerBar.offsetWidth; // trigger reflow
+        masterPlayerBar.classList.add('just-loaded');
+      }
+
+      // Update button labels to highlight seamless multi-take workflow
+      if (btnGenerateSong) {
+        const textSpan = btnGenerateSong.querySelector('.btn-text');
+        if (textSpan) textSpan.textContent = `Generate Next Take (#${currentTake + 1})`;
+      }
+      if (btnPushEditorSong) {
+        btnPushEditorSong.textContent = `🚀 Generate Next Take (#${currentTake + 1})`;
+      }
+      if (btnRegenerateTake) {
+        btnRegenerateTake.textContent = `🚀 Generate Take #${currentTake + 1}`;
+      }
+
+      console.log(`[YuE2 Studio] Loaded master audio track: ${audioUrl} (Take #${currentTake})`);
+    } catch (err) {
+      console.warn("[YuE2 Studio] loadAudioTrack error:", err);
+    }
+  }
+
+  // Audio Playback Controls
+  if (btnPlayerPlay && audioMaster) {
+    btnPlayerPlay.addEventListener('click', () => {
+      if (audioMaster.paused) {
+        audioMaster.play().catch(e => console.warn("Audio play blocked:", e));
+      } else {
+        audioMaster.pause();
+      }
+    });
+
+    audioMaster.addEventListener('play', () => {
+      btnPlayerPlay.classList.add('playing');
+      if (playerPlayIcon) playerPlayIcon.textContent = '⏸';
+    });
+
+    audioMaster.addEventListener('pause', () => {
+      btnPlayerPlay.classList.remove('playing');
+      if (playerPlayIcon) playerPlayIcon.textContent = '▶';
+    });
+
+    audioMaster.addEventListener('ended', () => {
+      btnPlayerPlay.classList.remove('playing');
+      if (playerPlayIcon) playerPlayIcon.textContent = '▶';
+      if (playerTimeline) playerTimeline.value = 0;
+      if (playerTimeCurrent) playerTimeCurrent.textContent = "0:00";
+    });
+
+    audioMaster.addEventListener('timeupdate', () => {
+      if (audioMaster.duration && !isNaN(audioMaster.duration)) {
+        const pct = (audioMaster.currentTime / audioMaster.duration) * 100;
+        if (playerTimeline) playerTimeline.value = pct;
+        if (playerTimeCurrent) playerTimeCurrent.textContent = formatTime(audioMaster.currentTime);
+      }
+    });
+
+    audioMaster.addEventListener('loadedmetadata', () => {
+      if (playerTimeDuration && audioMaster.duration && !isNaN(audioMaster.duration)) {
+        playerTimeDuration.textContent = formatTime(audioMaster.duration);
+      }
+    });
+  }
+
+  if (playerTimeline && audioMaster) {
+    playerTimeline.addEventListener('input', (e) => {
+      if (audioMaster.duration && !isNaN(audioMaster.duration)) {
+        const targetSec = (parseFloat(e.target.value) / 100) * audioMaster.duration;
+        audioMaster.currentTime = targetSec;
+        if (playerTimeCurrent) playerTimeCurrent.textContent = formatTime(targetSec);
+      }
+    });
+  }
+
+  if (playerVolume && audioMaster) {
+    playerVolume.addEventListener('input', (e) => {
+      audioMaster.volume = parseFloat(e.target.value);
+    });
+  }
+
+  if (btnRegenerateTake) {
+    btnRegenerateTake.addEventListener('click', () => {
+      runSongGeneration();
+    });
+  }
+
   // --- Load Session From Discord Interaction ---
   async function loadDiscordSession(token) {
     try {
@@ -315,9 +450,12 @@
         if (s.custom_style && inputCustomStyle) inputCustomStyle.value = s.custom_style;
         if (s.lyrics && editorLyrics) editorLyrics.value = s.lyrics;
         updateCharCount();
+        if (s.take_count) {
+          currentTake = parseInt(s.take_count) || 1;
+        }
         showToast(`Loaded Discord session for ${s.user_name || 'User'}`);
         if (s.audio_url) {
-          loadAudioTrack(s.audio_url, s.song_title || "Discord Session Track");
+          loadAudioTrack(s.audio_url, s.song_title || "Discord Session Track", currentTake);
         }
       }
     } catch (e) {
@@ -481,10 +619,15 @@
     if (progressFill) progressFill.style.width = '10%';
     if (progressStageText) progressStageText.textContent = "Initializing...";
     if (progressPercentText) progressPercentText.textContent = "10%";
-    if (btnDismissOverlay) btnDismissOverlay.classList.add('hidden');
+    if (btnDismissOverlay) {
+      btnDismissOverlay.textContent = "Close & View Track";
+      btnDismissOverlay.classList.add('hidden');
+    }
     if (progressOverlay) progressOverlay.classList.remove('hidden');
     if (btnGenerateLyrics) btnGenerateLyrics.disabled = true;
     if (btnGenerateSong) btnGenerateSong.disabled = true;
+    if (btnPushEditorSong) btnPushEditorSong.disabled = true;
+    if (btnRegenerateTake) btnRegenerateTake.disabled = true;
   }
 
   function updateProgressModal(percent, stageText, desc) {
@@ -513,6 +656,11 @@
     if (progressOverlay) progressOverlay.classList.add('hidden');
     if (btnGenerateLyrics) btnGenerateLyrics.disabled = false;
     if (btnGenerateSong) btnGenerateSong.disabled = false;
+    if (btnPushEditorSong) btnPushEditorSong.disabled = false;
+    if (btnRegenerateTake) btnRegenerateTake.disabled = false;
+    const titleInput = document.getElementById('input-song-title') || inputSongTitle;
+    if (titleInput) titleInput.disabled = false;
+    if (editorLyrics) editorLyrics.disabled = false;
   }
 
   if (btnDismissOverlay) {
@@ -612,6 +760,11 @@
   // BUTTON 2: 🚀 GENERATE FINAL SONG (Runs Full Workflow)
   // ==========================================================================
   async function runSongGeneration() {
+    // Pause existing audio playback if playing
+    if (audioMaster && !audioMaster.paused) {
+      audioMaster.pause();
+    }
+
     let seedVal = null;
     if (checkRandomSeed && !checkRandomSeed.checked && inputSeed && inputSeed.value) {
       seedVal = parseInt(inputSeed.value);
@@ -619,7 +772,8 @@
 
     const titleInput = document.getElementById('input-song-title') || inputSongTitle;
     const songTitleVal = titleInput ? titleInput.value.trim() : "";
-    console.log("[YuE2 Studio] Submitting song generation with title:", songTitleVal);
+    const nextTakeNum = (masterPlayerBar && !masterPlayerBar.classList.contains('hidden')) ? currentTake + 1 : currentTake;
+    console.log(`[YuE2 Studio] Submitting song generation for "${songTitleVal || 'Studio Song'}" (Take #${nextTakeNum})`);
 
     const payload = {
       token: sessionToken,
@@ -638,7 +792,7 @@
     };
 
     showProgressModal(
-      "Producing Full Studio Track...",
+      `Producing Studio Track (Take #${nextTakeNum})...`,
       "Running complete YuE2 pipeline: Node 1 -> Node 16 (Native Neural Generator) -> Node 6 (Audio Saver)."
     );
     updateProgressModal(10, "Submitting to ComfyUI...", "Queuing prompt and reserving GPU memory...");
@@ -698,12 +852,23 @@
           }
 
           const trackName = info.song_title || (inputSongTitle && inputSongTitle.value.trim()) || "YuE2 Studio Master Track";
-          appendChatBubble('ai', `🎉 Master audio for "${trackName}" has been generated and delivered directly to your Discord channel!`);
+          currentTake = info.take_count || (currentTake + 1);
+
+          if (info.audio_url) {
+            loadAudioTrack(info.audio_url, trackName, currentTake);
+          }
+
+          appendChatBubble('ai', `🎉 Master audio for "${trackName}" (Take #${currentTake}) has been generated and delivered directly to your Discord channel! You can audition the track above, adjust lyrics or production parameters, and generate next takes anytime.`);
+
+          if (btnDismissOverlay) {
+            btnDismissOverlay.textContent = `🎧 Audition Take #${currentTake} & Continue Editing`;
+            btnDismissOverlay.classList.remove('hidden');
+          }
 
           setTimeout(() => {
             hideProgressModal();
-            showToast("🚀 Master song generated and delivered to Discord!");
-          }, 800);
+            showToast(`🚀 Take #${currentTake} generated and delivered to Discord!`);
+          }, 1400);
           return;
         }
 
