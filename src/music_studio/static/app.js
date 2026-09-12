@@ -399,8 +399,11 @@
   // BUTTON 1: ✨ GENERATE LYRICS ONLY (Disables Node 5)
   // ==========================================================================
   btnGenerateLyrics.addEventListener('click', async () => {
+    const titleInput = document.getElementById('input-song-title') || inputSongTitle;
+    const songTitleVal = titleInput ? titleInput.value.trim() : "";
     const payload = {
       token: sessionToken,
+      song_title: songTitleVal,
       genre_preset: selectGenre.value,
       vocal_profile: selectVocal.value,
       bpm: parseInt(bpmSlider.value),
@@ -465,7 +468,10 @@
       seedVal = parseInt(inputSeed.value);
     }
 
-    const songTitleVal = inputSongTitle ? inputSongTitle.value.trim() : "";
+    const titleInput = document.getElementById('input-song-title') || inputSongTitle;
+    const songTitleVal = titleInput ? titleInput.value.trim() : "";
+    console.log("[YuE2 Studio] Submitting song generation with title:", songTitleVal);
+
     const payload = {
       token: sessionToken,
       song_title: songTitleVal,

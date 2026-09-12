@@ -1344,14 +1344,29 @@ class GenerationCog(commands.Cog):
         prefilled = prefilled or {}
         merged = {**prefilled, **user_values}
 
+        # Robustly resolve song_title from user arguments
+        merged_title = (
+            merged.get("song_title")
+            or merged.get("title")
+            or merged.get("song_name")
+            or merged.get("name")
+            or ""
+        )
+        custom_style_val = merged.get("custom_style", "")
+        # If user entered something in custom_style that looks like a title
+        if not merged_title and custom_style_val and custom_style_val != "Style of Bruno Mars song Risk It All":
+            if len(custom_style_val) <= 45 and not any(k in custom_style_val.lower() for k in ["bpm", "genre", "drums", "synth", "guitar"]):
+                import re
+                merged_title = re.sub(r'^(?:style\s+of\s+)+', '', custom_style_val, flags=re.IGNORECASE).strip()
+
         from src.music_studio.session_store import music_session_store
         session = music_session_store.create_session(
             user_id=str(interaction.user.id),
             user_name=interaction.user.display_name,
             channel_id=str(interaction.channel_id),
             guild_id=str(interaction.guild_id) if interaction.guild_id else None,
-            custom_style=merged.get("custom_style", "Style of Bruno Mars song Risk It All"),
-            song_title=merged.get("song_title", ""),
+            custom_style=custom_style_val or "Style of Bruno Mars song Risk It All",
+            song_title=merged_title,
             lyrics=merged.get("lyrics", ""),
             genre_preset=merged.get("genre_preset", "Custom / Keep Only Lyrics"),
             vocal_profile=merged.get("vocal_profile", "Warm Smooth Baritone (Male)"),

@@ -40,6 +40,50 @@ def sanitize_song_title(title: Optional[str], fallback: str = "YuE2_Master_Track
     clean = clean[:60]
     return clean or fallback
 
+
+def resolve_song_title(req: Any, session: Optional[Any] = None) -> str:
+    """
+    Robustly resolves the intended song title across:
+    1. req.song_title / req.title / req.song_name / req.track_name
+    2. session.song_title
+    3. Lyrics structure tags: [Title: ...] or # Title: ...
+    4. Custom style fallback (if user entered song title in custom_style or 'song XYZ')
+    """
+    # 1. Direct fields on request
+    for field in ["song_title", "title", "song_name", "track_name"]:
+        val = getattr(req, field, None)
+        if val and str(val).strip():
+            return str(val).strip()
+
+    # 2. Session store
+    if session and getattr(session, "song_title", None):
+        if str(session.song_title).strip():
+            return str(session.song_title).strip()
+
+    # 3. Check for [Title: ...] in lyrics
+    lyrics = getattr(req, "lyrics", "") or (session.lyrics if session else "") or ""
+    m = re.search(r'\[(?:Title|Song|Track):\s*([^\]\n\r]+)\]', lyrics, re.IGNORECASE)
+    if m and m.group(1).strip():
+        return m.group(1).strip()
+
+    # 4. Check custom_style for song title patterns
+    style = getattr(req, "custom_style", "") or (session.custom_style if session else "") or ""
+    style = style.strip()
+    if style and style != "Style of Bruno Mars song Risk It All":
+        # Check patterns like "song 'xyz'", "song: xyz", "title: xyz"
+        m = re.search(r'(?:song|track|title)\s*[:=]?\s*["\']?([^,"\';\n]+)["\']?', style, re.IGNORECASE)
+        if m and m.group(1).strip():
+            extracted = m.group(1).strip()
+            if len(extracted) > 1 and not any(k in extracted.lower() for k in ["tempo", "genre", "vocal", "bpm", "profile"]):
+                return extracted
+        # If the entire custom_style is short (e.g. "slowing it down") and not a descriptive prompt
+        if len(style) <= 45 and not any(k in style.lower() for k in ["bpm", "genre", "drums", "guitar", "synth", "tempo"]):
+            clean_style = re.sub(r'^(?:style\s+of\s+)+', '', style, flags=re.IGNORECASE).strip()
+            if clean_style:
+                return clean_style
+
+    return ""
+
 GENRE_PRESETS = [
     "Custom / Keep Only Lyrics",
     "Pop / Dance Pop",
@@ -241,7 +285,10 @@ async def serve_music_studio():
     index_path = os.path.join(STATIC_DIR, "index.html")
     if not os.path.exists(index_path):
         raise HTTPException(status_code=404, detail="Music Studio HTML template not found.")
-    return FileResponse(index_path)
+    return FileResponse(
+        index_path,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+    )
 
 
 @router.get("/music/static/{filename:path}")
@@ -249,7 +296,10 @@ async def serve_music_static(filename: str):
     file_path = os.path.join(STATIC_DIR, filename)
     if not os.path.exists(file_path) or not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail=f"Static file '{filename}' not found.")
-    return FileResponse(file_path)
+    return FileResponse(
+        file_path,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+    )
 
 
 @router.get("/api/music/options")
@@ -313,6 +363,7 @@ async def get_session(token: str):
 
 class GenerateLyricsRequest(BaseModel):
     token: Optional[str] = None
+    song_title: Optional[str] = ""
     genre_preset: str = "Custom / Keep Only Lyrics"
     vocal_profile: str = "Warm Smooth Baritone (Male)"
     bpm: int = 120
@@ -446,6 +497,8 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         if req.token:
             session = music_session_store.get_session(req.token)
             if session:
+                if req.song_title:
+                    session.song_title = req.song_title.strip()
                 session.lyrics = generated_lyrics
                 session.genre_preset = req.genre_preset
                 session.vocal_profile = req.vocal_profile
@@ -470,6 +523,9 @@ async def generate_lyrics(req: GenerateLyricsRequest):
 class GenerateSongRequest(BaseModel):
     token: Optional[str] = None
     song_title: Optional[str] = ""
+    title: Optional[str] = None
+    song_name: Optional[str] = None
+    track_name: Optional[str] = None
     genre_preset: str = "Custom / Keep Only Lyrics"
     vocal_profile: str = "Warm Smooth Baritone (Male)"
     bpm: int = 120
@@ -496,21 +552,25 @@ async def generate_song(req: GenerateSongRequest):
     try:
         wf = _load_base_workflow()
 
+        # Resolve effective song title from request, session, or smart fallbacks
+        session = music_session_store.get_session(req.token) if req.token else None
+        effective_title = resolve_song_title(req, session)
+        req.song_title = effective_title
+        logger.info(f"Resolved song title for prompt: '{effective_title}' (raw req.song_title='{getattr(req, 'song_title', '')}')")
+
         # Update session with current values if token present
-        if req.token:
-            session = music_session_store.get_session(req.token)
-            if session:
-                if req.song_title:
-                    session.song_title = req.song_title
-                session.custom_style = req.custom_style
-                session.genre_preset = req.genre_preset
-                session.vocal_profile = req.vocal_profile
-                session.bpm = int(req.bpm)
-                session.intro_style = req.intro_style
-                session.action = req.action
+        if session:
+            if effective_title:
+                session.song_title = effective_title
+            session.custom_style = req.custom_style
+            session.genre_preset = req.genre_preset
+            session.vocal_profile = req.vocal_profile
+            session.bpm = int(req.bpm)
+            session.intro_style = req.intro_style
+            session.action = req.action
 
         # Update Node 6 filename prefix so ComfyUI outputs clean song name
-        clean_prefix = sanitize_song_title(req.song_title, fallback="studio_song")
+        clean_prefix = sanitize_song_title(effective_title, fallback="studio_song")
         if "6" in wf and "inputs" in wf["6"]:
             wf["6"]["inputs"]["filename_prefix"] = f"YuE2/{clean_prefix}"
         
@@ -660,8 +720,10 @@ async def _monitor_song_generation(prompt_id: str, req: GenerateSongRequest):
                                 if v_resp.status == 200:
                                     audio_bytes = await v_resp.read()
                                     
-                                    clean_name = sanitize_song_title(req.song_title, fallback="studio_song")
-                                    display_title = (req.song_title or "").strip() or "YuE2 Studio Master Track"
+                                    session = music_session_store.get_session(req.token) if req.token else None
+                                    effective_title = resolve_song_title(req, session)
+                                    clean_name = sanitize_song_title(effective_title, fallback="studio_song")
+                                    display_title = effective_title or "YuE2 Studio Master Track"
                                     
                                     # Save to assets directory with clean name + prompt id suffix for disk uniqueness
                                     local_filename = f"{clean_name}_{prompt_id[:8]}.mp3"
@@ -745,10 +807,13 @@ async def _dispatch_discord_completion(token: str, local_path: str, filename: st
             return
 
         clean_name = sanitize_song_title(req.song_title, fallback="YuE2_Master_Track")
-        display_title = (req.song_title or "").strip() or "YuE2 Studio Master Track"
+        effective_title = resolve_song_title(req, session)
+        if effective_title:
+            clean_name = sanitize_song_title(effective_title, fallback="YuE2_Master_Track")
+        display_title = effective_title or "YuE2 Studio Master Track"
 
         desc_lines = []
-        if req.song_title and req.song_title.strip():
+        if effective_title:
             desc_lines.append(f"🎶 **Track**: **{display_title}**")
         desc_lines.extend([
             f"**Producer**: <@{session.user_id}>",
@@ -772,7 +837,7 @@ async def _dispatch_discord_completion(token: str, local_path: str, filename: st
         file_to_send = discord.File(local_path, filename=discord_filename)
         
         # If there's an original interaction message, edit or send to channel
-        msg_content = f"🎵 <@{session.user_id}>, your song **{display_title}** is ready!" if (req.song_title and req.song_title.strip()) else f"🎵 <@{session.user_id}>, your song is ready!"
+        msg_content = f"🎵 <@{session.user_id}>, your song **{display_title}** is ready!" if effective_title else f"🎵 <@{session.user_id}>, your song is ready!"
         if session.message_id:
             try:
                 orig_msg = await channel.fetch_message(int(session.message_id))
