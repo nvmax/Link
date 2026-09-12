@@ -64,8 +64,6 @@
   const revisionChatLog = document.getElementById('revision-chat-log');
   const inputRevisionPrompt = document.getElementById('input-revision-prompt');
   const btnSendRevision = document.getElementById('btn-send-revision');
-  const btnClearRevisionInput = document.getElementById('btn-clear-revision-input');
-  const revisionChips = document.querySelectorAll('.rev-chip');
   const chatTypingIndicator = document.getElementById('chat-typing-indicator');
   const btnClearChat = document.getElementById('btn-clear-chat');
 
@@ -625,17 +623,6 @@
     body.innerHTML = text.replace(/\n/g, '<br>');
     bubble.appendChild(body);
 
-    if (role === 'ai' && options.allowPushToSong) {
-      const actionRow = document.createElement('div');
-      actionRow.className = 'bubble-action-row';
-      const ctaBtn = document.createElement('button');
-      ctaBtn.className = 'bubble-cta-btn';
-      ctaBtn.innerHTML = '<span>🚀 Push to Final Song</span>';
-      ctaBtn.addEventListener('click', () => runSongGeneration());
-      actionRow.appendChild(ctaBtn);
-      bubble.appendChild(actionRow);
-    }
-
     revisionChatLog.appendChild(bubble);
     revisionChatLog.scrollTop = revisionChatLog.scrollHeight;
   }
@@ -643,11 +630,7 @@
   async function submitRevision(customInstruction = null) {
     const text = (customInstruction || (inputRevisionPrompt ? inputRevisionPrompt.value : "")).trim();
     if (!text) {
-      showToast("Please enter an instruction for the AI Producer.");
-      return;
-    }
-    if (!editorLyrics || !editorLyrics.value.trim()) {
-      showToast("Please generate or write lyrics in the editor first.");
+      showToast("Please enter what you'd like changed in the lyrics.");
       return;
     }
 
@@ -669,7 +652,7 @@
       const titleInput = document.getElementById('input-song-title') || inputSongTitle;
       const payload = {
         instruction: text,
-        current_lyrics: editorLyrics.value,
+        current_lyrics: editorLyrics ? editorLyrics.value : "",
         song_title: titleInput ? titleInput.value.trim() : "",
         genre_preset: selectGenre.value,
         vocal_profile: selectVocal.value,
@@ -689,11 +672,11 @@
       }
 
       const data = await res.json();
-      if (data.revised_lyrics) {
+      if (data.revised_lyrics && editorLyrics) {
         editorLyrics.value = data.revised_lyrics;
         updateCharCount();
 
-        // Flash visual live update glow on screen
+        // Flash visual live update glow on lyrics sheet above
         if (editorLyrics.parentElement) {
           editorLyrics.parentElement.classList.remove('live-updated-glow');
           void editorLyrics.parentElement.offsetWidth;
@@ -710,8 +693,7 @@
 
       const note = data.producer_note || "Lyrics updated on screen!";
       appendChatBubble('ai', note, {
-        changedSection: data.changed_section || "Updated Section",
-        allowPushToSong: true
+        changedSection: data.changed_section || "Updated Section"
       });
       showToast("✨ Lyrics updated on screen!");
 
@@ -726,19 +708,6 @@
     }
   }
 
-  // Bind Quick Action Chips
-  if (revisionChips) {
-    revisionChips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        const prompt = chip.getAttribute('data-prompt');
-        if (prompt) {
-          if (inputRevisionPrompt) inputRevisionPrompt.value = prompt;
-          submitRevision(prompt);
-        }
-      });
-    });
-  }
-
   // Bind Send Button and Enter Key
   if (btnSendRevision) {
     btnSendRevision.addEventListener('click', () => submitRevision());
@@ -747,7 +716,7 @@
   if (inputRevisionPrompt) {
     inputRevisionPrompt.addEventListener('input', () => {
       inputRevisionPrompt.style.height = 'auto';
-      inputRevisionPrompt.style.height = Math.min(inputRevisionPrompt.scrollHeight, 120) + 'px';
+      inputRevisionPrompt.style.height = Math.min(inputRevisionPrompt.scrollHeight, 100) + 'px';
     });
 
     inputRevisionPrompt.addEventListener('keydown', (e) => {
@@ -766,51 +735,18 @@
           <div class="chat-bubble ai-bubble welcome-card">
             <div class="bubble-header">
               <span class="bubble-sender">AI Co-Producer</span>
-              <span class="bubble-tag">Ready to Collaborate</span>
+              <span class="bubble-tag">Ready</span>
             </div>
             <div class="bubble-text">
               👋 Chat cleared. Ready for your next lyric instruction!<br><br>
-              Give me advice on verses, rhymes, hooks, or styles and I will revise your lyrics on screen live.
+              Tell me what you'd like changed in the lyrics above and I will update them directly on screen.
             </div>
           </div>
         `;
-        showToast("💬 Co-Producer chat cleared.");
+        showToast("💬 Chat cleared.");
       }
     });
   }
-
-  // Bind Tag Dropdown and Tag Buttons
-  if (btnInsertTagDropdown && tagDropdownMenu) {
-    btnInsertTagDropdown.addEventListener('click', (e) => {
-      e.stopPropagation();
-      tagDropdownMenu.classList.toggle('hidden');
-    });
-
-    document.addEventListener('click', () => {
-      if (!tagDropdownMenu.classList.contains('hidden')) {
-        tagDropdownMenu.classList.add('hidden');
-      }
-    });
-  }
-
-  document.querySelectorAll('.tag-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const tag = btn.getAttribute('data-tag');
-      if (tag && editorLyrics) {
-        const start = editorLyrics.selectionStart || editorLyrics.value.length;
-        const end = editorLyrics.selectionEnd || editorLyrics.value.length;
-        const val = editorLyrics.value;
-        const insertText = (start > 0 && val[start - 1] !== '\n' ? '\n\n' : '') + tag + '\n';
-        editorLyrics.value = val.substring(0, start) + insertText + val.substring(end);
-        editorLyrics.focus();
-        editorLyrics.selectionStart = editorLyrics.selectionEnd = start + insertText.length;
-        updateCharCount();
-        if (tagDropdownMenu) tagDropdownMenu.classList.add('hidden');
-        showToast(`Inserted ${tag}`);
-      }
-    });
-  });
 
   // Boot up studio
   initStudio();

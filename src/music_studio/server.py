@@ -699,10 +699,11 @@ async def revise_lyrics(req: ReviseLyricsRequest):
     Surgically revises existing song lyrics according to user advice/instruction,
     preserving non-targeted verses and sections verbatim.
     """
-    if not req.instruction or not req.instruction.strip():
+    instruction = req.instruction.strip()
+    current_lyrics = (req.current_lyrics or "").strip()
+
+    if not instruction:
         raise HTTPException(status_code=400, detail="Revision instruction cannot be empty.")
-    if not req.current_lyrics or not req.current_lyrics.strip():
-        raise HTTPException(status_code=400, detail="Current lyrics cannot be empty.")
 
     lm_cfg = _get_lmstudio_config()
     provider = req.provider or lm_cfg["provider"]
@@ -710,20 +711,36 @@ async def revise_lyrics(req: ReviseLyricsRequest):
     base_url = req.base_url or lm_cfg["base_url"]
     api_key = req.api_key or ""
 
-    user_prompt = (
-        f"════ MUSICAL CONTEXT ════\n"
-        f"Song Title: {req.song_title or '(Not set yet)'}\n"
-        f"Genre Preset: {req.genre_preset}\n"
-        f"Vocal Profile: {req.vocal_profile}\n"
-        f"Tempo: {req.bpm} BPM\n"
-        f"Style / Direction: {req.custom_style}\n\n"
-        f"════ CURRENT SONG LYRICS ════\n"
-        f"{req.current_lyrics}\n\n"
-        f"════ REVISION INSTRUCTION ════\n"
-        f"The user requests: \"{req.instruction.strip()}\"\n\n"
-        f"Execute this revision now. If the user specified a particular section (e.g. 'change verse 2'), "
-        f"modify ONLY that section and leave ALL other sections 100% UNTOUCHED and VERBATIM. Respond with raw JSON."
-    )
+    if current_lyrics:
+        user_prompt = (
+            f"════ MUSICAL CONTEXT ════\n"
+            f"Song Title: {req.song_title or '(Not set yet)'}\n"
+            f"Genre Preset: {req.genre_preset}\n"
+            f"Vocal Profile: {req.vocal_profile}\n"
+            f"Tempo: {req.bpm} BPM\n"
+            f"Style / Direction: {req.custom_style}\n\n"
+            f"════ CURRENT SONG LYRICS (ABOVE) ════\n"
+            f"{current_lyrics}\n\n"
+            f"════ USER INSTRUCTION / CHANGE REQUEST ════\n"
+            f"The user says: \"{instruction}\"\n\n"
+            f"Look closely at the CURRENT SONG LYRICS above and execute this requested change. "
+            f"If the user specified a particular section (e.g. 'change verse 2 out for something different', 'rewrite the chorus', 'add a bridge'), "
+            f"you MUST modify ONLY that section and leave ALL other verses, choruses, and structure markers 100% UNTOUCHED and VERBATIM. "
+            f"Respond with raw JSON strictly adhering to the schema."
+        )
+    else:
+        user_prompt = (
+            f"════ MUSICAL CONTEXT ════\n"
+            f"Song Title: {req.song_title or '(Not set yet)'}\n"
+            f"Genre Preset: {req.genre_preset}\n"
+            f"Vocal Profile: {req.vocal_profile}\n"
+            f"Tempo: {req.bpm} BPM\n"
+            f"Style / Direction: {req.custom_style}\n\n"
+            f"════ USER SONG INSTRUCTION ════\n"
+            f"The user says: \"{instruction}\"\n\n"
+            f"Generate a full set of song lyrics adhering to standard YuE2 architecture ([Verse 1], [Chorus], [Verse 2], [Chorus], [Bridge], [Chorus], [Outro], [End]), "
+            f"suggest a catchy song title, and write a friendly producer note. Respond with raw JSON."
+        )
 
     raw_resp = await _query_llm_direct(provider, model, base_url, api_key, REVISION_SYS_PROMPT, user_prompt)
     
