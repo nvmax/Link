@@ -48,8 +48,13 @@ async def restart_bot() -> Dict[str, Any]:
             except Exception as e:
                 logger.warning(f"Error closing Bot: {e}")
 
-        logger.info("Restarting process via execv...")
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        logger.info("Restarting bot process...")
+        if os.name == 'nt':
+            import subprocess
+            subprocess.Popen([sys.executable] + sys.argv, cwd=os.getcwd(), shell=False)
+            sys.exit(0)
+        else:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
 
     asyncio.create_task(_do_restart())
     return {"status": "success", "message": "Bot is restarting. It will be back online in a few seconds."}

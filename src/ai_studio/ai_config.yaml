@@ -14,8 +14,8 @@ providers:
     model: grok-beta
   lmstudio:
     active: true
-    base_url: http://192.168.1.174:1234/v1
-    model: gemma-4-e4b-it
+    base_url: http://localhost:1234/v1
+    model: qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp
   ollama:
     active: false
     base_url: http://127.0.0.1:11434/v1

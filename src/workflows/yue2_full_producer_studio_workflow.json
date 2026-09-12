@@ -23,7 +23,7 @@
         "1",
         1
       ],
-      "model": "gemma-4-e4b-it",
+      "model": "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp",
       "api_key": "",
       "custom_model": "",
       "base_url": "http://localhost:1234/v1",

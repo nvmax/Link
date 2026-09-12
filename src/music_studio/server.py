@@ -231,11 +231,24 @@ def _load_base_workflow() -> Dict[str, Any]:
 def _get_lmstudio_config() -> Dict[str, Any]:
     """
     Resolves LM Studio configuration dynamically:
-    1. src/ai_studio/ai_config.yaml (Atlas AI Studio configuration)
-    2. Node 3 in yue2_full_producer_studio_workflow.json
-    3. Fallback to http://192.168.1.174:1234/v1
+    1. Node 3 in yue2_full_producer_studio_workflow.json (Source of truth configured in Architect View)
+    2. src/ai_studio/ai_config.yaml (Atlas AI Studio configuration)
+    3. Fallback to http://localhost:1234/v1
     """
-    # 1. Check ai_config.yaml
+    # 1. Check base workflow JSON (saved by Architect View)
+    try:
+        wf = _load_base_workflow()
+        node3 = wf.get("3", {}).get("inputs", {})
+        if node3.get("model") or node3.get("base_url"):
+            return {
+                "provider": node3.get("provider", "LMStudio"),
+                "model": node3.get("model", "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp"),
+                "base_url": (node3.get("base_url") or "http://localhost:1234/v1").rstrip("/")
+            }
+    except Exception as e:
+        logger.warning(f"Could not read base workflow for LM Studio config: {e}")
+
+    # 2. Check ai_config.yaml
     try:
         config_path = os.path.join(Config.AI_STUDIO_DIR, "ai_config.yaml")
         if os.path.exists(config_path):
@@ -243,32 +256,19 @@ def _get_lmstudio_config() -> Dict[str, Any]:
                 data = yaml.safe_load(f) or {}
                 providers = data.get("providers", {})
                 lm = providers.get("lmstudio", {})
-                if lm.get("base_url"):
+                if lm.get("base_url") or lm.get("model"):
                     return {
                         "provider": "LMStudio",
-                        "model": lm.get("model") or "gemma-4-e4b-it",
-                        "base_url": lm.get("base_url").rstrip("/")
+                        "model": lm.get("model") or "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp",
+                        "base_url": (lm.get("base_url") or "http://localhost:1234/v1").rstrip("/")
                     }
     except Exception as e:
         logger.warning(f"Could not read ai_config.yaml for music studio: {e}")
 
-    # 2. Check workflow JSON
-    try:
-        wf = _load_base_workflow()
-        node3 = wf.get("3", {}).get("inputs", {})
-        if node3.get("base_url"):
-            return {
-                "provider": node3.get("provider", "LMStudio"),
-                "model": node3.get("model", "gemma-4-e4b-it"),
-                "base_url": node3.get("base_url").rstrip("/")
-            }
-    except Exception as e:
-        logger.warning(f"Could not read base workflow for LM Studio config: {e}")
-
     return {
         "provider": "LMStudio",
-        "model": "gemma-4-e4b-it",
-        "base_url": "http://192.168.1.174:1234/v1"
+        "model": "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp",
+        "base_url": "http://localhost:1234/v1"
     }
 
 
@@ -280,7 +280,7 @@ async def _check_lmstudio_reachability(base_url: Optional[str] = None) -> tuple[
     candidates = []
     if base_url:
         candidates.append(base_url.rstrip("/"))
-    for fb in ["http://192.168.1.174:1234/v1", "http://127.0.0.1:1234/v1", "http://localhost:1234/v1"]:
+    for fb in ["http://localhost:1234/v1", "http://127.0.0.1:1234/v1", "http://192.168.1.174:1234/v1"]:
         if fb not in candidates:
             candidates.append(fb)
 
@@ -293,7 +293,7 @@ async def _check_lmstudio_reachability(base_url: Optional[str] = None) -> tuple[
                         return True, host
         except Exception:
             pass
-    return False, base_url or "http://192.168.1.174:1234/v1"
+    return False, base_url or "http://localhost:1234/v1"
 
 
 async def _fetch_live_models(provider: str = "LMStudio", base_url: Optional[str] = None, api_key: str = "") -> tuple[list[str], bool, str]:
@@ -462,7 +462,10 @@ async def get_live_models(provider: str = "LMStudio", base_url: Optional[str] = 
     lm_cfg = _get_lmstudio_config()
     target_base = base_url or lm_cfg["base_url"]
     models, is_live, working_base = await _fetch_live_models(provider=provider, base_url=target_base, api_key=api_key or "")
-    active_model = models[0] if models else "gemma-4-e4b-it"
+    if lm_cfg.get("model") and lm_cfg["model"] in models:
+        active_model = lm_cfg["model"]
+    else:
+        active_model = models[0] if models else lm_cfg.get("model", "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp")
     return {
         "status": "ok",
         "provider": provider,
@@ -538,7 +541,12 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         model = req.model
         if not model:
             live_mods, is_live, _ = await _fetch_live_models(provider, base_url, api_key)
-            model = live_mods[0] if (is_live and live_mods) else lm_cfg["model"]
+            if lm_cfg.get("model") and is_live and (lm_cfg["model"] in live_mods):
+                model = lm_cfg["model"]
+            elif is_live and live_mods:
+                model = live_mods[0]
+            else:
+                model = lm_cfg.get("model") or "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp"
 
         # Pre-flight check for LM Studio
         if provider == "LMStudio":
@@ -831,7 +839,12 @@ async def revise_lyrics(req: ReviseLyricsRequest):
     model = req.model
     if not model:
         live_mods, is_live, _ = await _fetch_live_models(provider, base_url, api_key)
-        model = live_mods[0] if (is_live and live_mods) else lm_cfg["model"]
+        if lm_cfg.get("model") and is_live and (lm_cfg["model"] in live_mods):
+            model = lm_cfg["model"]
+        elif is_live and live_mods:
+            model = live_mods[0]
+        else:
+            model = lm_cfg.get("model") or "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp"
 
     if current_lyrics:
         user_prompt = (

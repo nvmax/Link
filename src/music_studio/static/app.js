@@ -338,13 +338,18 @@
   });
 
   // --- Tag Insertion in Lyrics Editor ---
-  tagButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tag = btn.dataset.tag;
-      insertTextAtCursor(editorLyrics, `\n${tag}\n`);
-      updateCharCount();
+  const tagButtons = document.querySelectorAll('.tag-btn, .tag-chip');
+  if (tagButtons && tagButtons.length > 0) {
+    tagButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tag = btn.dataset.tag;
+        if (tag) {
+          insertTextAtCursor(editorLyrics, `\n${tag}\n`);
+          updateCharCount();
+        }
+      });
     });
-  });
+  }
 
   function insertTextAtCursor(textarea, textToInsert) {
     const startPos = textarea.selectionStart;
@@ -543,17 +548,17 @@
     const payload = {
       token: sessionToken,
       song_title: songTitleVal,
-      genre_preset: selectGenre.value,
-      vocal_profile: selectVocal.value,
-      bpm: parseInt(bpmSlider.value),
-      intro_style: selectIntro.value,
-      custom_style: inputCustomStyle.value,
-      lyrics: editorLyrics.value,
+      genre_preset: selectGenre ? selectGenre.value : "Custom / Keep Only Lyrics",
+      vocal_profile: selectVocal ? selectVocal.value : "Warm Smooth Baritone (Male)",
+      bpm: parseInt(bpmSlider ? bpmSlider.value : 120),
+      intro_style: selectIntro ? selectIntro.value : "None",
+      custom_style: inputCustomStyle ? inputCustomStyle.value : "",
+      lyrics: editorLyrics ? editorLyrics.value : "",
       action: "Generate Full Song Concept",
       direct_lyrics: true,
       seed: seedVal,
       cot: selectCot ? selectCot.value : "full",
-      ode_steps: parseInt(selectOdeSteps.value) || 32
+      ode_steps: parseInt(selectOdeSteps ? selectOdeSteps.value : 32) || 32
     };
 
     showProgressModal(
