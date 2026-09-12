@@ -139,6 +139,20 @@ VOCAL_PROFILES = [
 INTRO_STYLES = [
     "None",
     "Instrumental Intro",
+    "Vamp / Groove Intro",
+    "Vocal/Lyrical Hook Intro",
+    "Vocal / Lyrical Hook Intro",
+    "Turnaround Intro",
+    "Stand-Alone Instrumental",
+    'The "Cold Start" (No Intro / Attacca)',
+    "Acapella Intro",
+    "Drone / Ambient Pad Intro",
+    "Solo Instrument Feature",
+    "Drum / Percussion Groove",
+    "Count-In / Dialogue Intro",
+    "SFX / Found Sound Intro",
+    "Modulating Intro",
+    "Crescendo / Fade-In Intro",
     "Ambient Nature Intro",
     "Immediate Vocal Entry (No Intro)"
 ]
@@ -495,11 +509,37 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         if not generated_lyrics:
             raise HTTPException(status_code=504, detail="Timed out waiting for lyrics generation to complete.")
 
+        # Extract suggested song title from Node 3 or lyrics structure tags
+        suggested_title = ""
+        if "3" in outputs:
+            node3_out = outputs["3"]
+            if "title" in node3_out and node3_out["title"]:
+                t_cand = str(node3_out["title"][0]).strip()
+                if t_cand and t_cand not in ["Generated Track", "Polished Track"]:
+                    suggested_title = t_cand
+
+        if not suggested_title and generated_lyrics:
+            m_tag = re.search(r'\[(?:Title|Song|Track):\s*([^\]\n\r]+)\]', generated_lyrics, re.IGNORECASE)
+            if m_tag and m_tag.group(1).strip():
+                suggested_title = m_tag.group(1).strip()
+
+        if not suggested_title and generated_lyrics:
+            m_hook = re.search(r'\[(?:Hook|Chorus)[^\]]*\]\s*(?:\[[^\]]*\]\s*)*([^\n\r]+)', generated_lyrics, re.IGNORECASE)
+            if m_hook:
+                raw_hook = m_hook.group(1).strip()
+                raw_hook = re.sub(r'^[!\'"\(\)]+|[!\'"\(\)]+$', '', raw_hook).strip()
+                words = raw_hook.split()
+                if 1 <= len(words) <= 5:
+                    suggested_title = " ".join(words)
+                elif len(words) > 5:
+                    suggested_title = " ".join(words[:4])
+
         prompt_progress[prompt_id] = {
             "stage": "completed",
             "percent": 100,
             "status": "Lyrics generated successfully!",
-            "lyrics": generated_lyrics
+            "lyrics": generated_lyrics,
+            "suggested_title": suggested_title
         }
 
         # Update session if token provided
@@ -508,6 +548,8 @@ async def generate_lyrics(req: GenerateLyricsRequest):
             if session:
                 if req.song_title:
                     session.song_title = req.song_title.strip()
+                elif suggested_title:
+                    session.song_title = suggested_title
                 session.lyrics = generated_lyrics
                 session.genre_preset = req.genre_preset
                 session.vocal_profile = req.vocal_profile
@@ -519,7 +561,8 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         return {
             "status": "success",
             "prompt_id": prompt_id,
-            "lyrics": generated_lyrics
+            "lyrics": generated_lyrics,
+            "suggested_title": suggested_title
         }
 
     except HTTPException:
@@ -527,6 +570,187 @@ async def generate_lyrics(req: GenerateLyricsRequest):
     except Exception as e:
         logger.error(f"Generate lyrics failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class ReviseLyricsRequest(BaseModel):
+    instruction: str
+    current_lyrics: str
+    song_title: Optional[str] = ""
+    genre_preset: Optional[str] = "Custom / Keep Only Lyrics"
+    vocal_profile: Optional[str] = "Warm Smooth Baritone (Male)"
+    bpm: Optional[int] = 120
+    custom_style: Optional[str] = ""
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    base_url: Optional[str] = None
+    api_key: Optional[str] = ""
+
+
+REVISION_SYS_PROMPT = """You are an elite AI Music Co-Producer and Lyricist in the LINK YuE2 Music Studio.
+The user wants to revise their song lyrics based on a specific instruction (e.g. "change verse 2 out for something different", "rewrite the hook", "add a bridge before chorus 3").
+
+════ CORE SURGICAL REVISION RULES ════
+1. SURGICAL MODIFICATION:
+   - If the user asks to modify a SPECIFIC section (e.g. "change verse 2", "rewrite verse 1", "punch up the chorus"), you MUST modify ONLY that requested section.
+   - All other sections, verses, choruses, and structure markers MUST remain 100% UNCHANGED and VERBATIM.
+   - If the user asks for a global change (e.g. "make the whole song punchier and darker", "rewrite all verses from a female perspective"), revise accordingly while maintaining standard YuE2 song architecture.
+
+2. PRESERVE TECHNICAL YUE2 FORMATTING:
+   - Maintain all bracketed structural markers: [Verse 1], [Verse 2], [Pre-Chorus], [Chorus], [Bridge], [Outro], [Instrumental], [End].
+   - Preserve performance sub-tags when present: [Energy: ...], [Voice: ...], [Vocal: ...], [Tempo: XX BPM].
+   - Ensure the song concludes with [End] on its own separate line.
+
+3. SONG TITLE SUGGESTION:
+   - If the song title is not yet specified, suggest a punchy 1-4 word song title based on the hook/theme.
+
+════ RESPONSE FORMAT ════
+You MUST respond with a valid JSON object strictly matching this schema:
+{
+  "producer_note": "A friendly, concise 1-sentence explanation of what you changed (e.g., 'Rewrote Verse 2 with new introspective lyrics while preserving Verse 1 and the Chorus intact.')",
+  "suggested_title": "A punchy 1-4 word song title (or empty string if title is already well established)",
+  "revised_lyrics": "The complete, fully assembled song lyrics including the untouched sections and the revised section, ready to drop into the DAW editor."
+}
+IMPORTANT: Output ONLY the raw JSON object. No Markdown code fences, no extra text."""
+
+
+async def _query_llm_direct(provider: str, model: str, base_url: str, api_key: str, sys_prompt: str, user_prompt: str, temperature: float = 0.7, max_tokens: int = 4096) -> str:
+    p = (provider or "lmstudio").strip().lower()
+    
+    if p == "lmstudio":
+        lm_ok, working_base = await _check_lmstudio_reachability(base_url)
+        if lm_ok:
+            base_url = working_base
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"⚠️ LM Studio is not reachable at {base_url}. Please ensure LM Studio is running on that machine."
+            )
+        
+        endpoint = f"{base_url.rstrip('/')}/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+            
+        payload = {
+            "model": model or "gemma-4-e4b-it",
+            "messages": [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
+                if resp.status != 200:
+                    err = await resp.text()
+                    raise HTTPException(status_code=500, detail=f"LM Studio error ({resp.status}): {err}")
+                data = await resp.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    raise HTTPException(status_code=500, detail="Empty response from LM Studio")
+                return choices[0].get("message", {}).get("content", "")
+
+    elif p in ["google", "gemini"]:
+        gemini_key = api_key or os.getenv("GEMINI_API_KEY", "")
+        if not gemini_key:
+            raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
+        from google import genai
+        client = genai.Client(api_key=gemini_key)
+        full_content = f"{sys_prompt}\n\nUser Request:\n{user_prompt}"
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model or "gemini-2.5-flash",
+            contents=full_content
+        )
+        return response.text
+
+    elif p in ["openai", "custom"]:
+        endpoint = f"{base_url.rstrip('/')}/chat/completions"
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
+                if resp.status != 200:
+                    err = await resp.text()
+                    raise HTTPException(status_code=500, detail=f"LLM API error ({resp.status}): {err}")
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"]
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported LLM provider: {provider}")
+
+
+@router.post("/api/music/revise")
+async def revise_lyrics(req: ReviseLyricsRequest):
+    """
+    Surgically revises existing song lyrics according to user advice/instruction,
+    preserving non-targeted verses and sections verbatim.
+    """
+    if not req.instruction or not req.instruction.strip():
+        raise HTTPException(status_code=400, detail="Revision instruction cannot be empty.")
+    if not req.current_lyrics or not req.current_lyrics.strip():
+        raise HTTPException(status_code=400, detail="Current lyrics cannot be empty.")
+
+    lm_cfg = _get_lmstudio_config()
+    provider = req.provider or lm_cfg["provider"]
+    model = req.model or lm_cfg["model"]
+    base_url = req.base_url or lm_cfg["base_url"]
+    api_key = req.api_key or ""
+
+    user_prompt = (
+        f"════ MUSICAL CONTEXT ════\n"
+        f"Song Title: {req.song_title or '(Not set yet)'}\n"
+        f"Genre Preset: {req.genre_preset}\n"
+        f"Vocal Profile: {req.vocal_profile}\n"
+        f"Tempo: {req.bpm} BPM\n"
+        f"Style / Direction: {req.custom_style}\n\n"
+        f"════ CURRENT SONG LYRICS ════\n"
+        f"{req.current_lyrics}\n\n"
+        f"════ REVISION INSTRUCTION ════\n"
+        f"The user requests: \"{req.instruction.strip()}\"\n\n"
+        f"Execute this revision now. If the user specified a particular section (e.g. 'change verse 2'), "
+        f"modify ONLY that section and leave ALL other sections 100% UNTOUCHED and VERBATIM. Respond with raw JSON."
+    )
+
+    raw_resp = await _query_llm_direct(provider, model, base_url, api_key, REVISION_SYS_PROMPT, user_prompt)
+    
+    parsed = {}
+    try:
+        cleaned = re.sub(r'^```(?:json)?\s*', '', raw_resp.strip(), flags=re.MULTILINE)
+        cleaned = re.sub(r'\s*```$', '', cleaned.strip(), flags=re.MULTILINE)
+        parsed = json.loads(cleaned)
+    except Exception:
+        revised_match = re.search(r'"revised_lyrics"\s*:\s*"([^"]+)"', raw_resp, re.DOTALL)
+        note_match = re.search(r'"producer_note"\s*:\s*"([^"]+)"', raw_resp)
+        title_match = re.search(r'"suggested_title"\s*:\s*"([^"]+)"', raw_resp)
+        parsed = {
+            "revised_lyrics": revised_match.group(1).encode().decode('unicode_escape') if revised_match else raw_resp,
+            "producer_note": note_match.group(1) if note_match else "Lyrics revised according to your instructions.",
+            "suggested_title": title_match.group(1) if title_match else ""
+        }
+
+    revised_lyrics = parsed.get("revised_lyrics", req.current_lyrics)
+    producer_note = parsed.get("producer_note", "Lyrics updated!")
+    suggested_title = parsed.get("suggested_title", "")
+
+    if not revised_lyrics.rstrip().endswith("[End]"):
+        revised_lyrics = revised_lyrics.rstrip() + "\n\n[End]"
+
+    return {
+        "status": "success",
+        "revised_lyrics": revised_lyrics,
+        "producer_note": producer_note,
+        "suggested_title": suggested_title
+    }
 
 
 class GenerateSongRequest(BaseModel):

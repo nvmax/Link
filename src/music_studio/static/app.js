@@ -57,19 +57,12 @@
   const badgeLlm = document.getElementById('badge-llm');
   const statusLlmText = document.getElementById('status-llm-text');
 
-  // Player DOM
-  const nativeAudio = document.getElementById('native-audio');
-  const btnPlayPause = document.getElementById('btn-play-pause');
-  const playIcon = document.getElementById('play-icon');
-  const playerSeek = document.getElementById('player-seek');
-  const playerVol = document.getElementById('player-vol');
-  const playerTimeCurrent = document.getElementById('player-time-current');
-  const playerTimeTotal = document.getElementById('player-time-total');
-  const waveformCanvas = document.getElementById('waveform-canvas');
-  const playbackScrubber = document.getElementById('playback-scrubber');
-  const btnDownloadAudio = document.getElementById('btn-download-audio');
-  const btnCopyAudioLink = document.getElementById('btn-copy-audio-link');
-  const trackTitle = document.getElementById('track-title');
+  // AI Co-Producer Revision DOM
+  const revisionChatLog = document.getElementById('revision-chat-log');
+  const inputRevisionPrompt = document.getElementById('input-revision-prompt');
+  const btnSendRevision = document.getElementById('btn-send-revision');
+  const btnClearRevisionInput = document.getElementById('btn-clear-revision-input');
+  const revisionChips = document.querySelectorAll('.rev-chip');
 
   const toast = document.getElementById('toast');
   const toastMessage = document.getElementById('toast-message');
@@ -449,9 +442,20 @@
       tabNode14.click();
       if (checkDirectLyrics) checkDirectLyrics.checked = true;
 
+      // Smart Song Title Auto-Population (if not already set by user)
+      const titleInput = document.getElementById('input-song-title') || inputSongTitle;
+      if (titleInput && !titleInput.value.trim() && result.suggested_title) {
+        titleInput.value = result.suggested_title;
+        console.log("[YuE2 Studio] Auto-populated song title with:", result.suggested_title);
+      }
+
+      // Add AI Co-Producer notification to revision console
+      const activeTitle = (titleInput && titleInput.value.trim()) || "your track";
+      appendChatBubble('ai', `Generated song lyrics for "${activeTitle}"! What would you like to refine? You can ask me to change a specific verse, add sections, or adjust themes.`);
+
       setTimeout(() => {
         hideProgressModal();
-        showToast("✨ Lyrics generated! The editor is ready for 'Generate Final Song'.");
+        showToast("✨ Lyrics generated! The editor and AI Co-Producer are ready.");
       }, 700);
 
     } catch (e) {
@@ -535,21 +539,19 @@
 
         if (info.stage === "completed") {
           clearInterval(pollInterval);
-          updateProgressModal(100, "Master Audio Ready!", "Synthesized 24-bit studio MP3 output.");
+          updateProgressModal(100, "Master Audio Ready!", "Synthesized 24-bit studio MP3 output dispatched to Discord.");
           
           if (info.lyrics) {
             node14TextDisplay.textContent = info.lyrics;
             node14Badge.textContent = "Final";
           }
 
-          if (info.audio_url) {
-            const trackName = info.song_title || (inputSongTitle && inputSongTitle.value.trim()) || info.clean_title || "YuE2 Studio Master Track";
-            loadAudioTrack(info.audio_url, trackName, info.clean_title);
-          }
+          const trackName = info.song_title || (inputSongTitle && inputSongTitle.value.trim()) || "YuE2 Studio Master Track";
+          appendChatBubble('ai', `🎉 Master audio for "${trackName}" has been generated and delivered directly to your Discord channel!`);
 
           setTimeout(() => {
             hideProgressModal();
-            showToast("🚀 Master song generated and ready to play!");
+            showToast("🚀 Master song generated and delivered to Discord!");
           }, 800);
           return;
         }
@@ -576,143 +578,138 @@
   }
 
   // ==========================================================================
-  // MASTER AUDIO PLAYER & WAVEFORM VISUALIZER
+  // AI CO-PRODUCER LYRICS REVISION CHAT CONTROLLER
   // ==========================================================================
-  let currentDownloadFilename = "YuE2_Studio_Master_Track.mp3";
-
-  function loadAudioTrack(audioUrl, title = "Master Track", downloadName = null) {
-    currentAudioUrl = audioUrl;
-    trackTitle.textContent = title;
+  function appendChatBubble(role, text) {
+    if (!revisionChatLog) return;
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${role === 'user' ? 'user-bubble' : 'ai-bubble'}`;
     
-    if (downloadName) {
-      currentDownloadFilename = downloadName.endsWith('.mp3') ? downloadName : `${downloadName}.mp3`;
-    } else {
-      const sanitized = title.replace(/[^\w\s-]/g, '').trim().replace(/[-\s]+/g, '_');
-      currentDownloadFilename = `${sanitized || 'YuE2_Studio_Master_Track'}.mp3`;
-    }
-
-    nativeAudio.src = audioUrl;
-
-    btnPlayPause.disabled = false;
-    playerSeek.disabled = false;
-    btnDownloadAudio.disabled = false;
-    btnCopyAudioLink.disabled = false;
-
-    // Draw initial waveform
-    drawWaveformCanvas();
-
-    // Auto-play
-    nativeAudio.play().then(() => {
-      playIcon.textContent = "⏸";
-    }).catch(e => {
-      console.log("Autoplay prevented:", e);
-      playIcon.textContent = "▶";
-    });
+    const sender = document.createElement('span');
+    sender.className = 'bubble-sender';
+    sender.textContent = role === 'user' ? 'You' : 'AI Producer';
+    
+    const body = document.createElement('span');
+    body.className = 'bubble-text';
+    body.innerHTML = text.replace(/\n/g, '<br>');
+    
+    bubble.appendChild(sender);
+    bubble.appendChild(body);
+    revisionChatLog.appendChild(bubble);
+    revisionChatLog.scrollTop = revisionChatLog.scrollHeight;
   }
 
-  btnPlayPause.addEventListener('click', () => {
-    if (nativeAudio.paused) {
-      nativeAudio.play();
-      playIcon.textContent = "⏸";
-    } else {
-      nativeAudio.pause();
-      playIcon.textContent = "▶";
+  async function submitRevision(customInstruction = null) {
+    const text = (customInstruction || (inputRevisionPrompt ? inputRevisionPrompt.value : "")).trim();
+    if (!text) {
+      showToast("Please enter an instruction for the AI Producer.");
+      return;
     }
-  });
+    if (!editorLyrics || !editorLyrics.value.trim()) {
+      showToast("Please generate or write lyrics in the editor first.");
+      return;
+    }
 
-  nativeAudio.addEventListener('ended', () => {
-    playIcon.textContent = "▶";
-    playbackScrubber.style.left = "0%";
-    playerSeek.value = 0;
-  });
+    appendChatBubble('user', text);
+    if (inputRevisionPrompt) inputRevisionPrompt.value = "";
+    if (btnClearRevisionInput) btnClearRevisionInput.style.display = "none";
 
-  nativeAudio.addEventListener('timeupdate', () => {
-    if (!nativeAudio.duration) return;
-    const progress = (nativeAudio.currentTime / nativeAudio.duration) * 100;
-    playerSeek.value = progress;
-    playbackScrubber.style.left = `${progress}%`;
-    playerTimeCurrent.textContent = formatTime(nativeAudio.currentTime);
-  });
+    const origBtnText = btnSendRevision ? btnSendRevision.innerHTML : "";
+    if (btnSendRevision) {
+      btnSendRevision.disabled = true;
+      btnSendRevision.innerHTML = '<span class="btn-icon">⏳</span><span class="btn-text">Revising...</span>';
+    }
 
-  nativeAudio.addEventListener('loadedmetadata', () => {
-    playerTimeTotal.textContent = formatTime(nativeAudio.duration);
-    drawWaveformCanvas();
-  });
+    try {
+      const titleInput = document.getElementById('input-song-title') || inputSongTitle;
+      const payload = {
+        instruction: text,
+        current_lyrics: editorLyrics.value,
+        song_title: titleInput ? titleInput.value.trim() : "",
+        genre_preset: selectGenre.value,
+        vocal_profile: selectVocal.value,
+        bpm: parseInt(bpmSlider.value),
+        custom_style: inputCustomStyle.value
+      };
 
-  playerSeek.addEventListener('input', (e) => {
-    if (!nativeAudio.duration) return;
-    const targetTime = (e.target.value / 100) * nativeAudio.duration;
-    nativeAudio.currentTime = targetTime;
-  });
+      const res = await fetch('/api/music/revise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-  playerVol.addEventListener('input', (e) => {
-    nativeAudio.volume = parseFloat(e.target.value);
-  });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || "Revision request failed");
+      }
 
-  btnDownloadAudio.addEventListener('click', () => {
-    if (!currentAudioUrl) return;
-    const a = document.createElement('a');
-    a.href = currentAudioUrl;
-    a.download = currentDownloadFilename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  });
+      const data = await res.json();
+      if (data.revised_lyrics) {
+        editorLyrics.value = data.revised_lyrics;
+        updateCharCount();
+      }
 
-  btnCopyAudioLink.addEventListener('click', () => {
-    if (!currentAudioUrl) return;
-    const fullUrl = window.location.origin + currentAudioUrl;
-    navigator.clipboard.writeText(fullUrl).then(() => {
-      showToast("🔗 Audio link copied to clipboard!");
-    });
-  });
+      // Smart Song Title Auto-Population if currently empty
+      if (titleInput && !titleInput.value.trim() && data.suggested_title) {
+        titleInput.value = data.suggested_title;
+        showToast(`💡 Title suggested: "${data.suggested_title}"`);
+      }
 
-  // Waveform Canvas Rendering
-  function drawWaveformCanvas() {
-    const ctx = waveformCanvas.getContext('2d');
-    const width = waveformCanvas.parentElement.clientWidth;
-    const height = waveformCanvas.parentElement.clientHeight;
-    waveformCanvas.width = width;
-    waveformCanvas.height = height;
+      const note = data.producer_note || "Lyrics updated according to your instruction!";
+      appendChatBubble('ai', `✨ ${note}`);
+      showToast("✨ Lyrics updated in editor!");
 
-    ctx.clearRect(0, 0, width, height);
-
-    const bars = Math.floor(width / 4);
-    const grad = ctx.createLinearGradient(0, 0, 0, height);
-    grad.addColorStop(0, '#8b5cf6');
-    grad.addColorStop(0.5, '#06b6d4');
-    grad.addColorStop(1, '#3b82f6');
-
-    ctx.fillStyle = grad;
-
-    // Generate pseudo-waveform bars for sleek visual look
-    for (let i = 0; i < bars; i++) {
-      const x = i * 4;
-      const seed = Math.sin(i * 0.15) * Math.cos(i * 0.08);
-      const barHeight = Math.max(4, Math.abs(seed) * (height * 0.75));
-      const y = (height - barHeight) / 2;
-      ctx.fillRect(x, y, 2.5, barHeight);
+    } catch (err) {
+      console.error("Revision error:", err);
+      appendChatBubble('ai', `⚠️ Revision error: ${err.message}`);
+      showToast(`⚠️ Revision error: ${err.message}`);
+    } finally {
+      if (btnSendRevision) {
+        btnSendRevision.disabled = false;
+        btnSendRevision.innerHTML = origBtnText;
+      }
     }
   }
 
-  // Click on waveform canvas to seek
-  waveformCanvas.addEventListener('click', (e) => {
-    if (!nativeAudio.duration) return;
-    const rect = waveformCanvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percent = clickX / rect.width;
-    nativeAudio.currentTime = percent * nativeAudio.duration;
-  });
+  // Bind Quick Action Chips
+  if (revisionChips) {
+    revisionChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const prompt = chip.getAttribute('data-prompt');
+        if (prompt) {
+          if (inputRevisionPrompt) inputRevisionPrompt.value = prompt;
+          submitRevision(prompt);
+        }
+      });
+    });
+  }
 
-  window.addEventListener('resize', () => {
-    if (waveformCanvas) drawWaveformCanvas();
-  });
+  // Bind Send Button and Enter Key
+  if (btnSendRevision) {
+    btnSendRevision.addEventListener('click', () => submitRevision());
+  }
 
-  function formatTime(seconds) {
-    if (isNaN(seconds) || seconds < 0) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  if (inputRevisionPrompt) {
+    inputRevisionPrompt.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitRevision();
+      }
+    });
+
+    inputRevisionPrompt.addEventListener('input', () => {
+      if (btnClearRevisionInput) {
+        btnClearRevisionInput.style.display = inputRevisionPrompt.value ? 'block' : 'none';
+      }
+    });
+  }
+
+  if (btnClearRevisionInput) {
+    btnClearRevisionInput.addEventListener('click', () => {
+      if (inputRevisionPrompt) inputRevisionPrompt.value = '';
+      btnClearRevisionInput.style.display = 'none';
+      if (inputRevisionPrompt) inputRevisionPrompt.focus();
+    });
   }
 
   // Boot up studio

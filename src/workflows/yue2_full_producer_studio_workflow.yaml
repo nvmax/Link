@@ -107,6 +107,20 @@ inputs:
     label: Intro Style
     choices:
       - None
+      - Vamp / Groove Intro
+      - Vocal/Lyrical Hook Intro
+      - Vocal / Lyrical Hook Intro
+      - Turnaround Intro
+      - Stand-Alone Instrumental
+      - 'The "Cold Start" (No Intro / Attacca)'
+      - Acapella Intro
+      - Drone / Ambient Pad Intro
+      - Solo Instrument Feature
+      - Drum / Percussion Groove
+      - Count-In / Dialogue Intro
+      - SFX / Found Sound Intro
+      - Modulating Intro
+      - Crescendo / Fade-In Intro
       - Instrumental Intro
       - Ambient Nature Intro
       - Immediate Vocal Entry (No Intro)

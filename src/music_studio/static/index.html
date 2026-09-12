@@ -282,52 +282,60 @@
           </div>
         </div>
 
-        <!-- Master Audio Player Section (Node 6) -->
-        <div class="master-player-section" id="master-player-section">
-          <div class="player-top-row">
-            <div class="track-info">
-              <span class="track-badge">MASTER OUTPUT (NODE 6)</span>
-              <span class="track-name" id="track-title">YuE2 Studio Master Track</span>
+        <!-- AI Co-Producer Revision Console -->
+        <div class="coproducer-revision-section" id="coproducer-revision-section">
+          <div class="revision-header">
+            <div class="revision-title-group">
+              <span class="revision-icon">🤖</span>
+              <div class="revision-titles">
+                <span class="revision-title">AI Co-Producer Revision Console</span>
+                <span class="revision-sub">Give advice to surgically revise specific verses, polish rhymes, or update sections without touching the rest</span>
+              </div>
             </div>
-            <div class="player-metrics">
-              <span id="player-time-current">0:00</span> / <span id="player-time-total">0:00</span>
+            <div class="revision-status-badge" id="revision-status-badge">
+              <span class="indicator-dot online"></span>
+              <span>Ready</span>
             </div>
           </div>
 
-          <!-- Visual Waveform Canvas -->
-          <div class="waveform-container">
-            <canvas id="waveform-canvas"></canvas>
-            <div class="playback-scrubber" id="playback-scrubber"></div>
-          </div>
-
-          <!-- Player Controls Bar -->
-          <div class="player-controls-row">
-            <button id="btn-play-pause" class="player-btn btn-play" title="Play / Pause" disabled>
-              <span id="play-icon">▶</span>
-            </button>
-
-            <!-- Seek Slider -->
-            <input type="range" id="player-seek" class="player-seek-slider" min="0" max="100" value="0" step="0.1" disabled>
-
-            <!-- Volume -->
-            <div class="volume-container">
-              <span class="vol-icon">🔊</span>
-              <input type="range" id="player-vol" class="vol-slider" min="0" max="1" value="0.85" step="0.01">
+          <!-- Chat Conversation Log -->
+          <div class="revision-chat-log" id="revision-chat-log">
+            <div class="chat-bubble ai-bubble">
+              <span class="bubble-sender">AI Producer:</span>
+              <span class="bubble-text">I'm your co-producer. Once your lyrics are generated or typed, you can give me instructions below (e.g. <em>"Change verse 2 out for something different"</em>, <em>"Make the chorus punchier"</em>) and I will revise only that specific section while keeping the rest untouched.</span>
             </div>
-
-            <!-- Download Button -->
-            <button id="btn-download-audio" class="btn-player-action" title="Download Master MP3" disabled>
-              <span>⬇️ Download MP3</span>
-            </button>
-
-            <!-- Copy Link Button -->
-            <button id="btn-copy-audio-link" class="btn-player-action" title="Copy Audio URL" disabled>
-              <span>🔗 Link</span>
-            </button>
           </div>
 
-          <!-- Hidden Native Audio Element -->
-          <audio id="native-audio" preload="metadata"></audio>
+          <!-- Quick Action Revision Suggestion Chips -->
+          <div class="revision-chips-toolbar">
+            <span class="chips-label">Quick Actions:</span>
+            <div class="revision-chips" id="revision-chips">
+              <button class="rev-chip" data-prompt="Change verse 2 out for something different with fresh imagery">🔄 Rewrite Verse 2</button>
+              <button class="rev-chip" data-prompt="Rewrite verse 1 to be more punchy and setting the scene">🔄 Rewrite Verse 1</button>
+              <button class="rev-chip" data-prompt="Punch up the chorus with more anthemic, memorable hooks">⚡ Punch Up Chorus</button>
+              <button class="rev-chip" data-prompt="Add an emotional bridge section before the final chorus">➕ Add Bridge</button>
+              <button class="rev-chip" data-prompt="Change the outro to a dramatic dynamic fade matching the genre">🎭 Change Outro</button>
+              <button class="rev-chip" data-prompt="Suggest a creative, catchy 1-4 word song title based on these lyrics">💡 Suggest Title</button>
+            </div>
+          </div>
+
+          <!-- Revision Prompt Input Row -->
+          <div class="revision-input-row">
+            <div class="revision-input-wrapper">
+              <input 
+                type="text" 
+                id="input-revision-prompt" 
+                class="revision-text-input" 
+                placeholder="Give advice to LLM (e.g. 'Change verse 2 out for something different', 'Add acoustic guitar references')..." 
+                autocomplete="off"
+              >
+              <button id="btn-clear-revision-input" class="btn-clear-rev" title="Clear input" style="display: none;">✕</button>
+            </div>
+            <button id="btn-send-revision" class="btn btn-primary btn-revision-send" title="Send advice to LLM to revise lyrics">
+              <span class="btn-icon">✨</span>
+              <span class="btn-text">Revise Lyrics</span>
+            </button>
+          </div>
         </div>
       </section>
     </main>
