@@ -1,5 +1,6 @@
 import os
 import json
+import yaml
 import uuid
 import time
 import asyncio
@@ -154,6 +155,74 @@ def _load_base_workflow() -> Dict[str, Any]:
         return json.load(f)
 
 
+def _get_lmstudio_config() -> Dict[str, Any]:
+    """
+    Resolves LM Studio configuration dynamically:
+    1. src/ai_studio/ai_config.yaml (Atlas AI Studio configuration)
+    2. Node 3 in yue2_full_producer_studio_workflow.json
+    3. Fallback to http://192.168.1.174:1234/v1
+    """
+    # 1. Check ai_config.yaml
+    try:
+        config_path = os.path.join(Config.AI_STUDIO_DIR, "ai_config.yaml")
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+                providers = data.get("providers", {})
+                lm = providers.get("lmstudio", {})
+                if lm.get("base_url"):
+                    return {
+                        "provider": "LMStudio",
+                        "model": lm.get("model") or "gemma-4-e4b-it",
+                        "base_url": lm.get("base_url").rstrip("/")
+                    }
+    except Exception as e:
+        logger.warning(f"Could not read ai_config.yaml for music studio: {e}")
+
+    # 2. Check workflow JSON
+    try:
+        wf = _load_base_workflow()
+        node3 = wf.get("3", {}).get("inputs", {})
+        if node3.get("base_url"):
+            return {
+                "provider": node3.get("provider", "LMStudio"),
+                "model": node3.get("model", "gemma-4-e4b-it"),
+                "base_url": node3.get("base_url").rstrip("/")
+            }
+    except Exception as e:
+        logger.warning(f"Could not read base workflow for LM Studio config: {e}")
+
+    return {
+        "provider": "LMStudio",
+        "model": "gemma-4-e4b-it",
+        "base_url": "http://192.168.1.174:1234/v1"
+    }
+
+
+async def _check_lmstudio_reachability(base_url: Optional[str] = None) -> tuple[bool, str]:
+    """
+    Checks if LM Studio is reachable at base_url or known network/local endpoints.
+    Returns (is_reachable, working_base_url).
+    """
+    candidates = []
+    if base_url:
+        candidates.append(base_url.rstrip("/"))
+    for fb in ["http://192.168.1.174:1234/v1", "http://127.0.0.1:1234/v1", "http://localhost:1234/v1"]:
+        if fb not in candidates:
+            candidates.append(fb)
+
+    for host in candidates:
+        endpoint = f"{host}/models"
+        try:
+            async with aiohttp.ClientSession() as sess:
+                async with sess.get(endpoint, timeout=aiohttp.ClientTimeout(total=2)) as resp:
+                    if resp.status == 200:
+                        return True, host
+        except Exception:
+            pass
+    return False, base_url or "http://192.168.1.174:1234/v1"
+
+
 @router.get("/music", response_class=HTMLResponse)
 @router.get("/music/", response_class=HTMLResponse)
 async def serve_music_studio():
@@ -182,18 +251,16 @@ async def get_music_options():
     except Exception:
         pass
 
-    lmstudio_ok = False
-    try:
-        async with aiohttp.ClientSession() as sess:
-            async with sess.get("http://localhost:1234/v1/models", timeout=aiohttp.ClientTimeout(total=2)) as resp:
-                lmstudio_ok = (resp.status == 200)
-    except Exception:
-        pass
+    lm_cfg = _get_lmstudio_config()
+    lmstudio_ok, working_base = await _check_lmstudio_reachability(lm_cfg["base_url"])
 
     return {
         "status": "ok",
         "comfy_connected": comfy_ok,
         "lmstudio_connected": lmstudio_ok,
+        "lm_provider": lm_cfg["provider"],
+        "lm_model": lm_cfg["model"],
+        "lm_base_url": working_base if lmstudio_ok else lm_cfg["base_url"],
         "genre_presets": GENRE_PRESETS,
         "vocal_profiles": VOCAL_PROFILES,
         "intro_styles": INTRO_STYLES,
@@ -240,9 +307,9 @@ class GenerateLyricsRequest(BaseModel):
     custom_style: str = "Style of Bruno Mars song Risk It All"
     lyrics: str = ""
     action: str = "Generate Full Song Concept"
-    provider: Optional[str] = "LMStudio"
-    model: Optional[str] = "gemma-4-e4b-it"
-    base_url: Optional[str] = "http://127.0.0.1:1234/v1"
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    base_url: Optional[str] = None
     api_key: Optional[str] = ""
 
 
@@ -266,34 +333,25 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         wf["1"]["inputs"]["lyrics"] = req.lyrics if req.lyrics.strip() else DEFAULT_LYRICS
         
         # 2. Update Node 3 & Provider Settings
-        provider = req.provider or "LMStudio"
-        model = req.model or "gemma-4-e4b-it"
-        base_url = req.base_url or "http://127.0.0.1:1234/v1"
-        if "localhost" in base_url:
-            base_url = base_url.replace("localhost", "127.0.0.1")
+        lm_cfg = _get_lmstudio_config()
+        provider = req.provider or lm_cfg["provider"]
+        model = req.model or lm_cfg["model"]
+        base_url = req.base_url or lm_cfg["base_url"]
         api_key = req.api_key or ""
 
         # Pre-flight check for LM Studio
         if provider == "LMStudio":
-            lm_ok = False
-            for check_host in ["http://127.0.0.1:1234/v1/models", "http://localhost:1234/v1/models"]:
-                try:
-                    async with aiohttp.ClientSession() as sess:
-                        async with sess.get(check_host, timeout=aiohttp.ClientTimeout(total=2)) as resp:
-                            if resp.status == 200:
-                                lm_ok = True
-                                break
-                except Exception:
-                    pass
+            lm_ok, working_base = await _check_lmstudio_reachability(base_url)
             if not lm_ok:
                 raise HTTPException(
                     status_code=503,
                     detail=(
-                        "⚠️ LM Studio Local Server is NOT running or stopped! "
-                        "Please open LM Studio, load your model (e.g. gemma-4-e4b-it), "
-                        "click the Local Server tab (<-> icon on left toolbar), and click 'Start Server' on port 1234."
+                        f"⚠️ LM Studio server is NOT reachable at {base_url} (or port 1234)! "
+                        "Please verify LM Studio is running on that machine, your model is loaded, "
+                        "and the local server is started."
                     )
                 )
+            base_url = working_base
 
         if (provider in ["google", "gemini"]) and not api_key:
             api_key = os.getenv("GEMINI_API_KEY", "")
@@ -408,9 +466,9 @@ class GenerateSongRequest(BaseModel):
     direct_lyrics: bool = False
     seed: Optional[int] = None
     ode_steps: Optional[int] = 24
-    provider: Optional[str] = "LMStudio"
-    model: Optional[str] = "gemma-4-e4b-it"
-    base_url: Optional[str] = "http://127.0.0.1:1234/v1"
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    base_url: Optional[str] = None
     api_key: Optional[str] = ""
 
 
@@ -434,12 +492,26 @@ async def generate_song(req: GenerateSongRequest):
         wf["1"]["inputs"]["lyrics"] = lyrics_text
         
         # 2. Update Node 3 & Provider Settings
-        provider = req.provider or "LMStudio"
-        model = req.model or "gemma-4-e4b-it"
-        base_url = req.base_url or "http://127.0.0.1:1234/v1"
-        if "localhost" in base_url:
-            base_url = base_url.replace("localhost", "127.0.0.1")
+        lm_cfg = _get_lmstudio_config()
+        provider = req.provider or lm_cfg["provider"]
+        model = req.model or lm_cfg["model"]
+        base_url = req.base_url or lm_cfg["base_url"]
         api_key = req.api_key or ""
+
+        # If not direct lyrics, Node 3 will run; verify LM Studio if active
+        if not req.direct_lyrics and provider == "LMStudio":
+            lm_ok, working_base = await _check_lmstudio_reachability(base_url)
+            if not lm_ok:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        f"⚠️ LM Studio server is NOT reachable at {base_url} (or port 1234)! "
+                        "Please verify LM Studio is running on that machine, your model is loaded, "
+                        "and the local server is started."
+                    )
+                )
+            base_url = working_base
+
         if (provider in ["google", "gemini"]) and not api_key:
             api_key = os.getenv("GEMINI_API_KEY", "")
 

@@ -114,10 +114,12 @@
 
       if (data.lmstudio_connected) {
         badgeLlm.querySelector('.indicator-dot').className = 'indicator-dot online';
-        statusLlmText.textContent = "Online";
+        statusLlmText.textContent = data.lm_model ? `Online (${data.lm_model})` : "Online";
+        badgeLlm.title = `Connected to ${data.lm_base_url || 'LM Studio'}`;
       } else {
         badgeLlm.querySelector('.indicator-dot').className = 'indicator-dot offline';
         statusLlmText.textContent = "Offline";
+        badgeLlm.title = `Cannot reach LM Studio at ${data.lm_base_url || 'port 1234'}`;
       }
 
       // Populate Genres
