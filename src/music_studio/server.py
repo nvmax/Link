@@ -386,10 +386,27 @@ async def serve_music_studio():
     index_path = os.path.join(STATIC_DIR, "index.html")
     if not os.path.exists(index_path):
         raise HTTPException(status_code=404, detail="Music Studio HTML template not found.")
-    return FileResponse(
-        index_path,
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
-    )
+    try:
+        async with aiofiles.open(index_path, "r", encoding="utf-8") as f:
+            html_content = await f.read()
+        cache_buster = int(time.time())
+        # Dynamically append timestamp cache-buster to completely defeat CDN/Cloudflare caching
+        html_content = re.sub(r'app\.js(\?v=[^"\'\s>]*)?', f'app.js?v={cache_buster}', html_content)
+        html_content = re.sub(r'style\.css(\?v=[^"\'\s>]*)?', f'style.css?v={cache_buster}', html_content)
+        return HTMLResponse(
+            content=html_content,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error serving dynamic music studio template: {e}")
+        return FileResponse(
+            index_path,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+        )
 
 
 @router.get("/music/static/{filename:path}")
@@ -399,7 +416,7 @@ async def serve_music_static(filename: str):
         raise HTTPException(status_code=404, detail=f"Static file '{filename}' not found.")
     return FileResponse(
         file_path,
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0"}
     )
 
 
@@ -411,7 +428,7 @@ async def get_music_options():
     async def check_comfy():
         try:
             async with aiohttp.ClientSession() as sess:
-                async with sess.get(f"{Config.COMFY_URL}/system_stats", timeout=aiohttp.ClientTimeout(total=0.4)) as resp:
+                async with sess.get(f"{Config.COMFY_URL}/system_stats", timeout=aiohttp.ClientTimeout(total=2.0)) as resp:
                     return resp.status == 200
         except Exception:
             return False
@@ -420,7 +437,7 @@ async def get_music_options():
         try:
             target_url = lm_cfg.get("base_url", "http://192.168.1.174:1234/v1").rstrip("/")
             async with aiohttp.ClientSession() as sess:
-                async with sess.get(f"{target_url}/models", timeout=aiohttp.ClientTimeout(total=0.4)) as resp:
+                async with sess.get(f"{target_url}/models", timeout=aiohttp.ClientTimeout(total=2.0)) as resp:
                     return resp.status == 200
         except Exception:
             return False

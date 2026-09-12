@@ -184,7 +184,6 @@
         });
       });
     }
-
     try {
       const res = await fetch('/api/music/options');
       if (!res.ok) throw new Error("Failed to load options");
@@ -192,22 +191,26 @@
 
       // Update monitor badges
       if (badgeComfy && statusComfyText) {
+        const dot = badgeComfy.querySelector('.indicator-dot');
         if (data.comfy_connected) {
-          badgeComfy.querySelector('.indicator-dot').className = 'indicator-dot online';
+          if (dot) dot.className = 'indicator-dot online';
           statusComfyText.textContent = "Online";
+          badgeComfy.title = "ComfyUI is reachable and ready";
         } else {
-          badgeComfy.querySelector('.indicator-dot').className = 'indicator-dot offline';
+          if (dot) dot.className = 'indicator-dot offline';
           statusComfyText.textContent = "Offline";
+          badgeComfy.title = "Cannot reach ComfyUI";
         }
       }
 
       if (badgeLlm && statusLlmText) {
+        const dot = badgeLlm.querySelector('.indicator-dot');
         if (data.lmstudio_connected) {
-          badgeLlm.querySelector('.indicator-dot').className = 'indicator-dot online';
+          if (dot) dot.className = 'indicator-dot online';
           statusLlmText.textContent = data.lm_model ? `Online (${data.lm_model})` : "Online";
           badgeLlm.title = `Connected to ${data.lm_base_url || 'LM Studio'}`;
         } else {
-          badgeLlm.querySelector('.indicator-dot').className = 'indicator-dot offline';
+          if (dot) dot.className = 'indicator-dot offline';
           statusLlmText.textContent = "Offline";
           badgeLlm.title = `Cannot reach LM Studio at ${data.lm_base_url || 'port 1234'}`;
         }
@@ -215,13 +218,13 @@
 
       // Sync Presets from backend
       if (data.genre_presets && data.genre_presets.length > 0) {
-        populateSelect(selectGenre, data.genre_presets, selectGenre.value || data.default_genre);
+        populateSelect(selectGenre, data.genre_presets, selectGenre ? selectGenre.value : data.default_genre);
       }
       if (data.vocal_profiles && data.vocal_profiles.length > 0) {
-        populateSelect(selectVocal, data.vocal_profiles, selectVocal.value || data.default_vocal);
+        populateSelect(selectVocal, data.vocal_profiles, selectVocal ? selectVocal.value : data.default_vocal);
       }
       if (data.intro_styles && data.intro_styles.length > 0) {
-        populateSelect(selectIntro, data.intro_styles, selectIntro.value || data.default_intro);
+        populateSelect(selectIntro, data.intro_styles, selectIntro ? selectIntro.value : data.default_intro);
       }
       setupQuickChips(FEATURED_CHIPS, selectGenre ? selectGenre.value : (data.default_genre || "Custom / Keep Only Lyrics"));
 
@@ -238,36 +241,79 @@
         updateCharCount();
       }
 
-      // Check for Discord Session
-      if (sessionToken) {
-        loadDiscordSession(sessionToken);
-      }
-
     } catch (e) {
       console.warn("Init studio options fetch warning:", e);
-      // Even if fetch fails or network delays, UI presets are 100% functional via fallbacks!
-      if (editorLyrics && !editorLyrics.value) {
-        editorLyrics.value = "";
-        updateCharCount();
+      if (badgeComfy && statusComfyText) {
+        const dot = badgeComfy.querySelector('.indicator-dot');
+        if (dot) dot.className = 'indicator-dot offline';
+        statusComfyText.textContent = "Offline";
+      }
+      if (badgeLlm && statusLlmText) {
+        const dot = badgeLlm.querySelector('.indicator-dot');
+        if (dot) dot.className = 'indicator-dot offline';
+        statusLlmText.textContent = "Offline";
+      }
+    } finally {
+      // Check for Discord Session always, even if options fetch warned
+      if (sessionToken) {
+        loadDiscordSession(sessionToken);
       }
     }
   }
 
+  // Periodic status poller to keep monitor badges dynamic (every 12 seconds)
+  setInterval(async () => {
+    try {
+      const res = await fetch('/api/music/options');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (badgeComfy && statusComfyText) {
+        const dot = badgeComfy.querySelector('.indicator-dot');
+        if (data.comfy_connected) {
+          if (dot) dot.className = 'indicator-dot online';
+          statusComfyText.textContent = "Online";
+        } else {
+          if (dot) dot.className = 'indicator-dot offline';
+          statusComfyText.textContent = "Offline";
+        }
+      }
+      if (badgeLlm && statusLlmText) {
+        const dot = badgeLlm.querySelector('.indicator-dot');
+        if (data.lmstudio_connected) {
+          if (dot) dot.className = 'indicator-dot online';
+          statusLlmText.textContent = data.lm_model ? `Online (${data.lm_model})` : "Online";
+        } else {
+          if (dot) dot.className = 'indicator-dot offline';
+          statusLlmText.textContent = "Offline";
+        }
+      }
+    } catch (_) {}
+  }, 12000);
+
+  // --- Load Session From Discord Interaction ---
   async function loadDiscordSession(token) {
     try {
       const res = await fetch(`/api/music/session/${token}`);
-      if (res.ok) {
-        const s = await res.json();
-        if (s.song_title && inputSongTitle) inputSongTitle.value = s.song_title;
-        if (s.genre_preset) selectGenre.value = s.genre_preset;
-        if (s.vocal_profile) selectVocal.value = s.vocal_profile;
-        if (s.bpm) {
-          bpmSlider.value = s.bpm;
-          bpmVal.textContent = s.bpm;
+      if (!res.ok) return;
+      const s = await res.json();
+      if (s && s.token) {
+        const titleInput = document.getElementById('input-song-title') || inputSongTitle;
+        if (s.song_title && titleInput) {
+          titleInput.value = s.song_title;
         }
-        if (s.intro_style) selectIntro.value = s.intro_style;
-        if (s.custom_style) inputCustomStyle.value = s.custom_style;
-        if (s.lyrics) editorLyrics.value = s.lyrics;
+        if (s.genre_preset && selectGenre) {
+          selectGenre.value = s.genre_preset;
+          setupQuickChips(FEATURED_CHIPS, s.genre_preset);
+        }
+        if (s.vocal_profile && selectVocal) selectVocal.value = s.vocal_profile;
+        if (s.intro_style && selectIntro) selectIntro.value = s.intro_style;
+        if (s.bpm && bpmSlider) {
+          bpmSlider.value = s.bpm;
+          if (bpmVal) bpmVal.textContent = s.bpm;
+          updateActiveTempoChip(s.bpm);
+        }
+        if (s.custom_style && inputCustomStyle) inputCustomStyle.value = s.custom_style;
+        if (s.lyrics && editorLyrics) editorLyrics.value = s.lyrics;
         updateCharCount();
         showToast(`Loaded Discord session for ${s.user_name || 'User'}`);
         if (s.audio_url) {
@@ -280,62 +326,75 @@
   }
 
   // --- Tempo / BPM Controls ---
-  bpmSlider.addEventListener('input', (e) => {
-    bpmVal.textContent = e.target.value;
-    updateActiveTempoChip(parseInt(e.target.value));
-  });
-
-  tempoChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const val = parseInt(chip.dataset.bpm);
-      bpmSlider.value = val;
-      bpmVal.textContent = val;
-      updateActiveTempoChip(val);
-    });
-  });
-
-  function updateActiveTempoChip(val) {
-    tempoChips.forEach(c => {
-      if (parseInt(c.dataset.bpm) === val) c.classList.add('active');
-      else c.classList.remove('active');
+  if (bpmSlider) {
+    bpmSlider.addEventListener('input', (e) => {
+      if (bpmVal) bpmVal.textContent = e.target.value;
+      updateActiveTempoChip(parseInt(e.target.value));
     });
   }
 
-  // Tap Tempo
-  btnTapTempo.addEventListener('click', () => {
-    const now = Date.now();
-    tapTimestamps.push(now);
-    if (tapTimestamps.length > 5) tapTimestamps.shift();
+  if (tempoChips && tempoChips.length > 0) {
+    tempoChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const val = parseInt(chip.dataset.bpm);
+        if (bpmSlider) bpmSlider.value = val;
+        if (bpmVal) bpmVal.textContent = val;
+        updateActiveTempoChip(val);
+      });
+    });
+  }
 
-    if (tapTimestamps.length >= 2) {
-      const diffs = [];
-      for (let i = 1; i < tapTimestamps.length; i++) {
-        const diff = tapTimestamps[i] - tapTimestamps[i - 1];
-        if (diff > 2500) {
-          tapTimestamps = [now];
-          return;
-        }
-        diffs.push(diff);
-      }
-      const avgMs = diffs.reduce((a, b) => a + b, 0) / diffs.length;
-      let calculatedBpm = Math.round(60000 / avgMs);
-      calculatedBpm = Math.max(40, Math.min(240, calculatedBpm));
-      bpmSlider.value = calculatedBpm;
-      bpmVal.textContent = calculatedBpm;
-      updateActiveTempoChip(calculatedBpm);
+  function updateActiveTempoChip(val) {
+    if (tempoChips) {
+      tempoChips.forEach(c => {
+        if (parseInt(c.dataset.bpm) === val) c.classList.add('active');
+        else c.classList.remove('active');
+      });
     }
-  });
+  }
+
+  // Tap Tempo
+  if (btnTapTempo) {
+    btnTapTempo.addEventListener('click', () => {
+      const now = Date.now();
+      tapTimestamps.push(now);
+      if (tapTimestamps.length > 5) tapTimestamps.shift();
+
+      if (tapTimestamps.length >= 2) {
+        const diffs = [];
+        for (let i = 1; i < tapTimestamps.length; i++) {
+          const diff = tapTimestamps[i] - tapTimestamps[i - 1];
+          if (diff > 2500) {
+            tapTimestamps = [now];
+            return;
+          }
+          diffs.push(diff);
+        }
+        const avgMs = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+        let calculatedBpm = Math.round(60000 / avgMs);
+        calculatedBpm = Math.max(40, Math.min(240, calculatedBpm));
+        if (bpmSlider) bpmSlider.value = calculatedBpm;
+        if (bpmVal) bpmVal.textContent = calculatedBpm;
+        updateActiveTempoChip(calculatedBpm);
+      }
+    });
+  }
 
   // Advanced Drawer Toggle
-  btnToggleAdvanced.addEventListener('click', () => {
-    const isCollapsed = advancedDrawer.classList.contains('collapsed');
-    advancedDrawer.classList.toggle('collapsed');
-    btnToggleAdvanced.querySelector('.accordion-arrow').textContent = isCollapsed ? '▲' : '▼';
-  });
+  if (btnToggleAdvanced && advancedDrawer) {
+    btnToggleAdvanced.addEventListener('click', () => {
+      const isCollapsed = advancedDrawer.classList.contains('collapsed');
+      advancedDrawer.classList.toggle('collapsed');
+      const arrow = btnToggleAdvanced.querySelector('.accordion-arrow');
+      if (arrow) arrow.textContent = isCollapsed ? '▲' : '▼';
+    });
+  }
 
-  checkRandomSeed.addEventListener('change', (e) => {
-    seedInputRow.style.display = e.target.checked ? 'none' : 'flex';
-  });
+  if (checkRandomSeed && seedInputRow) {
+    checkRandomSeed.addEventListener('change', (e) => {
+      seedInputRow.style.display = e.target.checked ? 'none' : 'flex';
+    });
+  }
 
   // --- Tag Insertion in Lyrics Editor ---
   const tagButtons = document.querySelectorAll('.tag-btn, .tag-chip');
@@ -343,7 +402,7 @@
     tagButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const tag = btn.dataset.tag;
-        if (tag) {
+        if (tag && editorLyrics) {
           insertTextAtCursor(editorLyrics, `\n${tag}\n`);
           updateCharCount();
         }
@@ -352,103 +411,119 @@
   }
 
   function insertTextAtCursor(textarea, textToInsert) {
-    const startPos = textarea.selectionStart;
-    const endPos = textarea.selectionEnd;
-    const currentVal = textarea.value;
+    if (!textarea) return;
+    const startPos = textarea.selectionStart || 0;
+    const endPos = textarea.selectionEnd || 0;
+    const currentVal = textarea.value || '';
     textarea.value = currentVal.substring(0, startPos) + textToInsert + currentVal.substring(endPos);
     textarea.focus();
     textarea.selectionStart = textarea.selectionEnd = startPos + textToInsert.length;
   }
 
-  editorLyrics.addEventListener('input', updateCharCount);
+  if (editorLyrics) {
+    editorLyrics.addEventListener('input', updateCharCount);
+  }
 
-  btnCopyLyrics.addEventListener('click', () => {
-    if (!editorLyrics.value) return;
-    navigator.clipboard.writeText(editorLyrics.value).then(() => {
-      showToast("📋 Lyrics copied to clipboard!");
+  if (btnCopyLyrics) {
+    btnCopyLyrics.addEventListener('click', () => {
+      if (!editorLyrics || !editorLyrics.value) return;
+      navigator.clipboard.writeText(editorLyrics.value).then(() => {
+        showToast("📋 Lyrics copied to clipboard!");
+      });
     });
-  });
+  }
 
-  btnClearLyrics.addEventListener('click', () => {
-    if (confirm("Reset lyrics editor to default template?")) {
-      initStudio();
-    }
-  });
+  if (btnClearLyrics) {
+    btnClearLyrics.addEventListener('click', () => {
+      if (confirm("Reset lyrics editor to default template?")) {
+        initStudio();
+      }
+    });
+  }
 
   // --- Tab Switching (Editor vs Node 14) ---
-  tabLyrics.addEventListener('click', () => {
-    tabLyrics.classList.add('active');
-    tabNode14.classList.remove('active');
-    viewLyrics.classList.remove('hidden');
-    viewNode14.classList.add('hidden');
-  });
+  if (tabLyrics) {
+    tabLyrics.addEventListener('click', () => {
+      tabLyrics.classList.add('active');
+      if (tabNode14) tabNode14.classList.remove('active');
+      if (viewLyrics) viewLyrics.classList.remove('hidden');
+      if (viewNode14) viewNode14.classList.add('hidden');
+    });
+  }
 
-  tabNode14.addEventListener('click', () => {
-    tabNode14.classList.add('active');
-    tabLyrics.classList.remove('active');
-    viewNode14.classList.remove('hidden');
-    viewLyrics.classList.add('hidden');
-  });
+  if (tabNode14) {
+    tabNode14.addEventListener('click', () => {
+      tabNode14.classList.add('active');
+      if (tabLyrics) tabLyrics.classList.remove('active');
+      if (viewNode14) viewNode14.classList.remove('hidden');
+      if (viewLyrics) viewLyrics.classList.add('hidden');
+    });
+  }
 
-  btnApplyToEditor.addEventListener('click', () => {
-    const rawText = node14TextDisplay.textContent;
-    if (!rawText || rawText.startsWith("No lyrics generated")) {
-      showToast("No generated lyrics available to apply.");
-      return;
-    }
-    editorLyrics.value = rawText;
-    updateCharCount();
-    tabLyrics.click();
-    showToast("✍️ Applied Node 14 lyrics to editor!");
-  });
+  if (btnApplyToEditor) {
+    btnApplyToEditor.addEventListener('click', () => {
+      const rawText = node14TextDisplay ? node14TextDisplay.textContent : "";
+      if (!rawText || rawText.startsWith("No lyrics generated")) {
+        showToast("No generated lyrics available to apply.");
+        return;
+      }
+      if (editorLyrics) editorLyrics.value = rawText;
+      updateCharCount();
+      if (tabLyrics) tabLyrics.click();
+      showToast("✍️ Applied Node 14 lyrics to editor!");
+    });
+  }
 
   // --- Modal Progress Overlay Helpers ---
   function showProgressModal(title, desc) {
-    modalTitle.textContent = title;
-    modalDesc.textContent = desc;
-    progressFill.style.width = '10%';
-    progressStageText.textContent = "Initializing...";
-    progressPercentText.textContent = "10%";
-    btnDismissOverlay.classList.add('hidden');
-    progressOverlay.classList.remove('hidden');
-    btnGenerateLyrics.disabled = true;
-    btnGenerateSong.disabled = true;
+    if (modalTitle) modalTitle.textContent = title;
+    if (modalDesc) modalDesc.textContent = desc;
+    if (progressFill) progressFill.style.width = '10%';
+    if (progressStageText) progressStageText.textContent = "Initializing...";
+    if (progressPercentText) progressPercentText.textContent = "10%";
+    if (btnDismissOverlay) btnDismissOverlay.classList.add('hidden');
+    if (progressOverlay) progressOverlay.classList.remove('hidden');
+    if (btnGenerateLyrics) btnGenerateLyrics.disabled = true;
+    if (btnGenerateSong) btnGenerateSong.disabled = true;
   }
 
   function updateProgressModal(percent, stageText, desc) {
-    progressFill.style.width = `${percent}%`;
-    progressPercentText.textContent = `${percent}%`;
-    progressStageText.textContent = stageText;
-    if (desc) modalDesc.textContent = desc;
+    if (progressFill) progressFill.style.width = `${percent}%`;
+    if (progressPercentText) progressPercentText.textContent = `${percent}%`;
+    if (progressStageText) progressStageText.textContent = stageText;
+    if (desc && modalDesc) modalDesc.textContent = desc;
 
     // Step indicators matching 3-stage studio pipeline
     if (percent < 20) {
-      stepLlm.className = 'pipeline-step active';
-      stepSynth.className = 'pipeline-step';
-      stepExport.className = 'pipeline-step';
+      if (stepLlm) stepLlm.className = 'pipeline-step active';
+      if (stepSynth) stepSynth.className = 'pipeline-step';
+      if (stepExport) stepExport.className = 'pipeline-step';
     } else if (percent < 93) {
-      stepLlm.className = 'pipeline-step';
-      stepSynth.className = 'pipeline-step active';
-      stepExport.className = 'pipeline-step';
+      if (stepLlm) stepLlm.className = 'pipeline-step';
+      if (stepSynth) stepSynth.className = 'pipeline-step active';
+      if (stepExport) stepExport.className = 'pipeline-step';
     } else {
-      stepLlm.className = 'pipeline-step';
-      stepSynth.className = 'pipeline-step';
-      stepExport.className = 'pipeline-step active';
+      if (stepLlm) stepLlm.className = 'pipeline-step';
+      if (stepSynth) stepSynth.className = 'pipeline-step';
+      if (stepExport) stepExport.className = 'pipeline-step active';
     }
   }
 
   function hideProgressModal() {
-    progressOverlay.classList.add('hidden');
-    btnGenerateLyrics.disabled = false;
-    btnGenerateSong.disabled = false;
+    if (progressOverlay) progressOverlay.classList.add('hidden');
+    if (btnGenerateLyrics) btnGenerateLyrics.disabled = false;
+    if (btnGenerateSong) btnGenerateSong.disabled = false;
   }
 
-  btnDismissOverlay.addEventListener('click', hideProgressModal);
+  if (btnDismissOverlay) {
+    btnDismissOverlay.addEventListener('click', hideProgressModal);
+  }
 
   // ==========================================================================
   // BUTTON 1: ✨ GENERATE LYRICS ONLY (Disables Node 5)
   // ==========================================================================
-  btnGenerateLyrics.addEventListener('click', async () => {
+  if (btnGenerateLyrics) {
+    btnGenerateLyrics.addEventListener('click', async () => {
     const titleInput = document.getElementById('input-song-title') || inputSongTitle;
     const songTitleVal = titleInput ? titleInput.value.trim() : "";
     const payload = {
@@ -530,14 +605,15 @@
       alert(`Lyrics generation error: ${e.message}`);
       hideProgressModal();
     }
-  });
+    });
+  }
 
   // ==========================================================================
   // BUTTON 2: 🚀 GENERATE FINAL SONG (Runs Full Workflow)
   // ==========================================================================
   async function runSongGeneration() {
     let seedVal = null;
-    if (!checkRandomSeed.checked && inputSeed.value) {
+    if (checkRandomSeed && !checkRandomSeed.checked && inputSeed && inputSeed.value) {
       seedVal = parseInt(inputSeed.value);
     }
 
@@ -593,8 +669,12 @@
     }
   }
 
-  btnGenerateSong.addEventListener('click', runSongGeneration);
-  if (btnPushEditorSong) btnPushEditorSong.addEventListener('click', runSongGeneration);
+  if (btnGenerateSong) {
+    btnGenerateSong.addEventListener('click', runSongGeneration);
+  }
+  if (btnPushEditorSong) {
+    btnPushEditorSong.addEventListener('click', runSongGeneration);
+  }
 
   function pollSongProgress(promptId) {
     if (pollInterval) clearInterval(pollInterval);
