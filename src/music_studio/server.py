@@ -532,31 +532,176 @@ class GenerateLyricsRequest(BaseModel):
     api_key: Optional[str] = ""
 
 
+def _clean_and_parse_lyrics(raw_text: str, fallback_title: str = "") -> tuple[str, str]:
+    raw_text = (raw_text or "").strip()
+    clean_json_text = raw_text
+    # Strip markdown code blocks if present
+    if "```" in clean_json_text:
+        m_fence = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean_json_text, re.IGNORECASE)
+        if m_fence:
+            clean_json_text = m_fence.group(1).strip()
+        else:
+            clean_json_text = re.sub(r'^```[^\n]*\n|```$', '', clean_json_text).strip()
+
+    # Try parsing JSON
+    try:
+        data = json.loads(clean_json_text)
+        if isinstance(data, dict):
+            lyrics = data.get("lyrics", "") or data.get("song_lyrics", "") or ""
+            title = data.get("suggested_title", "") or data.get("title", "") or fallback_title
+            if lyrics.strip():
+                l_clean = lyrics.strip()
+                if not re.search(r'\[End\]\s*$', l_clean, re.IGNORECASE):
+                    l_clean = f"{l_clean}\n\n[End]"
+                return l_clean, title.strip()
+    except Exception:
+        pass
+
+    # If not valid JSON, treat raw_text as full lyrics
+    lyrics = raw_text
+    lyrics = re.sub(r'```[a-zA-Z]*\n|```', '', lyrics).strip()
+    title = fallback_title
+
+    # Extract title tag if present: [Title: ...] or # Title: ...
+    m_tag = re.search(r'(?:^|\n)\s*\[?(?:Title|Song|Track)\s*[:=]\s*([^\]\n\r]+)\]?', lyrics, re.IGNORECASE)
+    if m_tag and m_tag.group(1).strip():
+        title = m_tag.group(1).strip()
+        lyrics = re.sub(r'(?:^|\n)\s*\[?(?:Title|Song|Track)\s*[:=]\s*[^\]\n\r]+\]?\s*', '\n', lyrics, flags=re.IGNORECASE).strip()
+
+    # If title still empty, check hook/chorus for title
+    if not title:
+        m_hook = re.search(r'\[(?:Hook|Chorus)[^\]]*\]\s*(?:\[[^\]]*\]\s*)*([^\n\r]+)', lyrics, re.IGNORECASE)
+        if m_hook:
+            raw_hook = re.sub(r'^[!\'"\(\)]+|[!\'"\(\)]+$', '', m_hook.group(1).strip()).strip()
+            words = raw_hook.split()
+            if 1 <= len(words) <= 5:
+                title = " ".join(words)
+            elif len(words) > 5:
+                title = " ".join(words[:4])
+
+    # Ensure concludes with [End]
+    if not re.search(r'\[End\]\s*$', lyrics, re.IGNORECASE):
+        lyrics = f"{lyrics}\n\n[End]"
+
+    return lyrics.strip(), title.strip()
+
+
+async def _query_llm_direct(provider: str, model: str, base_url: str, api_key: str, sys_prompt: str, user_prompt: str, temperature: float = 0.7, max_tokens: int = 4096) -> str:
+    p = (provider or "lmstudio").strip().lower()
+    
+    if p == "lmstudio":
+        lm_ok, working_base = await _check_lmstudio_reachability(base_url)
+        if lm_ok:
+            base_url = working_base
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"⚠️ LM Studio is not reachable at {base_url}. Please ensure LM Studio is running on that machine."
+            )
+        
+        endpoint = f"{base_url.rstrip('/')}/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+            
+        payload = {
+            "model": model or "qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp",
+            "messages": [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
+                if resp.status != 200:
+                    err = await resp.text()
+                    raise HTTPException(status_code=500, detail=f"LM Studio error ({resp.status}): {err}")
+                data = await resp.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    raise HTTPException(status_code=500, detail="Empty response from LM Studio")
+                return choices[0].get("message", {}).get("content", "")
+
+    elif p in ["google", "gemini"]:
+        gemini_key = api_key or os.getenv("GEMINI_API_KEY", "")
+        if not gemini_key:
+            raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
+        from google import genai
+        client = genai.Client(api_key=gemini_key)
+        full_content = f"{sys_prompt}\n\nUser Request:\n{user_prompt}"
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model or "gemini-2.5-flash",
+            contents=full_content
+        )
+        return response.text
+
+    elif p in ["openai", "custom"]:
+        endpoint = f"{base_url.rstrip('/')}/chat/completions"
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
+                if resp.status != 200:
+                    err = await resp.text()
+                    raise HTTPException(status_code=500, detail=f"LLM API error ({resp.status}): {err}")
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"]
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported LLM provider: {provider}")
+
+
+YUE2_LYRICS_SYS_PROMPT = """You are an elite hit songwriter, topline producer, and lyricist specializing in the YuE2 Neural Music Generation format.
+Your task is to write complete, radio-ready song lyrics crafted for neural audio synthesis, including structural section headers and acoustic performance tags.
+
+════ ARCHITECTURE & FORMATTING RULES ════
+1. SECTION HEADERS:
+   - Use standard bracketed section markers: [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Verse 2], [Chorus], [Bridge], [Chorus], [Outro], [End].
+   - Every song MUST conclude with [End] on its own line.
+   - Include performance cue sub-tags inside brackets where appropriate: e.g. [Energy: High], [Vocal: Soulful belt], [Drums enter], [Acoustic piano only].
+
+2. RHYTHM & METER:
+   - Write lyrics that rhythmically groove at the requested BPM and genre.
+   - Use punchy, singable vowel sounds on chorus sustained notes.
+   - Ensure strong rhyme schemes with vivid, emotional sensory imagery.
+
+3. SMART SUGGESTED TITLE:
+   - Provide a catchy, punchy 1-5 word song title that captures the hook.
+
+════ OUTPUT REQUIREMENT ════
+Output a valid JSON object strictly matching this schema:
+{
+  "suggested_title": "Catchy Song Title",
+  "lyrics": "Full song lyrics with [Verse 1], [Chorus], etc., ending with [End]."
+}
+IMPORTANT: Output ONLY the raw JSON object. No Markdown code fences, no extra text."""
+
+
 @router.post("/api/music/lyrics")
 async def generate_lyrics(req: GenerateLyricsRequest):
     """
-    Executes the workflow to generate lyrics only.
-    Disables Node 5 (YuE2 Neural Song Generator) and Node 6 (Audio Saver).
-    Executes Node 1 (Style & Lyrics Studio), Node 3 (LLM Co-Producer), and Node 14 (Output Lyrics).
-    Extracts the generated lyrics from Node 14.
+    Generates structured YuE2 song lyrics directly via LLM (LM Studio / Gemini / OpenAI),
+    bypassing ComfyUI node validation limits so ANY loaded model can be used freely.
     """
     try:
-        wf = _load_base_workflow()
-        
-        # 1. Update Node 1
-        wf["1"]["inputs"]["genre_preset"] = req.genre_preset
-        wf["1"]["inputs"]["vocal_profile"] = req.vocal_profile
-        wf["1"]["inputs"]["bpm"] = int(req.bpm)
-        wf["1"]["inputs"]["intro_style"] = req.intro_style
-        wf["1"]["inputs"]["custom_style"] = req.custom_style
-        wf["1"]["inputs"]["lyrics"] = req.lyrics if req.lyrics.strip() else DEFAULT_LYRICS
-        
-        # 2. Update Node 3 & Provider Settings
+        # Resolve Provider & Model Settings
         lm_cfg = _get_lmstudio_config()
         provider = req.provider or lm_cfg["provider"]
         base_url = req.base_url or lm_cfg["base_url"]
         api_key = req.api_key or ""
         model = req.model
+
         if not model:
             live_mods, is_live, _ = await _fetch_live_models(provider, base_url, api_key)
             if lm_cfg.get("model") and is_live and (lm_cfg["model"] in live_mods):
@@ -583,102 +728,43 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         if (provider in ["google", "gemini"]) and not api_key:
             api_key = os.getenv("GEMINI_API_KEY", "")
 
-        wf["3"]["inputs"]["action"] = req.action
-        wf["3"]["inputs"]["provider"] = provider
-        wf["3"]["inputs"]["model"] = model
-        wf["3"]["inputs"]["base_url"] = base_url
-        wf["3"]["inputs"].pop("refresh_models_btn", None)
-        if api_key:
-            wf["3"]["inputs"]["api_key"] = api_key
-        
-        # 3. Lean prompt payload: ONLY Node 1, 3, 14
-        # Generator and audio saver nodes are omitted, completely disabling audio generation
-        # Ensure Node 14 outputs Node 3's LLM-generated lyrics
-        wf["14"]["inputs"]["text"] = ["3", 0]
-        if "text_0" in wf["14"]["inputs"]:
-            wf["14"]["inputs"].pop("text_0", None)
-        lyrics_prompt = {
-            "1": wf["1"],
-            "3": wf["3"],
-            "14": wf["14"]
-        }
-        
-        client_id = f"music_studio_{uuid.uuid4().hex[:8]}"
-        
-        # 4. Submit prompt to ComfyUI
-        async with aiohttp.ClientSession() as sess:
-            async with sess.post(
-                f"{Config.COMFY_URL}/prompt",
-                json={"prompt": lyrics_prompt, "client_id": client_id},
-                timeout=aiohttp.ClientTimeout(total=15)
-            ) as resp:
-                if resp.status != 200:
-                    err_text = await resp.text()
-                    raise HTTPException(status_code=500, detail=f"ComfyUI rejected prompt: {err_text}")
-                result = await resp.json()
-                prompt_id = result.get("prompt_id")
-                if not prompt_id:
-                    raise HTTPException(status_code=500, detail="No prompt_id returned by ComfyUI")
-        
-        logger.info(f"Queued lyrics generation prompt: {prompt_id}")
-        prompt_progress[prompt_id] = {
-            "stage": "co_producing_lyrics",
-            "percent": 25,
-            "status": "Co-producing lyrics with LLM...",
-            "started_at": time.time()
-        }
+        # Build prompt
+        prompt_lines = [
+            f"Genre / Style: {req.genre_preset}",
+            f"Vocal Profile: {req.vocal_profile}",
+            f"Tempo: {req.bpm} BPM",
+            f"Intro Style: {req.intro_style}",
+            f"Action: {req.action}"
+        ]
+        if req.custom_style:
+            prompt_lines.append(f"Acoustic Direction / Theme: {req.custom_style}")
+        if req.song_title:
+            prompt_lines.append(f"Song Title / Concept: {req.song_title}")
+        if req.lyrics and req.lyrics.strip() and req.lyrics.strip() != DEFAULT_LYRICS:
+            prompt_lines.append(f"Initial Lyrics / Concept Seed:\n{req.lyrics.strip()}")
+        else:
+            prompt_lines.append("Write a complete, emotionally powerful full song from scratch.")
 
-        # 5. Poll ComfyUI history for completion (timeout: 120s for LLM reasoning)
-        max_attempts = 120
-        generated_lyrics = ""
-        
-        for _ in range(max_attempts):
-            await asyncio.sleep(1.0)
-            async with aiohttp.ClientSession() as sess:
-                async with sess.get(f"{Config.COMFY_URL}/history/{prompt_id}", timeout=aiohttp.ClientTimeout(total=5)) as h_resp:
-                    if h_resp.status == 200:
-                        h_data = await h_resp.json()
-                        if prompt_id in h_data:
-                            prompt_entry = h_data[prompt_id]
-                            outputs = prompt_entry.get("outputs", {})
-                            if "14" in outputs:
-                                text_list = outputs["14"].get("text", [])
-                                if text_list:
-                                    generated_lyrics = text_list[0]
-                                    break
-                            # Check if status has error
-                            status_obj = prompt_entry.get("status", {})
-                            if status_obj.get("status_str") == "error":
-                                raise HTTPException(status_code=500, detail=f"ComfyUI execution error: {status_obj.get('messages', 'Unknown error')}")
+        user_prompt = "\n".join(prompt_lines)
+        logger.info(f"Generating lyrics via direct LLM: provider={provider}, model={model}, action={req.action}")
 
+        # Direct LLM generation
+        raw_output = await _query_llm_direct(
+            provider=provider,
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            sys_prompt=YUE2_LYRICS_SYS_PROMPT,
+            user_prompt=user_prompt,
+            temperature=0.75,
+            max_tokens=4096
+        )
+
+        generated_lyrics, suggested_title = _clean_and_parse_lyrics(raw_output, fallback_title=req.song_title or "")
         if not generated_lyrics:
-            raise HTTPException(status_code=504, detail="Timed out waiting for lyrics generation to complete.")
+            raise HTTPException(status_code=500, detail="LLM returned empty lyrics response.")
 
-        # Extract suggested song title from Node 3 or lyrics structure tags
-        suggested_title = ""
-        if "3" in outputs:
-            node3_out = outputs["3"]
-            if "title" in node3_out and node3_out["title"]:
-                t_cand = str(node3_out["title"][0]).strip()
-                if t_cand and t_cand not in ["Generated Track", "Polished Track"]:
-                    suggested_title = t_cand
-
-        if not suggested_title and generated_lyrics:
-            m_tag = re.search(r'\[(?:Title|Song|Track):\s*([^\]\n\r]+)\]', generated_lyrics, re.IGNORECASE)
-            if m_tag and m_tag.group(1).strip():
-                suggested_title = m_tag.group(1).strip()
-
-        if not suggested_title and generated_lyrics:
-            m_hook = re.search(r'\[(?:Hook|Chorus)[^\]]*\]\s*(?:\[[^\]]*\]\s*)*([^\n\r]+)', generated_lyrics, re.IGNORECASE)
-            if m_hook:
-                raw_hook = m_hook.group(1).strip()
-                raw_hook = re.sub(r'^[!\'"\(\)]+|[!\'"\(\)]+$', '', raw_hook).strip()
-                words = raw_hook.split()
-                if 1 <= len(words) <= 5:
-                    suggested_title = " ".join(words)
-                elif len(words) > 5:
-                    suggested_title = " ".join(words[:4])
-
+        prompt_id = f"lyrics_{uuid.uuid4().hex[:10]}"
         prompt_progress[prompt_id] = {
             "stage": "completed",
             "percent": 100,
@@ -760,82 +846,6 @@ You MUST respond with a valid JSON object strictly matching this schema:
   "revised_lyrics": "The complete, fully assembled song lyrics including the untouched sections and the revised section, ready to drop into the DAW editor."
 }
 IMPORTANT: Output ONLY the raw JSON object. No Markdown code fences, no extra text."""
-
-
-async def _query_llm_direct(provider: str, model: str, base_url: str, api_key: str, sys_prompt: str, user_prompt: str, temperature: float = 0.7, max_tokens: int = 4096) -> str:
-    p = (provider or "lmstudio").strip().lower()
-    
-    if p == "lmstudio":
-        lm_ok, working_base = await _check_lmstudio_reachability(base_url)
-        if lm_ok:
-            base_url = working_base
-        else:
-            raise HTTPException(
-                status_code=503,
-                detail=f"⚠️ LM Studio is not reachable at {base_url}. Please ensure LM Studio is running on that machine."
-            )
-        
-        endpoint = f"{base_url.rstrip('/')}/chat/completions"
-        headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-            
-        payload = {
-            "model": model or "gemma-4-e4b-it",
-            "messages": [
-                {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            "temperature": temperature,
-            "max_tokens": max_tokens
-        }
-        
-        async with aiohttp.ClientSession() as sess:
-            async with sess.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
-                if resp.status != 200:
-                    err = await resp.text()
-                    raise HTTPException(status_code=500, detail=f"LM Studio error ({resp.status}): {err}")
-                data = await resp.json()
-                choices = data.get("choices", [])
-                if not choices:
-                    raise HTTPException(status_code=500, detail="Empty response from LM Studio")
-                return choices[0].get("message", {}).get("content", "")
-
-    elif p in ["google", "gemini"]:
-        gemini_key = api_key or os.getenv("GEMINI_API_KEY", "")
-        if not gemini_key:
-            raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
-        from google import genai
-        client = genai.Client(api_key=gemini_key)
-        full_content = f"{sys_prompt}\n\nUser Request:\n{user_prompt}"
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model=model or "gemini-2.5-flash",
-            contents=full_content
-        )
-        return response.text
-
-    elif p in ["openai", "custom"]:
-        endpoint = f"{base_url.rstrip('/')}/chat/completions"
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-        payload = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            "temperature": temperature,
-            "max_tokens": max_tokens
-        }
-        async with aiohttp.ClientSession() as sess:
-            async with sess.post(endpoint, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
-                if resp.status != 200:
-                    err = await resp.text()
-                    raise HTTPException(status_code=500, detail=f"LLM API error ({resp.status}): {err}")
-                data = await resp.json()
-                return data["choices"][0]["message"]["content"]
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported LLM provider: {provider}")
 
 
 @router.post("/api/music/revise")
