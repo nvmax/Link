@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
+import { fetchLiveModelsInternal } from '../models/route';
 
 const workflowsDir = path.resolve(process.cwd(), '../src/workflows');
 
@@ -137,6 +138,68 @@ export async function POST(request: Request) {
       // If the loaded workflow is in UI (Full) format, convert it to API format on the fly
       if (workflowData && 'nodes' in workflowData && 'links' in workflowData) {
         workflowData = convertUiToApi(workflowData, objectInfo);
+      }
+
+      // Proactively enrich objectInfo with live LLM models if the workflow contains an LLM node
+      if (workflowData) {
+        let hasLlmNode = false;
+        let llmProvider = 'LMStudio';
+        let llmBaseUrl = '';
+
+        for (const n of Object.values(workflowData) as any[]) {
+          if (n?.class_type === 'YuE2LLMProducer' || (n?.inputs && 'provider' in n.inputs && 'model' in n.inputs)) {
+            hasLlmNode = true;
+            llmProvider = n.inputs?.provider || 'LMStudio';
+            llmBaseUrl = n.inputs?.base_url || '';
+            break;
+          }
+        }
+
+        if (hasLlmNode) {
+          try {
+            const liveResult = await fetchLiveModelsInternal(llmProvider, llmBaseUrl);
+            if (liveResult.models && liveResult.models.length > 0) {
+              if (!objectInfo) objectInfo = {};
+              if (!objectInfo.YuE2LLMProducer) {
+                objectInfo.YuE2LLMProducer = {
+                  input: {
+                    required: {
+                      action: [
+                        ["Generate Full Song Concept", "Polish & Arrange Lyrics", "Optimize Acoustic Style String"],
+                        { default: "Generate Full Song Concept" }
+                      ],
+                      provider: [
+                        ["LMStudio", "Ollama", "openai", "anthropic", "google", "grok", "deepseek", "openrouter"],
+                        { default: "LMStudio" }
+                      ],
+                      input_text: ["STRING", { multiline: true, default: "" }],
+                      model: [liveResult.models, { default: liveResult.models[0] || "gemma-4-e4b-it" }]
+                    },
+                    optional: {
+                      api_key: ["STRING", { default: "" }],
+                      custom_model: ["STRING", { default: "" }],
+                      base_url: ["STRING", { default: "" }],
+                      style_context: ["STRING", { default: "" }],
+                      bpm: ["INT", { default: 120, min: 40, max: 240 }],
+                      temperature: ["FLOAT", { default: 0.7, min: 0.0, max: 2.0 }],
+                      max_tokens: ["INT", { default: 4096, min: 256, max: 32768 }],
+                      cot_mode: [["full", "minimal", "off"], { default: "full" }]
+                    }
+                  },
+                  output: ["STRING", "STRING"],
+                  output_name: ["output_text", "lyrics"]
+                };
+              } else if (objectInfo.YuE2LLMProducer?.input?.required) {
+                objectInfo.YuE2LLMProducer.input.required.model = [
+                  liveResult.models,
+                  { default: liveResult.models[0] || "gemma-4-e4b-it" }
+                ];
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to enrich objectInfo with live LLM models:', err);
+          }
+        }
       }
       
       return NextResponse.json({ workflow: workflowData, manifest: manifestData, objectInfo });

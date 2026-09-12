@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Type, CheckSquare, Square } from 'lucide-react';
+import { Type, CheckSquare, Square, RefreshCw } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
 export function ListView() {
@@ -17,7 +17,9 @@ export function ListView() {
     loraFiles,
     loraSelections,
     setLoraSelections,
-    updateSelection
+    updateSelection,
+    liveModels,
+    refreshLiveModels
   } = useDashboard();
 
   const isDomainConfigured = Boolean(config?.INPAINT_SERVER_DOMAIN && config.INPAINT_SERVER_DOMAIN.trim() !== '');
@@ -74,19 +76,33 @@ export function ListView() {
                 const isSelected = selections.find(s => s.nodeId === id && s.field === key);
                 const inputType = typeof val === 'string' ? 'string' : 'number';
                 
+                const isLlmNode = node.class_type === 'YuE2LLMProducer' || Boolean(node.inputs && 'provider' in node.inputs && 'model' in node.inputs);
+                const isModelField = isLlmNode && key === 'model';
+                const nodeLiveInfo = liveModels?.[id];
+
                 const nodeInfo = objectInfo?.[node.class_type];
                 const inputInfo = nodeInfo?.input?.required?.[key] || nodeInfo?.input?.optional?.[key];
-                const isDropdown = Array.isArray(inputInfo) && (
+                let isDropdown = Array.isArray(inputInfo) && (
                   Array.isArray(inputInfo[0]) || 
                   (inputInfo[1] && typeof inputInfo[1] === 'object' && Array.isArray(inputInfo[1].options))
                 );
-                const rawOptions = isDropdown ? (Array.isArray(inputInfo[0]) ? inputInfo[0] : inputInfo[1].options) : [];
-                const options = rawOptions.map((opt: any) => {
+                if (isModelField) {
+                  isDropdown = true;
+                }
+                const rawOptions = isDropdown ? (Array.isArray(inputInfo?.[0]) ? inputInfo[0] : inputInfo?.[1]?.options) : [];
+                let options = (rawOptions || []).map((opt: any) => {
                   if (opt && typeof opt === 'object') {
                     return String(opt.key !== undefined ? opt.key : (opt.value !== undefined ? opt.value : (opt.name !== undefined ? opt.name : JSON.stringify(opt))));
                   }
                   return String(opt);
                 });
+
+                if (isModelField && nodeLiveInfo?.models && nodeLiveInfo.models.length > 0) {
+                  options = [...nodeLiveInfo.models];
+                  if (val && !options.includes(String(val))) {
+                    options = [String(val), ...options];
+                  }
+                }
 
                 return (
                   <div key={key} className={`flex flex-col p-4 rounded-2xl border transition-all ${isSelected ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-white/5 border-white/5 hover:bg-white/[0.07]'}`}>
@@ -205,6 +221,29 @@ export function ListView() {
                             />
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {isModelField && (
+                      <div className="flex items-center justify-between mb-2 px-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${nodeLiveInfo?.live ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-amber-400'}`} />
+                          <span className="text-[9px] font-bold text-slate-400">
+                            {nodeLiveInfo?.live 
+                              ? `${node.inputs?.provider || 'LMStudio'} (${options.length} models live)`
+                              : `${node.inputs?.provider || 'LMStudio'} (offline/cached)`}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); refreshLiveModels(id); }}
+                          disabled={nodeLiveInfo?.loading}
+                          className="flex items-center gap-1 text-[8px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 hover:bg-indigo-500/20 px-1.5 py-0.5 rounded border border-indigo-500/20"
+                          title="Sync models from server"
+                        >
+                          <RefreshCw className={`w-2.5 h-2.5 ${nodeLiveInfo?.loading ? 'animate-spin' : ''}`} />
+                          {nodeLiveInfo?.loading ? 'Syncing...' : 'Sync'}
+                        </button>
                       </div>
                     )}
 

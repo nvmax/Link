@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { Maximize2, CheckSquare, Square, Check, Layers, CheckCircle2, Trash2 } from 'lucide-react';
+import { Maximize2, CheckSquare, Square, Check, Layers, CheckCircle2, Trash2, RefreshCw } from 'lucide-react';
 import { useDashboard } from './DashboardProvider';
 
 const EMPTY_WORKFLOW = {};
@@ -21,7 +21,9 @@ export function VisualWorkflowMap() {
     updateSelection,
     updateLoraSelection,
     nodeCoords,
-    setNodeCoords
+    setNodeCoords,
+    liveModels,
+    refreshLiveModels
   } = useDashboard();
 
   const isDomainConfigured = Boolean(config?.INPAINT_SERVER_DOMAIN && config.INPAINT_SERVER_DOMAIN.trim() !== '');
@@ -493,19 +495,33 @@ export function VisualWorkflowMap() {
                           // Skip inputs that are connected to other nodes
                           if (Array.isArray(val)) return null;
 
+                          const isLlmNode = workflow[id].class_type === 'YuE2LLMProducer' || Boolean(workflow[id].inputs && 'provider' in workflow[id].inputs && 'model' in workflow[id].inputs);
+                          const isModelField = isLlmNode && key === 'model';
+                          const nodeLiveInfo = liveModels?.[id];
+
                           const nodeInfo = objectInfo?.[workflow[id].class_type];
                           const inputInfo = nodeInfo?.input?.required?.[key] || nodeInfo?.input?.optional?.[key];
-                          const isDropdown = Array.isArray(inputInfo) && (
+                          let isDropdown = Array.isArray(inputInfo) && (
                             Array.isArray(inputInfo[0]) || 
                             (inputInfo[1] && typeof inputInfo[1] === 'object' && Array.isArray(inputInfo[1].options))
                           );
-                          const rawOptions = isDropdown ? (Array.isArray(inputInfo[0]) ? inputInfo[0] : inputInfo[1].options) : [];
-                          const options = rawOptions.map((opt: any) => {
+                          if (isModelField) {
+                            isDropdown = true;
+                          }
+                          const rawOptions = isDropdown ? (Array.isArray(inputInfo?.[0]) ? inputInfo[0] : inputInfo?.[1]?.options) : [];
+                          let options = (rawOptions || []).map((opt: any) => {
                             if (opt && typeof opt === 'object') {
                               return String(opt.key !== undefined ? opt.key : (opt.value !== undefined ? opt.value : (opt.name !== undefined ? opt.name : JSON.stringify(opt))));
                             }
                             return String(opt);
                           });
+
+                          if (isModelField && nodeLiveInfo?.models && nodeLiveInfo.models.length > 0) {
+                            options = [...nodeLiveInfo.models];
+                            if (val && !options.includes(String(val))) {
+                              options = [String(val), ...options];
+                            }
+                          }
 
                           return (
                             <div key={key} className={`flex flex-col p-3 rounded-2xl border transition-all ${isSelected ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-black/20 border-white/5'}`}>
@@ -631,6 +647,30 @@ export function VisualWorkflowMap() {
                                       />
                                     </div>
                                   )}
+                                </div>
+                              )}
+
+                              {isModelField && (
+                                <div className="flex items-center justify-between mb-2 px-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${nodeLiveInfo?.live ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-amber-400'}`} />
+                                    <span className="text-[8px] font-bold text-slate-400 truncate max-w-[150px]">
+                                      {nodeLiveInfo?.live 
+                                        ? `${workflow[id].inputs?.provider || 'LMStudio'} (${options.length} live)`
+                                        : `${workflow[id].inputs?.provider || 'LMStudio'} (cached)`}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); refreshLiveModels(id); }}
+                                    disabled={nodeLiveInfo?.loading}
+                                    className="flex items-center gap-1 text-[7px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 hover:bg-indigo-500/20 px-1.5 py-0.5 rounded border border-indigo-500/20"
+                                    title="Sync models from server"
+                                  >
+                                    <RefreshCw className={`w-2 h-2 ${nodeLiveInfo?.loading ? 'animate-spin' : ''}`} />
+                                    {nodeLiveInfo?.loading ? 'Syncing...' : 'Sync'}
+                                  </button>
                                 </div>
                               )}
 

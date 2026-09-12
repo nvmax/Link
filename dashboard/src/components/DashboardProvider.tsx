@@ -103,6 +103,9 @@ interface DashboardContextType {
   setCustomCss: (css: string) => void;
   isThemeModalOpen: boolean;
   setIsThemeModalOpen: (open: boolean) => void;
+  liveModels: Record<string, { models: string[]; live: boolean; loading: boolean; provider: string }>;
+  fetchLiveModels: (nodeId: string, provider: string, baseUrl?: string, apiKey?: string) => Promise<string[]>;
+  refreshLiveModels: (nodeId: string) => Promise<string[]>;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -128,10 +131,15 @@ function inferDiscordType(
   field: string,
   objectInfo: any,
   existingType?: string,
-  nodeInputs?: any
+  nodeInputs?: any,
+  extraChoices?: string[]
 ): { type: string; choices?: any[] } {
   const classLower = (classType || '').toLowerCase();
   const fieldLower = (field || '').toLowerCase();
+
+  if (extraChoices && extraChoices.length > 0 && fieldLower === 'model') {
+    return { type: 'select', choices: extraChoices };
+  }
 
   // Special handling for CustomCombo nodes
   if (classLower === 'customcombo' && fieldLower === 'choice') {
@@ -455,6 +463,45 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [isDownloadingModels, setIsDownloadingModels] = useState(false);
   const [modelDownloadProgress, setModelDownloadProgress] = useState<Record<string, string>>({});
   const [modelDownloadStats, setModelDownloadStats] = useState<Record<string, any>>({});
+  const [liveModels, setLiveModels] = useState<Record<string, { models: string[]; live: boolean; loading: boolean; provider: string }>>({});
+
+  const fetchLiveModels = useCallback(async (nodeId: string, provider: string, baseUrl?: string, apiKey?: string): Promise<string[]> => {
+    const prov = (provider || 'LMStudio').trim();
+    setLiveModels(prev => ({
+      ...prev,
+      [nodeId]: { ...(prev[nodeId] || { models: [] }), loading: true, provider: prov, live: prev[nodeId]?.live || false }
+    }));
+    try {
+      const res = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: prov, baseUrl, apiKey })
+      });
+      const data = await res.json();
+      const models = Array.isArray(data.models) && data.models.length > 0 ? data.models : [];
+      setLiveModels(prev => ({
+        ...prev,
+        [nodeId]: { models, live: Boolean(data.live), loading: false, provider: prov }
+      }));
+      return models;
+    } catch (err) {
+      console.warn('[fetchLiveModels] error:', err);
+      setLiveModels(prev => ({
+        ...prev,
+        [nodeId]: { ...(prev[nodeId] || { models: [] }), loading: false, live: false, provider: prov }
+      }));
+      return [];
+    }
+  }, []);
+
+  const refreshLiveModels = useCallback(async (nodeId: string): Promise<string[]> => {
+    if (!selectedWorkflow?.content?.[nodeId]) return [];
+    const node = selectedWorkflow.content[nodeId];
+    const provider = node.inputs?.provider || 'LMStudio';
+    const baseUrl = node.inputs?.base_url;
+    const apiKey = node.inputs?.api_key;
+    return fetchLiveModels(nodeId, provider, baseUrl, apiKey);
+  }, [selectedWorkflow, fetchLiveModels]);
   
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -669,6 +716,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       setSelectedWorkflow({ ...wf, content: data.workflow, manifest: data.manifest });
       setObjectInfo(data.objectInfo);
+
+      // Automatically discover and fetch live models for any LLM nodes in the workflow
+      if (data.workflow) {
+        Object.entries(data.workflow).forEach(([nId, n]: [string, any]) => {
+          if (n?.class_type === 'YuE2LLMProducer' || (n?.inputs && 'provider' in n.inputs && 'model' in n.inputs)) {
+            const p = n.inputs?.provider || 'LMStudio';
+            const b = n.inputs?.base_url;
+            const k = n.inputs?.api_key;
+            fetchLiveModels(nId, p, b, k);
+          }
+        });
+      }
       let loadedSelections = data.manifest?.discord?.inputs;
       if ((!loadedSelections || loadedSelections.length === 0) && data.manifest?.mapping && data.manifest?.inputs) {
         loadedSelections = data.manifest.inputs.map((inp: any) => {
@@ -787,6 +846,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     wf.content[nodeId] = { ...wf.content[nodeId] };
     wf.content[nodeId].inputs = { ...wf.content[nodeId].inputs, [field]: value };
     setSelectedWorkflow(wf);
+
+    // If provider or base_url changed on an LLM node, automatically re-fetch live models
+    if (field === 'provider' || field === 'base_url') {
+      const node = wf.content[nodeId];
+      const p = field === 'provider' ? value : (node?.inputs?.provider || 'LMStudio');
+      const b = field === 'base_url' ? value : node?.inputs?.base_url;
+      const k = node?.inputs?.api_key;
+      fetchLiveModels(nodeId, p, b, k);
+    }
   };
 
   const checkModelsBeforeImport = async (filename: string, workflow: any) => {
@@ -1189,7 +1257,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } else if (type !== null) {
       const classType = selectedWorkflow?.content?.[targetNodeId]?.class_type || '';
       const nodeInputs = selectedWorkflow?.content?.[targetNodeId]?.inputs || {};
-      const { type: inferredType, choices } = inferDiscordType(classType, targetField, objectInfo, undefined, nodeInputs);
+      const nodeLiveModels = liveModels[targetNodeId]?.models;
+      const { type: inferredType, choices } = inferDiscordType(
+        classType,
+        targetField,
+        objectInfo,
+        undefined,
+        nodeInputs,
+        (targetField === 'model' && nodeLiveModels && nodeLiveModels.length > 0) ? nodeLiveModels : undefined
+      );
       setSelections([...selections, {
         id: targetField,
         nodeId: targetNodeId,
@@ -1197,7 +1273,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         type: inferredType,
         label: targetField,
         required: true,
-        choices
+        choices: (targetField === 'model' && nodeLiveModels && nodeLiveModels.length > 0) ? nodeLiveModels : choices
       }]);
     }
   };
@@ -1386,7 +1462,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     activeTheme, setActiveTheme,
     customThemeColors, setCustomThemeColors,
     customCss, setCustomCss,
-    isThemeModalOpen, setIsThemeModalOpen
+    isThemeModalOpen, setIsThemeModalOpen,
+    liveModels,
+    fetchLiveModels,
+    refreshLiveModels
   };
 
   return (
