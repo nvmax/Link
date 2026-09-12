@@ -135,10 +135,10 @@
 
       // Populate Quick Chips
       const featuredChips = [
+        "Custom / Keep Typed Style",
         "Custom / Keep Only Lyrics",
-        "Pop / Dance Pop",
-        "Pop / Pop Funk",
         "Rock / Classic Rock",
+        "Pop / Pop Funk",
         "Ballad / Power Ballad",
         "Hip-Hop / Rap",
         "Synthwave / Retro 80s Electro",
@@ -446,10 +446,11 @@
       editorLyrics.value = generatedLyrics;
       updateCharCount();
       tabNode14.click();
+      if (checkDirectLyrics) checkDirectLyrics.checked = true;
 
       setTimeout(() => {
         hideProgressModal();
-        showToast("✨ Lyrics generated successfully and loaded into editor!");
+        showToast("✨ Lyrics generated! The editor is ready for 'Generate Final Song'.");
       }, 700);
 
     } catch (e) {
@@ -482,7 +483,7 @@
       custom_style: inputCustomStyle.value,
       lyrics: editorLyrics.value,
       action: selectAction.value,
-      direct_lyrics: checkDirectLyrics.checked,
+      direct_lyrics: true,
       seed: seedVal,
       ode_steps: parseInt(selectOdeSteps.value) || 24
     };

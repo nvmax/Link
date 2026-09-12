@@ -49,16 +49,41 @@ inputs:
     type: select
     label: Genre Preset
     choices:
+      - Custom / Keep Typed Style
       - Custom / Keep Only Lyrics
-      - Pop / Dance Pop
-      - Pop / Pop Funk
       - Rock / Classic Rock
+      - Rock / Indie Rock
+      - Rock / Arena Rock
+      - Pop / Pop Funk
+      - Pop / Indie Pop
+      - Pop / Dance Pop
       - Ballad / Power Ballad
+      - Country / Modern Country
+      - Country / Country Pop
+      - Country / Country Americana
+      - Country / Outlaw Country
       - Hip-Hop / Rap
+      - Hip-Hop / Trap
+      - Hip-Hop / Conscious Rap
+      - Hip-Hop / Melodic Rap
+      - Hip-Hop / West Coast
+      - Hip-Hop / Golden Age 90s
+      - Cinematic / Epic Orchestral
+      - R&B / Neo-Soul
+      - Alternative / 90s Alternative
+      - Lo-Fi / Chillhop
+      - Metal / Heavy Metal
+      - Metal / Thrash Metal
+      - Metal / Symphonic Metal
+      - Grunge / 90s Seattle Sound
+      - Britpop / 90s UK Anthem
+      - College Rock / 80s-90s Jangle
       - Synthwave / Retro 80s Electro
       - EDM / Melodic Progressive House
-      - R&B / Neo-Soul
-      - Metal / Heavy Metal
+      - Jazz / Modern Smooth Jazz
+      - Folk / Acoustic Indie Folk
+      - Reggae / Modern Dub Pop
+      - Punk / High-Energy Pop Punk
     required: false
   - id: vocal_profile
     type: select

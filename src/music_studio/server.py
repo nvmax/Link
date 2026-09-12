@@ -85,28 +85,27 @@ def resolve_song_title(req: Any, session: Optional[Any] = None) -> str:
     return ""
 
 GENRE_PRESETS = [
+    "Custom / Keep Typed Style",
     "Custom / Keep Only Lyrics",
-    "Pop / Dance Pop",
-    "Pop / Pop Funk",
-    "Pop / Indie Pop",
     "Rock / Classic Rock",
     "Rock / Indie Rock",
     "Rock / Arena Rock",
+    "Pop / Pop Funk",
+    "Pop / Indie Pop",
+    "Pop / Dance Pop",
     "Ballad / Power Ballad",
-    "R&B / Neo-Soul",
+    "Country / Modern Country",
+    "Country / Country Pop",
+    "Country / Country Americana",
+    "Country / Outlaw Country",
     "Hip-Hop / Rap",
     "Hip-Hop / Trap",
     "Hip-Hop / Conscious Rap",
     "Hip-Hop / Melodic Rap",
     "Hip-Hop / West Coast",
     "Hip-Hop / Golden Age 90s",
-    "Synthwave / Retro 80s Electro",
-    "EDM / Melodic Progressive House",
-    "Country / Modern Country",
-    "Country / Country Pop",
-    "Country / Country Americana",
-    "Country / Outlaw Country",
     "Cinematic / Epic Orchestral",
+    "R&B / Neo-Soul",
     "Alternative / 90s Alternative",
     "Lo-Fi / Chillhop",
     "Metal / Heavy Metal",
@@ -115,6 +114,8 @@ GENRE_PRESETS = [
     "Grunge / 90s Seattle Sound",
     "Britpop / 90s UK Anthem",
     "College Rock / 80s-90s Jangle",
+    "Synthwave / Retro 80s Electro",
+    "EDM / Melodic Progressive House",
     "Jazz / Modern Smooth Jazz",
     "Folk / Acoustic Indie Folk",
     "Reggae / Modern Dub Pop",
@@ -429,6 +430,8 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         
         # 3. Lean prompt payload: ONLY Node 1, 3, 14
         # Node 5 and 6 are omitted, completely disabling audio generation
+        # Ensure Node 14 outputs Node 3's LLM-generated lyrics
+        wf["14"]["inputs"]["text"] = ["3", 0]
         lyrics_prompt = {
             "1": wf["1"],
             "3": wf["3"],
@@ -583,54 +586,24 @@ async def generate_song(req: GenerateSongRequest):
         wf["1"]["inputs"]["custom_style"] = req.custom_style
         wf["1"]["inputs"]["lyrics"] = lyrics_text
         
-        # 2. Update Node 3 & Provider Settings
-        lm_cfg = _get_lmstudio_config()
-        provider = req.provider or lm_cfg["provider"]
-        model = req.model or lm_cfg["model"]
-        base_url = req.base_url or lm_cfg["base_url"]
-        api_key = req.api_key or ""
-
-        # If not direct lyrics, Node 3 will run; verify LM Studio if active
-        if not req.direct_lyrics and provider == "LMStudio":
-            lm_ok, working_base = await _check_lmstudio_reachability(base_url)
-            if not lm_ok:
-                raise HTTPException(
-                    status_code=503,
-                    detail=(
-                        f"⚠️ LM Studio server is NOT reachable at {base_url} (or port 1234)! "
-                        "Please verify LM Studio is running on that machine, your model is loaded, "
-                        "and the local server is started."
-                    )
-                )
-            base_url = working_base
-
-        if (provider in ["google", "gemini"]) and not api_key:
-            api_key = os.getenv("GEMINI_API_KEY", "")
-
-        wf["3"]["inputs"]["action"] = req.action
-        wf["3"]["inputs"]["provider"] = provider
-        wf["3"]["inputs"]["model"] = model
-        wf["3"]["inputs"]["base_url"] = base_url
-        if api_key:
-            wf["3"]["inputs"]["api_key"] = api_key
-        
-        # 3. Seed Handling (Node 4)
+        # 2. Seed Handling (Node 4)
         if req.seed is not None and req.seed >= 0:
             final_seed = int(req.seed)
         else:
             final_seed = random.randint(100000000000, 999999999999)
         wf["4"]["inputs"]["seed"] = final_seed
 
-        # 4. Direct lyrics mode vs Co-producer routing
-        if req.direct_lyrics:
-            # Connect Node 13 (Lyrics Switch) directly to Node 1's lyrics output
-            wf["13"]["inputs"]["any_01"] = ["1", 1]
-            # Connect Node 12 (Style Switch) directly to Node 1's style output
-            wf["12"]["inputs"]["any_01"] = ["1", 0]
-            logger.info("Direct lyrics mode enabled: routing Node 1 directly to Node 12 & 13")
-        else:
-            wf["13"]["inputs"]["any_01"] = ["3", 0]
-            wf["12"]["inputs"]["any_01"] = ["3", 1]
+        # 4. Routing: Disables LLM (Node 3) so generated lyrics are NEVER overwritten
+        # Route Node 1's custom style & acoustic direction directly to Node 12 (Style Switch)
+        wf["12"]["inputs"]["any_01"] = ["1", 0]
+        # Route Node 1's lyrics (from editor / generated lyrics) directly to Node 13 (Lyrics Switch)
+        wf["13"]["inputs"]["any_01"] = ["1", 1]
+        # Route Node 13 directly to Node 14 so Output Lyrics captures the exact synthesized lyrics
+        if "14" in wf and "inputs" in wf["14"]:
+            wf["14"]["inputs"]["text"] = ["13", 0]
+        # Disconnect and remove Node 3 completely so ComfyUI NEVER runs the LLM during song generation
+        wf.pop("3", None)
+        logger.info("Song generation: Node 3 (LLM) disabled. Node 1 style -> Node 12, Node 1 lyrics -> Node 13 -> Node 14 -> Node 5")
 
         # 5. ODE Steps if specified
         if req.ode_steps and 12 <= req.ode_steps <= 64:

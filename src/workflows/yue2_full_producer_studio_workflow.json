@@ -104,8 +104,8 @@
   "12": {
     "inputs": {
       "any_01": [
-        "3",
-        1
+        "1",
+        0
       ]
     },
     "class_type": "Any Switch (rgthree)",
@@ -116,8 +116,8 @@
   "13": {
     "inputs": {
       "any_01": [
-        "3",
-        0
+        "1",
+        1
       ]
     },
     "class_type": "Any Switch (rgthree)",
@@ -128,7 +128,7 @@
   "14": {
     "inputs": {
       "text": [
-        "3",
+        "13",
         0
       ]
     },
