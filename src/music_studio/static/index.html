@@ -310,11 +310,12 @@
               </div>
               <div class="drawer-row">
                 <label class="drawer-label">Diffusion Steps:</label>
-                <select id="select-ode-steps" class="studio-select mini">
+                <select id="select-ode-steps" class="studio-select mini" autocomplete="off">
                   <option value="24" selected>24 (Standard / Fast)</option>
                   <option value="32">32 (Studio Reference)</option>
                   <option value="16">16 (Draft 2x)</option>
                 </select>
+                <script>try{document.getElementById('select-ode-steps').value='24';}catch(e){}</script>
               </div>
             </div>
           </div>

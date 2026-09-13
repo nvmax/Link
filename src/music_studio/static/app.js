@@ -21,6 +21,9 @@
   const checkDirectLyrics = document.getElementById('check-direct-lyrics');
   const selectCot = document.getElementById('select-cot');
   const selectOdeSteps = document.getElementById('select-ode-steps');
+  if (selectOdeSteps) {
+    selectOdeSteps.value = "24";
+  }
 
   const editorLyrics = document.getElementById('editor-lyrics');
   const lyricsCharCount = document.getElementById('lyrics-char-count');
@@ -396,7 +399,7 @@
       if (inputCustomStyle && !inputCustomStyle.value) {
         inputCustomStyle.value = data.default_custom_style || "Style of Bruno Mars song Risk It All";
       }
-      if (selectOdeSteps && !selectOdeSteps.value) {
+      if (selectOdeSteps) {
         selectOdeSteps.value = String(data.default_ode_steps || 24);
       }
       // Keep empty if user starts fresh so placeholder shows and bottom chat can create a song
@@ -602,7 +605,7 @@
         }
         if (s.custom_style && inputCustomStyle) inputCustomStyle.value = s.custom_style;
         if (s.lyrics && editorLyrics) editorLyrics.value = s.lyrics;
-        if (s.ode_steps && selectOdeSteps) selectOdeSteps.value = String(s.ode_steps);
+        if (selectOdeSteps) selectOdeSteps.value = String(s.ode_steps || 24);
         updateCharCount();
         if (s.take_count) {
           currentTake = parseInt(s.take_count) || 1;

@@ -28,6 +28,7 @@ class MusicSession:
     completed_at: Optional[float] = None
     expired: bool = False
     take_count: int = 0
+    ode_steps: int = 24
     progress_message_id: Optional[str] = None
     opened_at: Optional[float] = None
     last_heartbeat: float = 0.0

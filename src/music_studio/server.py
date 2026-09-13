@@ -656,6 +656,7 @@ async def get_session(token: str):
         "status": session.status,
         "audio_url": session.audio_url,
         "take_count": getattr(session, "take_count", 0),
+        "ode_steps": getattr(session, "ode_steps", 24),
     }
 
 
