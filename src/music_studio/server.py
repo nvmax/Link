@@ -380,9 +380,151 @@ async def _fetch_live_models(provider: str = "LMStudio", base_url: Optional[str]
     return ["gemma-4-e4b-it"], False, base_url or ""
 
 
+def _render_access_denied_page(title: str, heading: str, message: str, hint: str) -> HTMLResponse:
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title} — YuE2 Music Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0b0914 radial-gradient(circle at 50% 30%, rgba(139, 92, 246, 0.15), transparent 70%);
+      color: #f3f4f6;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }}
+    .auth-card {{
+      background: rgba(22, 18, 38, 0.9);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px rgba(139, 92, 246, 0.15);
+      border-radius: 20px;
+      max-width: 480px;
+      width: 100%;
+      padding: 40px 32px;
+      text-align: center;
+      animation: fadeIn 0.4s ease-out;
+    }}
+    @keyframes fadeIn {{
+      from {{ opacity: 0; transform: translateY(12px); }}
+      to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    .icon-wrap {{
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      box-shadow: 0 0 24px rgba(139, 92, 246, 0.2);
+    }}
+    h1 {{
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }}
+    p.message {{
+      font-size: 14.5px;
+      color: #9ca3af;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }}
+    .command-badge {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(139, 92, 246, 0.18);
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      color: #c4b5fd;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 10px;
+      margin-bottom: 24px;
+    }}
+    p.hint {{
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.5;
+    }}
+    .footer-brand {{
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: #4b5563;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }}
+  </style>
+</head>
+<body>
+  <div class="auth-card">
+    <div class="icon-wrap">🔒</div>
+    <h1>{heading}</h1>
+    <p class="message">{message}</p>
+    <div>
+      <span class="command-badge">/music</span>
+    </div>
+    <p class="hint">{hint}</p>
+    <div class="footer-brand">
+      <span>YuE2 Neural Music Studio</span>
+      <span>•</span>
+      <span>Powered by LINK</span>
+    </div>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(
+        content=html,
+        status_code=403,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+    )
+
+
 @router.get("/music", response_class=HTMLResponse)
 @router.get("/music/", response_class=HTMLResponse)
-async def serve_music_studio():
+async def serve_music_studio(token: Optional[str] = None):
+    # Enforce active session from Discord: users must launch via /music
+    if not token:
+        return _render_access_denied_page(
+            title="Discord Authorization Required",
+            heading="Studio Access via Discord",
+            message="The YuE2 Music Studio is integrated with Discord. To open a private studio session, please use the <code>/music</code> command in your Discord server.",
+            hint="Each session link is private and tied directly to the Discord user who requested it."
+        )
+
+    session = music_session_store.get_session(token)
+    if not session:
+        return _render_access_denied_page(
+            title="Session Expired or Closed",
+            heading="Studio Session Ended",
+            message="This studio session link is no longer active or has already been closed.",
+            hint="To start a new song session or generate new takes, please return to Discord and run <code>/music</code>."
+        )
+
+    # Touch session to record opening and reset heartbeat
+    music_session_store.touch_session(token)
+
     index_path = os.path.join(STATIC_DIR, "index.html")
     if not os.path.exists(index_path):
         raise HTTPException(status_code=404, detail="Music Studio HTML template not found.")
@@ -497,7 +639,8 @@ async def get_live_models(provider: str = "LMStudio", base_url: Optional[str] = 
 async def get_session(token: str):
     session = music_session_store.get_session(token)
     if not session:
-        raise HTTPException(status_code=404, detail="Music session not found or expired.")
+        raise HTTPException(status_code=404, detail="Music session not found, closed, or expired.")
+    music_session_store.touch_session(token)
     return {
         "token": session.token,
         "user_id": session.user_id,
@@ -514,6 +657,25 @@ async def get_session(token: str):
         "audio_url": session.audio_url,
         "take_count": getattr(session, "take_count", 0),
     }
+
+
+class SessionHeartbeatRequest(BaseModel):
+    token: str
+
+
+@router.post("/api/music/session/heartbeat")
+async def session_heartbeat(req: SessionHeartbeatRequest):
+    ok = music_session_store.touch_session(req.token)
+    if not ok:
+        raise HTTPException(status_code=403, detail="Session expired or closed.")
+    return {"status": "ok"}
+
+
+@router.post("/api/music/session/close")
+@router.get("/api/music/session/close")
+async def session_close(token: str):
+    music_session_store.close_session(token, immediate=False)
+    return {"status": "closing"}
 
 
 class GenerateLyricsRequest(BaseModel):
@@ -1102,23 +1264,28 @@ async def generate_song(req: GenerateSongRequest):
 
         # Resolve effective song title from request, session, or smart fallbacks
         session = music_session_store.get_session(req.token) if req.token else None
+        if not session:
+            raise HTTPException(
+                status_code=403,
+                detail="Active studio session required. Please run /music in Discord to start a session."
+            )
+        music_session_store.touch_session(req.token)
         effective_title = resolve_song_title(req, session)
         req.song_title = effective_title
         logger.info(f"Resolved song title for prompt: '{effective_title}' (raw req.song_title='{getattr(req, 'song_title', '')}')")
 
-        # Update session with current values if token present
-        if session:
-            session.take_count = getattr(session, "take_count", 0) + 1
-            session.status = "generating"
-            if effective_title:
-                session.song_title = effective_title
-            session.custom_style = req.custom_style
-            session.genre_preset = req.genre_preset
-            session.vocal_profile = req.vocal_profile
-            session.bpm = int(req.bpm)
-            session.intro_style = req.intro_style
-            session.action = req.action
-            session.lyrics = req.lyrics
+        # Update session with current values
+        session.take_count = getattr(session, "take_count", 0) + 1
+        session.status = "generating"
+        if effective_title:
+            session.song_title = effective_title
+        session.custom_style = req.custom_style
+        session.genre_preset = req.genre_preset
+        session.vocal_profile = req.vocal_profile
+        session.bpm = int(req.bpm)
+        session.intro_style = req.intro_style
+        session.action = req.action
+        session.lyrics = req.lyrics
 
         # Update Node 6 filename prefix so ComfyUI outputs clean song name
         clean_prefix = sanitize_song_title(effective_title, fallback="studio_song")
@@ -1315,16 +1482,6 @@ async def _send_discord_progress_start(session, req: GenerateSongRequest, prompt
         effective_title = resolve_song_title(req, session) or "YuE2 Studio Master Track"
         take_label = f" (Take #{take_num})" if take_num > 1 else ""
 
-        domain = (Config.INPAINT_SERVER_DOMAIN or "").strip()
-        studio_url = f"https://{domain}/music/?token={session.token}" if domain else f"http://localhost:{Config.INPAINT_SERVER_PORT}/music/?token={session.token}"
-
-        view = discord.ui.View(timeout=None)
-        view.add_item(discord.ui.Button(
-            label="🎛️ View Live in Studio",
-            style=discord.ButtonStyle.link,
-            url=studio_url
-        ))
-
         empty_bar = "░" * 10
         embed = discord.Embed(
             title=f"🎵 Generating: {effective_title}{take_label}",
@@ -1343,7 +1500,7 @@ async def _send_discord_progress_start(session, req: GenerateSongRequest, prompt
         msg = await channel.send(
             content=f"🎶 <@{session.user_id}> started generating **{effective_title}**{take_label}...",
             embed=embed,
-            view=view
+            view=None
         )
         session.progress_message_id = str(msg.id)
         logger.info(f"Dispatched initial Discord progress message {msg.id} for prompt {prompt_id}")
@@ -1378,16 +1535,6 @@ async def _update_discord_progress(session, req: GenerateSongRequest, prompt_id:
         take_num = getattr(session, "take_count", 1)
         take_label = f" (Take #{take_num})" if take_num > 1 else ""
 
-        domain = (Config.INPAINT_SERVER_DOMAIN or "").strip()
-        studio_url = f"https://{domain}/music/?token={session.token}" if domain else f"http://localhost:{Config.INPAINT_SERVER_PORT}/music/?token={session.token}"
-
-        view = discord.ui.View(timeout=None)
-        view.add_item(discord.ui.Button(
-            label="🎛️ View Live in Studio",
-            style=discord.ButtonStyle.link,
-            url=studio_url
-        ))
-
         embed = discord.Embed(
             title=f"🎵 Generating: {effective_title}{take_label}",
             description=(
@@ -1405,7 +1552,7 @@ async def _update_discord_progress(session, req: GenerateSongRequest, prompt_id:
         await msg.edit(
             content=f"🎶 <@{session.user_id}> generating **{effective_title}**{take_label}... (`{pct}%`)",
             embed=embed,
-            view=view
+            view=None
         )
     except Exception as e:
         logger.debug(f"Discord progress update skipped: {e}")
@@ -1645,7 +1792,7 @@ async def _dispatch_discord_completion(token: str, local_path: str, filename: st
             f"**Intro**: `{req.intro_style}`",
             f"**Style**: *{req.custom_style[:120]}*",
             "",
-            "🎧 **Master audio delivered below! Click below to fine-tune or generate next take.**"
+            "🎧 **Master audio delivered below!**"
         ])
 
         embed = discord.Embed(
@@ -1655,14 +1802,6 @@ async def _dispatch_discord_completion(token: str, local_path: str, filename: st
         )
         embed.set_footer(text="YuE2 Neural Music Generator • Powered by LINK")
 
-        # Persistent View with studio link to fine-tune & generate again
-        view = discord.ui.View(timeout=None)
-        view.add_item(discord.ui.Button(
-            label="🎛️ Fine-Tune & Generate Next Take",
-            style=discord.ButtonStyle.link,
-            url=studio_url
-        ))
-
         discord_filename = f"{clean_name}_Take{take_num}.mp3" if take_num > 1 else f"{clean_name}.mp3"
         file_to_send = discord.File(local_path, filename=discord_filename)
         msg_content = f"🎵 <@{session.user_id}>, your song **{display_title}**{take_label} is ready!"
@@ -1671,16 +1810,15 @@ async def _dispatch_discord_completion(token: str, local_path: str, filename: st
         if getattr(session, "progress_message_id", None):
             try:
                 prog_msg = await channel.fetch_message(int(session.progress_message_id))
-                await prog_msg.edit(content=msg_content, embed=embed, view=view)
+                await prog_msg.edit(content=msg_content, embed=embed, view=None)
                 await channel.send(
                     content=f"🎧 **Master Audio Track**{take_label} for **{display_title}**:",
-                    file=file_to_send,
-                    view=view
+                    file=file_to_send
                 )
             except Exception:
-                await channel.send(content=msg_content, embed=embed, file=file_to_send, view=view)
+                await channel.send(content=msg_content, embed=embed, file=file_to_send)
         else:
-            await channel.send(content=msg_content, embed=embed, file=file_to_send, view=view)
+            await channel.send(content=msg_content, embed=embed, file=file_to_send)
 
         music_session_store.mark_completed(token, f"/api/music/audio/{filename}")
         session.status = "completed"

@@ -246,6 +246,44 @@
   let audioContext = null;
   let audioBuffer = null;
 
+  // --- Active Session Heartbeat & Window Close Beacon ---
+  if (sessionToken) {
+    // 1. Send keep-alive heartbeat every 15s while studio window is open
+    setInterval(async () => {
+      try {
+        const resp = await fetch('/api/music/session/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: sessionToken })
+        });
+        if (!resp.ok && (resp.status === 403 || resp.status === 404)) {
+          console.warn("[YuE2 Studio] Active session closed on server");
+          showToast("🔒 Studio session has ended. Run /music in Discord for a new session.", 6000);
+          if (btnGenerateSong) {
+            btnGenerateSong.disabled = true;
+          }
+        }
+      } catch (err) {
+        console.debug("[YuE2 Studio] Heartbeat check:", err);
+      }
+    }, 15000);
+
+    // 2. Invalidate session link when user closes tab or navigates away
+    const closeSessionBeacon = () => {
+      try {
+        const closeUrl = `/api/music/session/close?token=${encodeURIComponent(sessionToken)}`;
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(closeUrl);
+        } else {
+          fetch(closeUrl, { method: 'POST', keepalive: true }).catch(() => {});
+        }
+      } catch (_) {}
+    };
+
+    window.addEventListener('pagehide', closeSessionBeacon);
+    window.addEventListener('beforeunload', closeSessionBeacon);
+  }
+
   function showToast(msg, duration = 3000) {
     toastMessage.textContent = msg;
     toast.classList.remove('hidden');
@@ -536,7 +574,15 @@
   async function loadDiscordSession(token) {
     try {
       const res = await fetch(`/api/music/session/${token}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn("Discord session not found or closed:", res.status);
+        showToast("🔒 Studio session ended or closed. Please run /music in Discord.", 8000);
+        if (btnGenerateSong) {
+          btnGenerateSong.disabled = true;
+          btnGenerateSong.title = "Session closed. Please run /music in Discord to start a new session.";
+        }
+        return;
+      }
       const s = await res.json();
       if (s && s.token) {
         const titleInput = document.getElementById('input-song-title') || inputSongTitle;
