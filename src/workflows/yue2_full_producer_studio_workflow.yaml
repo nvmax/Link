@@ -49,7 +49,6 @@ inputs:
     type: select
     label: Genre Preset
     choices:
-      - Custom / Keep Typed Style
       - Custom / Keep Only Lyrics
       - Rock / Classic Rock
       - Rock / Indie Rock

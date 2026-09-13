@@ -87,7 +87,6 @@ def resolve_song_title(req: Any, session: Optional[Any] = None) -> str:
     return ""
 
 GENRE_PRESETS = [
-    "Custom / Keep Typed Style",
     "Custom / Keep Only Lyrics",
     "Rock / Classic Rock",
     "Rock / Indie Rock",
@@ -914,41 +913,6 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         is_keep_only = (req.genre_preset or "").strip() == "Custom / Keep Only Lyrics"
         prompt_id = f"lyrics_{uuid.uuid4().hex[:10]}"
 
-        # Case 1: Custom / Keep Only Lyrics -> Preserve user's text 100% untouched
-        if is_keep_only and has_existing_lyrics:
-            clean_lyrics = user_lyrics
-            if not re.search(r'\[End\]\s*$', clean_lyrics, re.IGNORECASE):
-                clean_lyrics = f"{clean_lyrics}\n\n[End]"
-            
-            # Extract suggested title from lyrics if not provided
-            suggested_title = req.song_title or ""
-            if not suggested_title:
-                m_tag = re.search(r'(?:^|\n)\s*\[?(?:Title|Song|Track)\s*[:=]\s*([^\]\n\r]+)\]?', clean_lyrics, re.IGNORECASE)
-                if m_tag and m_tag.group(1).strip():
-                    suggested_title = m_tag.group(1).strip()
-            
-            prompt_progress[prompt_id] = {
-                "stage": "completed",
-                "percent": 100,
-                "status": "Lyrics preserved verbatim (Keep Only Lyrics).",
-                "lyrics": clean_lyrics,
-                "suggested_title": suggested_title
-            }
-            if req.token:
-                session = music_session_store.get_session(req.token)
-                if session:
-                    if suggested_title:
-                        session.song_title = suggested_title
-                    session.lyrics = clean_lyrics
-            
-            logger.info(f"Preserved user lyrics verbatim for Custom / Keep Only Lyrics ({len(clean_lyrics)} chars)")
-            return {
-                "status": "success",
-                "prompt_id": prompt_id,
-                "lyrics": clean_lyrics,
-                "suggested_title": suggested_title
-            }
-
         # Resolve Provider & Model Settings
         lm_cfg = _get_lmstudio_config()
         provider = req.provider or lm_cfg["provider"]
@@ -982,28 +946,37 @@ async def generate_lyrics(req: GenerateLyricsRequest):
         if (provider in ["google", "gemini"]) and not api_key:
             api_key = os.getenv("GEMINI_API_KEY", "")
 
-        # Case 2: User has existing lyrics -> ENHANCE them with production tags (NEVER replace words)
+        # Case 2: User has existing lyrics -> ENHANCE them with production tags based on custom style and acoustic direction
         if has_existing_lyrics:
             sys_prompt = YUE2_ENHANCE_EXISTING_LYRICS_SYS_PROMPT
+            style_direction = (req.custom_style or "").strip()
+            if is_keep_only:
+                target_style = f"Custom Acoustic Direction & Style: {style_direction or 'Dynamic song arrangement'}"
+                genre_label = "Custom / Keep Only Lyrics"
+            else:
+                target_style = f"{req.genre_preset}" + (f" (Custom Style: {style_direction})" if style_direction else "")
+                genre_label = req.genre_preset
+
             user_prompt = (
                 f"════ MUSICAL ARRANGEMENT TARGETS ════\n"
-                f"Genre Preset: {req.genre_preset}\n"
+                f"Musical Direction / Style: {target_style}\n"
+                f"Genre Preset: {genre_label}\n"
                 f"Vocal Profile: {req.vocal_profile}\n"
                 f"Tempo: {req.bpm} BPM\n"
                 f"Intro Style: {req.intro_style}\n"
-                f"Custom Style & Direction: {req.custom_style or 'Match genre aesthetic'}\n"
+                f"Custom Style & Direction: {style_direction or 'Match lyrical groove and dynamic arc'}\n"
                 f"Song Title: {req.song_title or '(Derive from lyrics)'}\n\n"
                 f"════ USER'S ORIGINAL LYRICS (MUST BE KEPT 100% VERBATIM) ════\n"
                 f"{user_lyrics}\n\n"
                 f"════ INSTRUCTIONS ════\n"
                 f"1. Inject section & vocal headers: e.g. [Verse 1 - {req.vocal_profile}], [Chorus - Full Band], [Final Chorus - {req.vocal_profile}], [Outro].\n"
-                f"2. Inject [Instrumentation: ...] tag for each section with specific instruments, dynamics, and arrangement for {req.genre_preset} at {req.bpm} BPM.\n"
-                f"3. Inject [Vocal: ...] tag for each section with vocal delivery cues.\n"
-                f"4. KEEP EVERY SINGLE WORD AND LINE OF THE USER'S LYRICS 100% VERBATIM. DO NOT CHANGE, DELETE, OR REWRITE THEIR LYRICS.\n"
+                f"2. Inject [Instrumentation: ...] tag for each section with specific instruments, dynamics, and arrangement matching '{target_style}' at {req.bpm} BPM.\n"
+                f"3. Inject [Vocal: ...] tag for each section with vocal delivery style, harmony, and intensity cues for {req.vocal_profile}.\n"
+                f"4. KEEP EVERY SINGLE WORD AND LINE OF THE USER'S LYRICS 100% VERBATIM. DO NOT CHANGE, DELETE, REWRITE, OR TRANSLATE THEIR LYRICS.\n"
                 f"5. End with [End] on its own line.\n"
                 f"Output raw JSON matching the schema."
             )
-            logger.info(f"Enhancing user lyrics with production tags: genre={req.genre_preset}, vocal={req.vocal_profile}, bpm={req.bpm}")
+            logger.info(f"Enhancing user lyrics with production tags: target_style='{target_style}', vocal={req.vocal_profile}, bpm={req.bpm}")
         else:
             # Case 3: No existing lyrics -> Generate complete song from scratch
             sys_prompt = YUE2_GENERATE_FROM_SCRATCH_SYS_PROMPT

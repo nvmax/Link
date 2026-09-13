@@ -87,7 +87,7 @@
 
   // --- Music Studio Preset Fallbacks ---
   const FALLBACK_GENRES = [
-    "Custom / Keep Typed Style", "Custom / Keep Only Lyrics", "Rock / Classic Rock", "Rock / Indie Rock",
+    "Custom / Keep Only Lyrics", "Rock / Classic Rock", "Rock / Indie Rock",
     "Rock / Arena Rock", "Pop / Pop Funk", "Pop / Indie Pop", "Pop / Dance Pop", "Ballad / Power Ballad",
     "Country / Modern Country", "Country / Country Pop", "Country / Country Americana", "Country / Outlaw Country",
     "Hip-Hop / Rap", "Hip-Hop / Trap", "Hip-Hop / Conscious Rap", "Hip-Hop / Melodic Rap", "Hip-Hop / West Coast",
@@ -115,7 +115,7 @@
   ];
 
   const FEATURED_CHIPS = [
-    "Custom / Keep Typed Style", "Custom / Keep Only Lyrics", "Rock / Classic Rock",
+    "Custom / Keep Only Lyrics", "Rock / Classic Rock",
     "Pop / Pop Funk", "Ballad / Power Ballad", "Hip-Hop / Rap",
     "Synthwave / Retro 80s Electro", "EDM / Melodic Progressive House",
     "R&B / Neo-Soul", "Metal / Heavy Metal"
@@ -227,15 +227,9 @@
       c.classList.toggle('active', chipLabel === genrePart || c.dataset.genre === genreName);
     });
 
-    // Check if Custom / Keep Only Lyrics
-    if (genreName === "Custom / Keep Only Lyrics") {
-      showToast("🎵 Custom / Keep Only Lyrics: Your lyrics will remain 100% untouched.");
-      return;
-    }
-
-    // Check if there are user lyrics in editor
+    // Check if there are user lyrics in editor to enhance with acoustic direction tags
     const text = editorLyrics ? editorLyrics.value.trim() : "";
-    if (text && text.length > 20) {
+    if (text && text.length > 10) {
       await enhanceLyricsWithPreset(genreName);
     }
   }
